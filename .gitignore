@@ -1,0 +1,16 @@
+# Bytecode and runtime cache
+Dev/**/__pycache__/
+Dev/**/*.pyc
+Dev/**/*.pyo
+*.tmp
+*.bak
+*.log
+
+# Nested git in admin tools (license repo)
+Dev/**/admin_tools/.git/
+
+# IDE and OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

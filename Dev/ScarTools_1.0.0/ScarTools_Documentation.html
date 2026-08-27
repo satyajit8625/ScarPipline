@@ -1,0 +1,1384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ScarTools 1.0.0 — Pipeline Suite Official Manual & API Documentation</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            /* Clean Light Theme (Default) */
+            --bg-page: #f8fafc;
+            --bg-sidebar: #ffffff;
+            --bg-card: #ffffff;
+            --bg-card-subtle: #f1f5f9;
+            --border: #e2e8f0;
+            --border-hover: #cbd5e1;
+            
+            --text-title: #0f172a;
+            --text-body: #334155;
+            --text-secondary: #64748b;
+            --text-muted: #94a3b8;
+            
+            --blue: #0284c7;
+            --blue-hover: #0369a1;
+            --blue-soft: #e0f2fe;
+            --blue-border: #bae6fd;
+            
+            --emerald: #059669;
+            --emerald-soft: #ecfdf5;
+            --emerald-border: #a7f3d0;
+            
+            --rose: #e11d48;
+            --rose-soft: #fff1f2;
+            --rose-border: #fecdd3;
+            
+            --amber: #d97706;
+            --amber-soft: #fffbeb;
+            --amber-border: #fde68a;
+            
+            --purple: #7c3aed;
+            --purple-soft: #f5f3ff;
+            --purple-border: #ddd6fe;
+            
+            --code-bg: #0f172a;
+            --code-text: #f8fafc;
+            --inline-code-bg: #e2e8f0;
+            --inline-code-text: #0369a1;
+            
+            --radius-sm: 6px;
+            --radius-md: 10px;
+            --radius-lg: 14px;
+            --radius-full: 9999px;
+            
+            --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
+            --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.03);
+            --shadow-hover: 0 8px 24px rgba(15, 23, 42, 0.08);
+        }
+
+        /* Dark Theme Variant */
+        body.dark-theme {
+            --bg-page: #0b0f17;
+            --bg-sidebar: #0f141f;
+            --bg-card: #141b2a;
+            --bg-card-subtle: #101623;
+            --border: #1e293b;
+            --border-hover: #334155;
+            
+            --text-title: #f8fafc;
+            --text-body: #94a3b8;
+            --text-secondary: #64748b;
+            --text-muted: #475569;
+            
+            --blue: #38bdf8;
+            --blue-hover: #0ea5e9;
+            --blue-soft: rgba(56, 189, 248, 0.12);
+            --blue-border: rgba(56, 189, 248, 0.25);
+            
+            --emerald: #34d399;
+            --emerald-soft: rgba(16, 185, 129, 0.12);
+            --emerald-border: rgba(16, 185, 129, 0.25);
+            
+            --rose: #fb7185;
+            --rose-soft: rgba(244, 63, 94, 0.12);
+            --rose-border: rgba(244, 63, 94, 0.25);
+            
+            --amber: #fbbf24;
+            --amber-soft: rgba(245, 158, 11, 0.12);
+            --amber-border: rgba(245, 158, 11, 0.25);
+            
+            --purple: #c084fc;
+            --purple-soft: rgba(168, 85, 247, 0.12);
+            --purple-border: rgba(168, 85, 247, 0.25);
+            
+            --code-bg: #06090f;
+            --code-text: #e2e8f0;
+            --inline-code-bg: rgba(255, 255, 255, 0.08);
+            --inline-code-text: #38bdf8;
+            
+            --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.2);
+            --shadow-hover: 0 8px 24px rgba(0, 0, 0, 0.4);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+
+        html, body {
+            height: 100%;
+            width: 100%;
+            background-color: var(--bg-page);
+            color: var(--text-body);
+            overflow: hidden;
+            transition: background-color 0.2s ease, color 0.2s ease;
+        }
+
+        .app-shell {
+            display: flex;
+            height: 100vh;
+            width: 100vw;
+        }
+
+        /* Sidebar Navigation */
+        .sidebar {
+            width: 320px;
+            min-width: 320px;
+            background: var(--bg-sidebar);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            z-index: 10;
+        }
+
+        .brand-header {
+            padding: 20px 22px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .brand-icon {
+            width: 38px;
+            height: 38px;
+            background: linear-gradient(135deg, #0284c7, #7c3aed);
+            border-radius: var(--radius-md);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            color: #ffffff;
+            box-shadow: 0 4px 12px rgba(2, 132, 199, 0.25);
+        }
+
+        .brand-title {
+            font-size: 16px;
+            font-weight: 800;
+            color: var(--text-title);
+            letter-spacing: -0.3px;
+        }
+
+        .brand-version {
+            font-size: 11px;
+            color: var(--emerald);
+            background: var(--emerald-soft);
+            border: 1px solid var(--emerald-border);
+            padding: 2px 8px;
+            border-radius: var(--radius-full);
+            font-weight: 700;
+            margin-left: auto;
+        }
+
+        .search-box-container {
+            padding: 14px 16px 8px;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 8px 12px;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border);
+            background: var(--bg-card-subtle);
+            color: var(--text-title);
+            font-size: 12.5px;
+            outline: none;
+            transition: all 0.15s ease;
+        }
+
+        .search-input:focus {
+            border-color: var(--blue);
+            background: #ffffff;
+            box-shadow: 0 0 0 3px var(--blue-soft);
+        }
+
+        .nav-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px 12px 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+        }
+
+        .nav-group-title {
+            font-size: 10.5px;
+            font-weight: 800;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            padding: 14px 10px 6px;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 12px;
+            border-radius: var(--radius-sm);
+            color: var(--text-body);
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 600;
+            transition: all 0.12s ease;
+            cursor: pointer;
+            border: 1px solid transparent;
+        }
+
+        .nav-item:hover {
+            background: var(--bg-card-subtle);
+            color: var(--text-title);
+        }
+
+        .nav-item.active {
+            background: var(--blue-soft);
+            color: var(--blue);
+            font-weight: 700;
+            border-color: var(--blue-border);
+        }
+
+        .nav-item-icon {
+            font-size: 15px;
+            width: 20px;
+            text-align: center;
+        }
+
+        .sidebar-footer {
+            padding: 14px 18px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .theme-toggle-btn {
+            background: var(--bg-card-subtle);
+            border: 1px solid var(--border);
+            color: var(--text-title);
+            padding: 6px 12px;
+            border-radius: var(--radius-sm);
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.15s ease;
+        }
+
+        .theme-toggle-btn:hover {
+            background: var(--border);
+        }
+
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            height: 100%;
+            overflow-y: auto;
+            padding: 40px 64px 120px;
+            scroll-behavior: smooth;
+        }
+
+        .content-container {
+            max-width: 960px;
+            margin: 0 auto;
+        }
+
+        .doc-section {
+            display: none;
+            animation: fadeIn 0.2s ease;
+        }
+
+        .doc-section.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(6px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .breadcrumb {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-muted);
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        h1 {
+            font-size: 32px;
+            font-weight: 800;
+            color: var(--text-title);
+            margin-bottom: 8px;
+            letter-spacing: -0.6px;
+        }
+
+        .doc-subtitle {
+            font-size: 15.5px;
+            color: var(--text-secondary);
+            margin-bottom: 32px;
+            line-height: 1.6;
+        }
+
+        h2 {
+            font-size: 20px;
+            font-weight: 800;
+            color: var(--text-title);
+            margin: 40px 0 16px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--border);
+            letter-spacing: -0.3px;
+        }
+
+        h3 {
+            font-size: 15.5px;
+            font-weight: 700;
+            color: var(--blue);
+            margin: 28px 0 10px;
+        }
+
+        p {
+            font-size: 14.5px;
+            line-height: 1.7;
+            margin-bottom: 16px;
+            color: var(--text-body);
+        }
+
+        ul, ol {
+            margin: 12px 0 20px 24px;
+            line-height: 1.75;
+            font-size: 14.5px;
+        }
+
+        li {
+            margin-bottom: 6px;
+        }
+
+        .badge {
+            display: inline-block;
+            font-size: 10.5px;
+            font-weight: 700;
+            padding: 2px 7px;
+            border-radius: var(--radius-sm);
+            margin-right: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+
+        .badge-blue { background: var(--blue-soft); color: var(--blue); border: 1px solid var(--blue-border); }
+        .badge-green { background: var(--emerald-soft); color: var(--emerald); border: 1px solid var(--emerald-border); }
+        .badge-amber { background: var(--amber-soft); color: var(--amber); border: 1px solid var(--amber-border); }
+        .badge-rose { background: var(--rose-soft); color: var(--rose); border: 1px solid var(--rose-border); }
+        .badge-purple { background: var(--purple-soft); color: var(--purple); border: 1px solid var(--purple-border); }
+
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 22px 24px;
+            margin: 20px 0 26px;
+            box-shadow: var(--shadow-card);
+            transition: box-shadow 0.2s ease, border-color 0.2s ease;
+        }
+
+        .card:hover {
+            border-color: var(--border-hover);
+            box-shadow: var(--shadow-hover);
+        }
+
+        .card-header {
+            font-size: 15.5px;
+            font-weight: 700;
+            color: var(--text-title);
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0 28px;
+            font-size: 13.5px;
+            background: var(--bg-card);
+            border-radius: var(--radius-md);
+            overflow: hidden;
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow-sm);
+        }
+
+        th, td {
+            padding: 12px 16px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+            vertical-align: top;
+        }
+
+        th {
+            background: var(--bg-card-subtle);
+            font-weight: 700;
+            color: var(--text-title);
+            font-size: 12.5px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        tr:hover td {
+            background: rgba(2, 132, 199, 0.02);
+        }
+
+        code {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12.5px;
+            background: var(--inline-code-bg);
+            color: var(--inline-code-text);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-weight: 500;
+        }
+
+        pre {
+            background: var(--code-bg);
+            border: 1px solid #1e293b;
+            border-radius: var(--radius-md);
+            padding: 18px 20px;
+            margin: 16px 0 24px;
+            overflow-x: auto;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+        }
+
+        pre code {
+            background: transparent;
+            color: var(--code-text);
+            padding: 0;
+            font-size: 13px;
+            line-height: 1.65;
+            font-weight: 400;
+        }
+
+        .api-method-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 28px 0 10px;
+            padding-bottom: 6px;
+        }
+
+        .api-method-name {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--blue);
+        }
+
+        .api-signature {
+            background: var(--bg-card-subtle);
+            border: 1px solid var(--border);
+            border-left: 3px solid var(--blue);
+            border-radius: var(--radius-sm);
+            padding: 12px 16px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+            color: var(--text-title);
+            margin: 8px 0 14px;
+            overflow-x: auto;
+        }
+
+        .info-box {
+            background: var(--blue-soft);
+            border: 1px solid var(--blue-border);
+            border-left: 4px solid var(--blue);
+            padding: 16px 20px;
+            border-radius: var(--radius-md);
+            margin: 20px 0;
+            font-size: 14px;
+            color: var(--text-title);
+        }
+
+        .success-box {
+            background: var(--emerald-soft);
+            border: 1px solid var(--emerald-border);
+            border-left: 4px solid var(--emerald);
+            padding: 16px 20px;
+            border-radius: var(--radius-md);
+            margin: 20px 0;
+            font-size: 14px;
+            color: var(--text-title);
+        }
+
+        .warning-box {
+            background: var(--amber-soft);
+            border: 1px solid var(--amber-border);
+            border-left: 4px solid var(--amber);
+            padding: 16px 20px;
+            border-radius: var(--radius-md);
+            margin: 20px 0;
+            font-size: 14px;
+            color: var(--text-title);
+        }
+    </style>
+</head>
+<body>
+    <div class="app-shell">
+        <!-- Sidebar Navigation -->
+        <div class="sidebar">
+            <div class="brand-header">
+                <div class="brand-icon">⚡</div>
+                <div>
+                    <div class="brand-title">ScarTools Suite</div>
+                    <div style="font-size: 11px; color: var(--text-muted);">Pipeline TD & Artist Manual</div>
+                </div>
+                <div class="brand-version">v1.0.0</div>
+            </div>
+
+            <div class="search-box-container">
+                <input type="text" id="navSearch" class="search-input" placeholder="🔍 Search tools & API methods..." onkeyup="filterNav()">
+            </div>
+
+            <div class="nav-list" id="navList">
+                <div class="nav-group-title">Overview</div>
+                <div class="nav-item active" onclick="showSection('intro', this)">
+                    <span class="nav-item-icon">🏠</span> Introduction & Setup
+                </div>
+
+                <div class="nav-group-title">Department Tools</div>
+
+                <div class="nav-item" onclick="showSection('sanitizer', this)">
+                    <span class="nav-item-icon">🧹</span> Model & Scene Sanitizer
+                </div>
+                <div class="nav-item" onclick="showSection('skin_tools', this)">
+                    <span class="nav-item-icon">🦴</span> Skin Tools (Weighting)
+                </div>
+                <div class="nav-item" onclick="showSection('shader_tools', this)">
+                    <span class="nav-item-icon">🎨</span> Shader Tools (LookDev)
+                </div>
+                <div class="nav-item" onclick="showSection('udim_manager', this)">
+                    <span class="nav-item-icon">🗺️</span> Generate UDIM (1-Click)
+                </div>
+                <div class="nav-item" onclick="showSection('character_finalizer', this)">
+                    <span class="nav-item-icon">🎭</span> Character Finalizer
+                </div>
+                <div class="nav-item" onclick="showSection('renamer', this)">
+                    <span class="nav-item-icon">🏷️</span> Pipeline Renamer
+                </div>
+                <div class="nav-item" onclick="showSection('log_viewer', this)">
+                    <span class="nav-item-icon">📜</span> Log Viewer (Central Console)
+                </div>
+
+                <!-- ADMIN_ONLY_START -->
+                <div class="nav-group-title">Licensing & Administration</div>
+                <div class="nav-item" onclick="showSection('licensing_guide', this)">
+                    <span class="nav-item-icon">🔐</span> Studio Licensing & Security
+                </div>
+                <div class="nav-item" onclick="showSection('api_licensing', this)">
+                    <span class="nav-item-icon">🛠️</span> Admin Licensing API
+                </div>
+                <!-- ADMIN_ONLY_END -->
+
+                <div class="nav-group-title">Technical API Reference</div>
+                <div class="nav-item" onclick="showSection('api_modeling', this)">
+                    <span class="nav-item-icon">💻</span> Modeling API (scartools.tools.modeling)
+                </div>
+                <div class="nav-item" onclick="showSection('api_skin', this)">
+                    <span class="nav-item-icon">💻</span> Skinning API (scartools.tools.skin)
+                </div>
+                <div class="nav-item" onclick="showSection('api_shader', this)">
+                    <span class="nav-item-icon">💻</span> Shading API (scartools.tools.shader)
+                </div>
+                <div class="nav-item" onclick="showSection('api_udim', this)">
+                    <span class="nav-item-icon">💻</span> UDIM Operations API (scartools.tools.udim)
+                </div>
+                <div class="nav-item" onclick="showSection('api_finalizer', this)">
+                    <span class="nav-item-icon">💻</span> Finalizer API (scartools.tools.character_finalizer)
+                </div>
+                <div class="nav-item" onclick="showSection('api_framework', this)">
+                    <span class="nav-item-icon">💻</span> Framework (Transactions & Logging)
+                </div>
+            </div>
+
+
+            <div class="sidebar-footer">
+                <button class="theme-toggle-btn" onclick="toggleTheme()">
+                    <span id="themeIcon">🌙</span> <span id="themeLabel">Dark Mode</span>
+                </button>
+                <div style="font-size: 11px; color: var(--text-muted);">© 2026 ScarFall</div>
+            </div>
+        </div>
+
+        <!-- Main Content Area -->
+        <div class="main-content">
+            <div class="content-container">
+
+                <!-- 1. Introduction -->
+                <div id="intro" class="doc-section active">
+                    <div class="breadcrumb">Overview &bull; Setup</div>
+                    <h1>ScarTools 1.0.0 Production Manual</h1>
+                    <div class="doc-subtitle">Unified department suite for Autodesk Maya (2023, 2024, 2025, 2026+) on Windows 10/11 x64.</div>
+
+                    <div class="success-box">
+                        <strong>✓ Supported Host Platforms:</strong> Autodesk Maya 2023, 2024, 2025, 2026+ on Windows 10/11 (AMD64).
+                    </div>
+
+                    <h2>1-Drag Viewport Installation</h2>
+                    <p>ScarTools installs in under 3 seconds using the native Maya viewport drag-and-drop installer:</p>
+                    <ol>
+                        <li>Navigate to the network folder <code>O:\Rnd\Scripts\ScarPipline\Share\ScarTools_1.0.0</code> (or extract the zip).</li>
+                        <li>Drag <code>drag_drop_install.py</code> directly from Windows Explorer into any open Maya 3D viewport.</li>
+                        <li>Click <strong>INSTALL</strong> in the setup dialog.</li>
+                        <li>The top menu <strong>ScarTools</strong> and the dedicated <strong>ScarTools</strong> shelf tab are registered immediately without restarting Maya!</li>
+                    </ol>
+
+                    <h2>Studio Architecture Principles</h2>
+                    <div class="card">
+                        <ul style="margin-left: 20px;">
+                            <li><strong>Centralized Design System (<code>scartools.ui</code>):</strong> Unified UI tokens, modern palettes, high-DPI custom icons, and rollup titlebars across all windows.</li>
+                            <li><strong>Global Log Viewer:</strong> Centralized event bus capturing real-time diagnostic output, warnings, errors, and successes across all tools.</li>
+                            <li><strong>Atomic Scene Transactions:</strong> Multi-step actions are wrapped in <code>SceneTransaction</code> for instantaneous 1-click single Undo.</li>
+                            <li><strong>Smart Cross-Department Transfers:</strong> Material and skin snapshots intelligently transfer across departments (e.g. Model scene to Rig scene to Animation scene).</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- 2. Model Sanitizer -->
+                <div id="sanitizer" class="doc-section">
+
+                    <div class="breadcrumb">Department Tools &bull; Modeling</div>
+                    <h1>Model & Scene Sanitizer</h1>
+                    <div class="doc-subtitle">Comprehensive 26-rule preflight QA inspector and atomic 1-click geometry repair tool.</div>
+
+                    <h2>All 26 Preflight QA Rules</h2>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Category</th>
+                                <th>Rule</th>
+                                <th>Severity</th>
+                                <th>Safe Auto-Fix Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><strong>Topology</strong></td>
+                                <td>N-Gons (>4 sides)</td>
+                                <td><span class="badge badge-rose">ERROR</span></td>
+                                <td>Viewport component selection for manual quad-tessellation.</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Topology</strong></td>
+                                <td>Triangles</td>
+                                <td><span class="badge badge-amber">WARN</span></td>
+                                <td>Viewport component selection for edge-flow review.</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Topology</strong></td>
+                                <td>Non-Manifold Geometry</td>
+                                <td><span class="badge badge-rose">ERROR</span></td>
+                                <td>Automated non-manifold vertex/edge split & cleanup.</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Topology</strong></td>
+                                <td>Lamina Faces (stacked faces)</td>
+                                <td><span class="badge badge-rose">ERROR</span></td>
+                                <td>Automated removal of duplicate coincident faces.</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Topology</strong></td>
+                                <td>Zero-Area Faces / Zero-Length Edges</td>
+                                <td><span class="badge badge-amber">WARN</span></td>
+                                <td>Automated vertex collapse within 0.0001 tolerance.</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Transforms</strong></td>
+                                <td>Unfrozen Transforms</td>
+                                <td><span class="badge badge-rose">ERROR</span></td>
+                                <td>Freezes Translate (0,0,0), Rotate (0,0,0), and Scale (1,1,1).</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Transforms</strong></td>
+                                <td>Off-Center Pivots</td>
+                                <td><span class="badge badge-amber">WARN</span></td>
+                                <td>Centers pivot to bounding box center.</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Transforms</strong></td>
+                                <td>Negative Scales</td>
+                                <td><span class="badge badge-rose">ERROR</span></td>
+                                <td>Inverts negative scale and flips face normals.</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Naming</strong></td>
+                                <td>Duplicate Node Names</td>
+                                <td><span class="badge badge-rose">ERROR</span></td>
+                                <td>Sequentially renames duplicates (e.g. <code>mesh_01</code>, <code>mesh_02</code>).</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Naming</strong></td>
+                                <td>Default Names (<code>pCube1</code>)</td>
+                                <td><span class="badge badge-amber">WARN</span></td>
+                                <td>Highlights generic objects requiring asset naming conventions.</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Display & Layers</strong></td>
+                                <td>Unused Shading Nodes / History</td>
+                                <td><span class="badge badge-blue">INFO</span></td>
+                                <td>Deletes unattached shading nodes and non-deformer history.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <h2>User Actions & Buttons</h2>
+                    <ul>
+                        <li><strong>🔍 Inspect Geometry:</strong> Scans the scene/selection and populates the issues table with severity chips.</li>
+                        <li><strong>🎯 Select Issue Components:</strong> Automatically selects the exact offending vertices, edges, or faces in the Maya 3D viewport.</li>
+                        <li><strong>⚡ Fix All Safe Issues:</strong> Atomically executes safe fixes (freezes transforms, cleans lamina faces, deletes non-deformer history) in a single undo step.</li>
+                    </ul>
+                </div>
+
+                <!-- 4. Skin Tools -->
+                <div id="skin_tools" class="doc-section">
+                    <div class="breadcrumb">Department Tools &bull; Rigging</div>
+                    <h1>Skin Tools (Character Weighting Suite)</h1>
+                    <div class="doc-subtitle">Symmetry-aware mirroring, multi-mesh skin weight transfers, pruning, and snapshot archives.</div>
+
+                    <h2>Tab Breakdown & Operations</h2>
+                    <div class="card">
+                        <div class="card-header">1. Mirror Skin Weights</div>
+                        <p>Mirrors weights across positive and negative axes with automatic component selection detection and label replacement (<code>L_</code> &harr; <code>R_</code>).</p>
+                        <ul>
+                            <li><strong>Mirror Planes:</strong> $X \to -X$, $-X \to +X$, $Y \to -Y$, $Z \to -Z$.</li>
+                            <li><strong>Surface Association:</strong> Closest Point on Surface, Ray Cast, Closest Component.</li>
+                            <li><strong>Influence Association:</strong> One to One, Closest Joint, Label Match.</li>
+                        </ul>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">2. Copy Skin Weights & Clusters</div>
+                        <p>Transfers skin clusters from a single source mesh onto one or dozens of target meshes simultaneously.</p>
+                        <ul>
+                            <li><strong>Copy Mode:</strong> <code>Copy SkinCluster</code> (creates and binds new skin clusters if unskinned) or <code>Weights Only</code>.</li>
+                            <li><strong>Interpolation:</strong> Closest Point, UV Space, or Component ID.</li>
+                        </ul>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">3. Skin Weights Cleanup</div>
+                        <ul>
+                            <li><strong>Prune Small Weights:</strong> Removes weights below a specified threshold (e.g. <code>0.001</code>).</li>
+                            <li><strong>Clamp Max Influences:</strong> Restricts vertices to a maximum joint count (e.g. 4 for Unity/Unreal, 8 for Film).</li>
+                            <li><strong>Remove Unused Influences:</strong> Unbinds joints with zero weight influence to keep rig evaluations lightning fast.</li>
+                            <li><strong>Unbind Skin:</strong> Safely unbinds selected meshes with optional history retention.</li>
+                        </ul>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">4. Export & Import Skin Snapshots</div>
+                        <p>Packages all selected meshes into a single packed <code>skin_weights_package.json</code> file with automated versioning (<code>v001</code>, <code>v002</code>, <code>v003</code>).</p>
+                    </div>
+                </div>
+
+                <!-- 5. Shader Tools -->
+                <div id="shader_tools" class="doc-section">
+                    <div class="breadcrumb">Department Tools &bull; LookDev</div>
+                    <h1>Shader Tools (LookDev & Material Pipeline)</h1>
+                    <div class="doc-subtitle">Shader network inspection, UDIM texture validation, and cross-department material assignments.</div>
+
+                    <h2>Key Features</h2>
+                    <div class="card">
+                        <div class="card-header">📦 1. Export Shader Snapshot</div>
+                        <p>Captures all materials, shading networks, texture files, and geometry assignment bindings into a versioned lookdev snapshot.</p>
+                        <ul>
+                            <li><strong>Texture Preflight:</strong> Checks that all 2D textures and UDIM sequence files physically exist on disk before exporting.</li>
+                            <li><strong>Variant Management:</strong> Export lookdev variants (e.g. <code>default</code>, <code>dirty</code>, <code>wet</code>, <code>damaged</code>).</li>
+                        </ul>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">📥 2. Import & Assign Shaders</div>
+                        <p>Seamlessly imports shader networks and restores material assignments across department scenes.</p>
+                        <ul>
+                            <li><strong>Cross-Department Transfer:</strong> Apply shaders created in <code>Asset_Model.mb</code> directly into <code>Asset_Rig.mb</code> or <code>Shot_Anim.mb</code> with zero manual re-hooking.</li>
+                            <li><strong>Repathing & Remapping:</strong> Automatically resolves UDIM sequences and re-links textures from network drives.</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- 6. Generate UDIM -->
+                <div id="udim_manager" class="doc-section">
+                    <div class="breadcrumb">Department Tools &bull; Texturing</div>
+                    <h1>Generate UDIM (1-Click Previews)</h1>
+                    <div class="doc-subtitle">Zero-window 1-click hardware UV tile mipmap preview generator and Viewport 2.0 cache refresher.</div>
+
+                    <div class="info-box">
+                        <strong>⚡ Fast 1-Click Workflow:</strong> Clicking <strong>Generate UDIM</strong> in the ScarTools menu or shelf immediately processes the scene without opening any modal dialogs.
+                    </div>
+
+                    <h2>What Happens in the Background:</h2>
+                    <ol>
+                        <li><strong>Auto-Format UDIM Tokens:</strong> Automatically converts numbered texture filenames (e.g. <code>BaseColor.1001.png</code> &rarr; <code>BaseColor.&lt;UDIM&gt;.png</code>) and sets UV Tiling Mode to <code>UDIM (Mari)</code>.</li>
+                        <li><strong>C++ Hardware Preview Generation:</strong> Executes native Maya <code>generateUvTilePreview</code> on all connected file nodes.</li>
+                        <li><strong>Viewport 2.0 Flush:</strong> Flushes GPU texture memory and forces Viewport 2.0 to reload high-resolution mipmaps.</li>
+                        <li><strong>Textured Display Activation:</strong> Switches the active Maya 3D viewport to <strong>Textured Mode (Key 6)</strong> so materials show up instantly.</li>
+                        <li><strong>In-View HUD Banner:</strong> Displays an unobtrusive green confirmation message with the total number of texture nodes processed.</li>
+                    </ol>
+                </div>
+
+                <!-- 7. Character Finalizer -->
+                <div id="character_finalizer" class="doc-section">
+                    <div class="breadcrumb">Department Tools &bull; Rigging</div>
+                    <h1>Character Finalizer</h1>
+                    <div class="doc-subtitle">Rig preflight checklist, Space Switch SMD binding, scale normalization, and scene lockdown.</div>
+
+                    <h2>Features & Options</h2>
+                    <div class="card">
+                        <ul>
+                            <li><strong>Preflight Checklist:</strong> Verifies geometry freezing, joint scale limits, non-deformer history, and display layer states.</li>
+                            <li><strong>Space Switch SMD Resolver:</strong> Automatically binds space-switch constraints from the UI path, <code>SCARTOOLS_SPACE_SWITCH_SMD</code> environment variable, or local project folder.</li>
+                            <li><strong>Scale Unlock & Normalization:</strong> Unlocks scale attributes for animation squash-and-stretch setups.</li>
+                            <li><strong>Single Undo Step:</strong> The entire finalization process executes within a single atomic <code>SceneTransaction</code>.</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- 8. Pipeline Renamer -->
+                <div id="renamer" class="doc-section">
+                    <div class="breadcrumb">Department Tools &bull; Pipeline</div>
+                    <h1>Pipeline Renamer</h1>
+                    <div class="doc-subtitle">High-speed batch node renaming, prefix/suffix insertion, and studio standard naming presets.</div>
+
+                    <h2>Features</h2>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Feature</th>
+                                <th>Description</th>
+                                <th>Example</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><strong>Search & Replace</strong></td>
+                                <td>Replaces occurrences of text with case-sensitive and regex matching.</td>
+                                <td><code>temp_</code> &rarr; <code>hero_</code></td>
+                            </tr>
+                            <tr>
+                                <td><strong>Prefix / Suffix</strong></td>
+                                <td>Prepends or appends text to selected node names.</td>
+                                <td><code>props_</code> + <code>chair</code> + <code>_01</code></td>
+                            </tr>
+                            <tr>
+                                <td><strong>Sequential Numbering</strong></td>
+                                <td>Adds padded numbers based on hierarchy or selection order.</td>
+                                <td><code>button_01</code>, <code>button_02</code>, <code>button_03</code></td>
+                            </tr>
+                            <tr>
+                                <td><strong>Studio Suffix Presets</strong></td>
+                                <td>1-Click standard suffix chips.</td>
+                                <td><code>_GEO</code>, <code>_JNT</code>, <code>_CTRL</code>, <code>_GRP</code>, <code>_LOC</code>, <code>_MAT</code></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- 9. Log Viewer -->
+                <div id="log_viewer" class="doc-section">
+                    <div class="breadcrumb">Framework &bull; Diagnostics</div>
+                    <h1>Log Viewer (Central Studio Event Bus)</h1>
+                    <div class="doc-subtitle">Unified real-time diagnostic console for all ScarTools operations, warnings, and errors.</div>
+
+                    <h2>Features & Controls</h2>
+                    <div class="card">
+                        <ul>
+                            <li><strong>Semantic Filter Chips:</strong> Instant one-click toggling between <code>All</code>, <code>Errors (❌)</code>, <code>Warnings (⚠️)</code>, <code>Success (✓)</code>, and <code>Info (•)</code>.</li>
+                            <li><strong>Tool Source Selector:</strong> Filter logs by specific tool (e.g. <code>Shader Tools</code>, <code>Skin Tools</code>, <code>Sanitizer</code>).</li>
+                            <li><strong>Live Keyword Search:</strong> Real-time regex and text filtering of log messages.</li>
+                            <li><strong>📋 Copy All:</strong> Copies all filtered diagnostics to the clipboard for fast Slack/email sharing with pipeline TDs.</li>
+                            <li><strong>💾 Export Log...:</strong> Saves the full execution history to a timestamped <code>.log</code> file on disk.</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- 10. Technical API: Modeling -->
+                <div id="api_modeling" class="doc-section">
+                    <div class="breadcrumb">Technical API Reference &bull; Modeling</div>
+                    <h1>Modeling & Sanitizer API</h1>
+                    <div class="doc-subtitle">Package: <code>scartools.tools.modeling.api</code></div>
+
+                    <div class="api-method-header">
+                        <span class="badge badge-purple">FUNCTION</span>
+                        <span class="api-method-name">inspect_model_and_scene(scope="scene")</span>
+                    </div>
+                    <div class="api-signature">inspect_model_and_scene(scope: str = "scene") -> list[dict]</div>
+                    <p>Scans the scene or active selection against all 26 preflight QA rules.</p>
+                    <table>
+                        <thead>
+                            <tr><th>Parameter</th><th>Type</th><th>Default</th><th>Description</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr><td><code>scope</code></td><td><code>str</code></td><td><code>"scene"</code></td><td>Scope of scan: <code>"scene"</code>, <code>"selection"</code>, or <code>"visible"</code>.</td></tr>
+                        </tbody>
+                    </table>
+                    <p><strong>Returns:</strong> List of issue dictionaries: <code>{"rule_id": str, "severity": str, "message": str, "nodes": list[str], "components": list[str]}</code>.</p>
+
+                    <div class="api-method-header">
+                        <span class="badge badge-purple">FUNCTION</span>
+                        <span class="api-method-name">fix_all_safe_issues(scope="scene")</span>
+                    </div>
+                    <div class="api-signature">fix_all_safe_issues(scope: str = "scene") -> dict</div>
+                    <p>Atomically executes all non-destructive safe fixes inside a single undo transaction.</p>
+
+                    <pre><code>from scartools.tools.modeling.api import inspect_model_and_scene, fix_all_safe_issues
+
+# Run inspection on selection
+issues = inspect_model_and_scene(scope="selection")
+for issue in issues:
+    print(f"[{issue['severity']}] {issue['rule_id']}: {issue['message']}")
+
+# Execute safe auto-repairs
+result = fix_all_safe_issues()
+print("Fixed issues:", result)</code></pre>
+                </div>
+
+                <!-- 11. Technical API: Skinning -->
+                <div id="api_skin" class="doc-section">
+                    <div class="breadcrumb">Technical API Reference &bull; Rigging</div>
+                    <h1>Skin Tools API</h1>
+                    <div class="doc-subtitle">Package: <code>scartools.tools.skin.api</code></div>
+
+                    <div class="api-method-header">
+                        <span class="badge badge-purple">FUNCTION</span>
+                        <span class="api-method-name">mirror_skin_weights(source_mesh, target_mesh, ...)</span>
+                    </div>
+                    <div class="api-signature">mirror_skin_weights(source_mesh: str, target_mesh: str, plane: str = "YZ", direction: str = "pos_to_neg", surface_association: str = "closestPoint", influence_association: str = "labelMatch") -> bool</div>
+                    <p>Mirrors skin weights across a symmetry plane with joint label remapping (<code>L_</code> &harr; <code>R_</code>).</p>
+
+                    <div class="api-method-header">
+                        <span class="badge badge-purple">FUNCTION</span>
+                        <span class="api-method-name">copy_skin_weights(source_mesh, target_meshes, ...)</span>
+                    </div>
+                    <div class="api-signature">copy_skin_weights(source_mesh: str, target_meshes: list[str], method: str = "closestPoint", uv_space: bool = False, max_influences: int = None) -> dict</div>
+                    <p>Transfers weights from a source skinned mesh to one or multiple target meshes.</p>
+
+                    <div class="api-method-header">
+                        <span class="badge badge-purple">FUNCTION</span>
+                        <span class="api-method-name">export_skin_package(root_directory, meshes=None, ...)</span>
+                    </div>
+                    <div class="api-signature">export_skin_package(root_directory: str, meshes: list[str] = None, variant: str = "default", notes: str = "") -> str</div>
+                    <p>Exports all selected or specified meshes into a packed <code>skin_weights_package.json</code> file with automated versioning.</p>
+
+                    <pre><code>from scartools.tools.skin.api import copy_skin_weights, export_skin_package
+
+# Copy skin from body to clothing meshes
+copy_skin_weights(
+    source_mesh="hero_body_GEO",
+    target_meshes=["hero_shirt_GEO", "hero_pants_GEO"],
+    method="closestPoint"
+)
+
+# Export versioned skin snapshot
+pkg_path = export_skin_package(
+    root_directory="O:/Projects/Pirates/Assets/Hero/Rig",
+    meshes=["hero_body_GEO", "hero_shirt_GEO"]
+)
+print("Saved skin snapshot to:", pkg_path)</code></pre>
+                </div>
+
+                <!-- 12. Technical API: Shading -->
+                <div id="api_shader" class="doc-section">
+                    <div class="breadcrumb">Technical API Reference &bull; LookDev</div>
+                    <h1>Shader Tools API</h1>
+                    <div class="doc-subtitle">Package: <code>scartools.tools.shader.api</code></div>
+
+                    <div class="api-method-header">
+                        <span class="badge badge-purple">FUNCTION</span>
+                        <span class="api-method-name">export_shader_package(root_directory, variant_name="default", ...)</span>
+                    </div>
+                    <div class="api-signature">export_shader_package(root_directory: str, variant_name: str = "default", notes: str = "", bundle_textures: bool = True) -> str</div>
+                    <p>Exports shading networks, materials, assignment manifests, and texture maps into a versioned lookdev snapshot.</p>
+
+                    <div class="api-method-header">
+                        <span class="badge badge-purple">FUNCTION</span>
+                        <span class="api-method-name">import_shader_package(root_directory, version=None, ...)</span>
+                    </div>
+                    <div class="api-signature">import_shader_package(root_directory: str, version: str = None, namespace: str = None, remap_textures: bool = True) -> dict</div>
+                    <p>Imports shader snapshot and re-assigns materials to corresponding geometry in the active scene.</p>
+
+                    <pre><code>from scartools.tools.shader.api import export_shader_package, import_shader_package
+
+# Export lookdev variant
+export_shader_package(
+    root_directory="O:/Projects/Pirates/Assets/Ship",
+    variant_name="dirty",
+    notes="Approved weathered lookdev"
+)
+
+# Import shaders into lighting scene
+import_shader_package(
+    root_directory="O:/Projects/Pirates/Assets/Ship",
+    version="v002"
+)</code></pre>
+                </div>
+
+                <!-- 13. Technical API: UDIM Operations -->
+                <div id="api_udim" class="doc-section">
+                    <div class="breadcrumb">Technical API Reference &bull; Texturing</div>
+                    <h1>Generate UDIM API</h1>
+                    <div class="doc-subtitle">Package: <code>scartools.tools.udim.operations</code></div>
+
+                    <div class="api-method-header">
+                        <span class="badge badge-purple">FUNCTION</span>
+                        <span class="api-method-name">run_generate_udim(selection_only=False)</span>
+                    </div>
+                    <div class="api-signature">run_generate_udim(selection_only: bool = False) -> dict</div>
+                    <p>Performs 1-click UDIM formatting, C++ hardware mipmap tile preview generation, and Viewport 2.0 texture cache reload.</p>
+
+                    <pre><code>from scartools.tools.udim.operations import run_generate_udim
+
+# Run headless 1-click UDIM generation across full scene
+result = run_generate_udim()
+print(f"Generated previews for {result['processed']} texture nodes.")</code></pre>
+                </div>
+
+                <!-- 14. Technical API: Finalizer -->
+                <div id="api_finalizer" class="doc-section">
+                    <div class="breadcrumb">Technical API Reference &bull; Rigging</div>
+                    <h1>Character Finalizer API</h1>
+                    <div class="doc-subtitle">Package: <code>scartools.tools.character_finalizer.api</code></div>
+
+                    <div class="api-method-header">
+                        <span class="badge badge-purple">FUNCTION</span>
+                        <span class="api-method-name">finalize_character(namespace=None, space_switch_path=None)</span>
+                    </div>
+                    <div class="api-signature">finalize_character(namespace: str = None, space_switch_path: str = None) -> dict</div>
+                    <p>Executes rig preflight validation, Space Switch SMD binding, scale normalization, and scene lockdown in a single undo step.</p>
+                </div>
+
+                <!-- 15. Framework (Transactions & Logging) -->
+                <div id="api_framework" class="doc-section">
+                    <div class="breadcrumb">Technical API Reference &bull; Framework</div>
+                    <h1>Framework (Transactions & Logging)</h1>
+                    <div class="doc-subtitle">Package: <code>scartools.framework</code></div>
+
+                    <h2>Atomic Scene Transactions</h2>
+                    <p>Wrap any complex multi-command pipeline script in <code>SceneTransaction</code> for safe, 1-click Undo:</p>
+                    <pre><code>from scartools.framework.transactions import SceneTransaction
+import maya.cmds as cmds
+
+with SceneTransaction("Batch Prop Placement"):
+    for i in range(10):
+        loc = cmds.spaceLocator(name=f"marker_{i:02d}_LOC")[0]
+        cmds.move(i * 2, 0, 0, loc)
+# Single Ctrl+Z in Maya completely undos all 10 locators atomically!</code></pre>
+
+                    <h2>Centralized Event Logging</h2>
+                    <pre><code>from scartools.framework.logging import emit_log
+
+# Emit diagnostics directly to the global Log Viewer
+emit_log("Rigging", "Bound 42 joints successfully", level="SUCCESS")
+emit_log("Shading", "Missing UDIM tile 1008 on BaseColor", level="WARN")
+emit_log("Sanitizer", "Non-manifold vertex detected on mesh_01", level="ERROR")</code></pre>
+                </div>
+
+                <!-- ADMIN_ONLY_START -->
+                <!-- 16. Licensing & Security Guide -->
+                <div id="licensing_guide" class="doc-section">
+                    <div class="breadcrumb">Licensing & Administration &bull; Security & Architecture</div>
+                    <h1>Studio Licensing & Security Architecture</h1>
+                    <div class="doc-subtitle">Cryptographic node-locking, hardware fingerprinting, offline validation, and remote contractor policies.</div>
+
+                    <div class="info-box">
+                        <strong>🔒 Offline Cryptographic Engine:</strong> ScarTools utilizes single-seat HMAC-SHA256 cryptographic signatures tied to physical CPU/motherboard hardware IDs (HWID). Maya validates keys 100% locally with zero internet or license server dependency.
+                    </div>
+
+                    <h2>Key Format & Anatomy</h2>
+                    <p>All studio license keys follow a strict 5-part cryptographic format:</p>
+                    <div class="card">
+                        <code style="font-size: 14px; font-weight: 700; color: var(--blue);">SCAR-[USER_SLUG]-[HWID_SLUG]-[EXPIRY_HEX]-[SIGNATURE]</code>
+                        <ul style="margin: 14px 0 0 20px;">
+                            <li><code>SCAR</code>: Studio application signature header.</li>
+                            <li><code>USER_SLUG</code>: 8-character normalized hash of the artist username.</li>
+                            <li><code>HWID_SLUG</code>: 8-character hardware hash of the target machine.</li>
+                            <li><code>EXPIRY_HEX</code>: Unix epoch timestamp in hexadecimal (<code>00000000</code> for Perpetual).</li>
+                            <li><code>SIGNATURE</code>: 16-character HMAC-SHA256 cryptographic signature.</li>
+                        </ul>
+                    </div>
+
+                    <h2>Remote Contractors & Expiring Lease Keys</h2>
+                    <p>For remote freelancers, off-site artists, and external vendors who do not connect to your studio network, follow the <strong>Expiring Lease Key Policy</strong>:</p>
+                    <div class="card">
+                        <p>Instead of issuing a perpetual key, generate an expiring lease matching the artist's contract duration (e.g. minutes, hours, or days):</p>
+                        <pre><code># 30-Day Contractor Lease
+python admin_tools/generate_studio_license.py --user freelancer.john --hwid HW-E09F1551 --days 30
+
+# 2-Hour Evaluation Lease
+python admin_tools/generate_studio_license.py --user test.artist --hwid HW-E09F1551 --hours 2
+
+# 30-Minute Trial Lease (or --duration 30m)
+python admin_tools/generate_studio_license.py --user test.artist --hwid HW-E09F1551 --minutes 30</code></pre>
+                        <p style="margin-top: 10px;"><strong>Automatic Offline Deactivation:</strong> The moment the duration passes, the cryptographic clock locks Maya automatically with zero internet connection required.</p>
+                    </div>
+
+                    <h2>Two Levels of Studio Enforcement: Revoke vs Delete</h2>
+                    <div class="card">
+                        <table style="width: 100%;">
+                            <thead>
+                                <tr>
+                                    <th>Level</th>
+                                    <th>Action</th>
+                                    <th>Workstation Behavior</th>
+                                    <th>Command</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><strong>Soft Lock</strong></td>
+                                    <td><code>Revoke</code></td>
+                                    <td>Locks tool UI and prompts for license reactivation. Installed files remain intact on disk.</td>
+                                    <td><code>python manage_licenses.py --revoke-user &lt;USER&gt;</code></td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Hard Kill-Switch</strong></td>
+                                    <td><code>Delete / Purge</code></td>
+                                    <td><strong>Zero-Fill Shreds & Wipes</strong> all local ScarTools files, modules, shelves, and licenses from the artist PC.</td>
+                                    <td><code>python manage_licenses.py --delete-user &lt;USER&gt;</code></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <h2>Worldwide GitHub Cloud License Sync</h2>
+                    <div class="card">
+                        <p>For artists working remotely from home across the public internet, ScarTools synchronizes with a central GitHub repository (<code>https://github.com/satyajit8625/scartools-licenses</code>):</p>
+                        <pre><code># 1. Update user status (Revoke or Delete)
+python admin_tools/manage_licenses.py --delete-user &lt;USER&gt;
+
+# 2. Push updates to GitHub cloud
+python admin_tools/sync_cloud_licenses.py</code></pre>
+                        <p style="margin-top: 10px;"><strong>Worldwide Real-Time Remote Wipe:</strong> Remote artist Maya clients query the GitHub raw endpoint. If an artist is marked <code>Deleted</code>, Maya triggers the Zero-Fill Shredder and wipes the workstation in under 1 second.</p>
+                    </div>
+
+                    <h2>Anti-Tamper, Air-Gap & Defensive Traps</h2>
+                    <div class="card">
+                        <ul style="margin-left: 20px;">
+                            <li><strong>Out-of-Process Windows Firewall Bypass:</strong> Maya probes the cloud registry outside of <code>maya.exe</code> via Windows system utilities (<code>curl.exe</code>), defeating attempts to evade the kill-switch by blocking Maya in Windows Firewall.</li>
+                            <li><strong>Cryptographic Zero-Fill Content Shredder:</strong> When a remote wipe is triggered, all <code>.py</code>, <code>.pyc</code>, and <code>.mod</code> files have their read-only permissions stripped and are overwritten with <code>0-byte</code> data before removal, neutralizing any NTFS file permission locks.</li>
+                            <li><strong>Mandatory Online Heartbeat:</strong> Workstations must verify their lease online periodically. If an artist disconnects or blocks Maya to evade revocation, the suite locks and wipes itself automatically when the offline heartbeat limit expires.</li>
+                            <li><strong>Session Token Traps (<code>LicenseSessionToken</code>):</strong> Maya operations and <code>SceneTransaction</code> require a dynamic session token object bound to runtime entropy, preventing simple boolean monkey-patching in Maya's shared Python interpreter.</li>
+                            <li><strong>Anti-Clock Rollback:</strong> The licensing engine verifies current system time against both activation and last-verified online timestamps to detect backdated system clocks.</li>
+                            <li><strong>Single Undo Lockdown:</strong> Unlicensed attempts raise atomic rollback transactions before any nodes are modified.</li>
+                        </ul>
+                    </div>
+
+                    <h2>Artist Activation Workflow</h2>
+                    <ol>
+                        <li>Drag <code>drag_drop_install.py</code> into Maya.</li>
+                        <li>Click <strong>📋 Copy HWID</strong> and send the Machine HWID to your Studio Pipeline Lead.</li>
+                        <li>The Pipeline Lead generates your single-seat key.</li>
+                        <li>Paste your <strong>Artist User ID</strong> and <strong>License Key</strong> into the activation dialog and click <strong>🚀 Activate License</strong>.</li>
+                    </ol>
+                </div>
+
+                <!-- 17. Technical API: Licensing & Administration -->
+                <div id="api_licensing" class="doc-section">
+                    <div class="breadcrumb">Licensing & Administration &bull; Technical API & CLI</div>
+                    <h1>Admin Licensing API & Management CLI</h1>
+                    <div class="doc-subtitle">Package: <code>scartools.licensing</code> & Admin Tools: <code>admin_tools/</code></div>
+
+                    <h2>1. Master Studio License Registry CLI (<code>manage_licenses.py</code>)</h2>
+                    <p>The centralized administrative CLI allows pipeline leads to audit all issued seats, deactivate machines, revoke keys, and trigger remote kill-switch wipes across the studio fleet:</p>
+
+                    <div class="card">
+                        <table style="width: 100%;">
+                            <thead>
+                                <tr>
+                                    <th>Command</th>
+                                    <th>Description</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><code>python manage_licenses.py --list</code></td>
+                                    <td>Displays full table of all registered seats with Active, Revoked, Deleted, and Expired counts.</td>
+                                </tr>
+                                <tr>
+                                    <td><code>python manage_licenses.py --local</code></td>
+                                    <td>Inspects the current workstation's active license details.</td>
+                                </tr>
+                                <tr>
+                                    <td><code>python manage_licenses.py --deactivate-local</code></td>
+                                    <td>Instantly removes local license file on this PC and resets to unlicensed mode.</td>
+                                </tr>
+                                <tr>
+                                    <td><code>python manage_licenses.py --revoke-user &lt;USER&gt;</code></td>
+                                    <td>Marks all licenses for a specific artist as <code>[REVOKED]</code> (Soft Lock).</td>
+                                </tr>
+                                <tr>
+                                    <td><code>python manage_licenses.py --revoke-hwid &lt;HWID&gt;</code></td>
+                                    <td>Marks licenses locked to a specific hardware ID as <code>[REVOKED]</code> (Soft Lock).</td>
+                                </tr>
+                                <tr>
+                                    <td><code>python manage_licenses.py --delete-user &lt;USER&gt;</code></td>
+                                    <td>Marks seat as <code>[DELETED]</code> and triggers <strong>Remote Zero-Fill Wipe</strong> on artist PC.</td>
+                                </tr>
+                                <tr>
+                                    <td><code>python manage_licenses.py --delete-hwid &lt;HWID&gt;</code></td>
+                                    <td>Triggers <strong>Remote Zero-Fill Wipe</strong> for a specific hardware ID.</td>
+                                </tr>
+                                <tr>
+                                    <td><code>python manage_licenses.py --reinstate-user &lt;USER&gt;</code></td>
+                                    <td>Restores a previously revoked or deleted license back to <code>[ACTIVE]</code> status.</td>
+                                </tr>
+                                <tr>
+                                    <td><code>python manage_licenses.py --export-csv &lt;FILE&gt;</code></td>
+                                    <td>Exports the master studio license inventory to a CSV spreadsheet.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <h2>2. Key Generator CLI (<code>generate_studio_license.py</code>)</h2>
+                    <pre><code># Generate perpetual studio key for internal artist
+python admin_tools/generate_studio_license.py --user lead.artist --hwid HW-E09F1551 --perpetual
+
+# Generate 60-day lease for contractor
+python admin_tools/generate_studio_license.py --user contractor.bob --hwid HW-8F924B11 --days 60
+
+# Generate 2-hour evaluation key
+python admin_tools/generate_studio_license.py --user test.artist --hwid HW-8F924B11 --hours 2
+
+# Generate 30-minute key (or --duration 30m)
+python admin_tools/generate_studio_license.py --user test.artist --hwid HW-8F924B11 --minutes 30</code></pre>
+
+                    <h2>3. Python Licensing API Reference (<code>scartools.licensing</code>)</h2>
+
+                    <div class="api-method-header">
+                        <span class="badge badge-purple">FUNCTION</span>
+                        <span class="api-method-name">get_machine_hardware_id()</span>
+                    </div>
+                    <div class="api-signature">get_machine_hardware_id() -> str</div>
+                    <p>Calculates the deterministic physical computer hardware fingerprint (e.g. <code>HW-E09F1551</code>) based on CPU UUID, motherboard GUID, and volume serial.</p>
+
+                    <div class="api-method-header">
+                        <span class="badge badge-purple">FUNCTION</span>
+                        <span class="api-method-name">generate_license_key(user_id, hardware_id, days_valid=0, hours_valid=0, minutes_valid=0, duration=None)</span>
+                    </div>
+                    <div class="api-signature">generate_license_key(user_id: str, hardware_id: str, days_valid: float = 0, hours_valid: float = 0, minutes_valid: float = 0, duration: str = None) -> str</div>
+                    <p>Generates a cryptographically signed hardware-locked license key string for a given user, machine, and flexible duration.</p>
+
+                    <div class="api-method-header">
+                        <span class="badge badge-purple">FUNCTION</span>
+                        <span class="api-method-name">validate_license_key(user_id, license_key, current_hardware_id=None, check_central=True)</span>
+                    </div>
+                    <div class="api-signature">validate_license_key(user_id: str, license_key: str, current_hardware_id: str = None, check_central: bool = True) -> tuple[bool, str, dict]</div>
+                    <p>Validates key authenticity, hardware matching, timestamp expiration, central registry status, and cryptographic HMAC signature.</p>
+
+                    <div class="api-method-header">
+                        <span class="badge badge-purple">FUNCTION</span>
+                        <span class="api-method-name">get_installed_license()</span>
+                    </div>
+                    <div class="api-signature">get_installed_license() -> tuple[bool, str, dict]</div>
+                    <p>Reads and validates the currently installed local workstation license file (<code>~/.scartools_license.json</code>) with online heartbeat verification.</p>
+
+                    <div class="api-method-header">
+                        <span class="badge badge-purple">FUNCTION</span>
+                        <span class="api-method-name">execute_remote_wipe()</span>
+                    </div>
+                    <div class="api-signature">execute_remote_wipe() -> None</div>
+                    <p>Triggers remote kill-switch: zero-fill shreds and deletes all local ScarTools files, modules, shelves, and license tokens.</p>
+
+                    <div class="api-method-header">
+                        <span class="badge badge-purple">FUNCTION</span>
+                        <span class="api-method-name">revoke_license()</span>
+                    </div>
+                    <div class="api-signature">revoke_license() -> bool</div>
+                    <p>Deactivates the local machine license, closes all open tool windows, and locks the Maya top menu and shelf immediately.</p>
+
+                    <h2>Python Automation Example: Batch Licensing Script</h2>
+                    <pre><code>import sys
+sys.path.insert(0, "O:/Rnd/Scripts/ScarPipline/ScarTools_1.0.0/scripts")
+from scartools.licensing import generate_license_key, validate_license_key
+
+# List of studio artists to onboard
+artists = [
+    {"user": "alice.modeler", "hwid": "HW-A1B2C3D4", "days": 0},    # Perpetual internal seat
+    {"user": "bob.rigger",    "hwid": "HW-E5F6G7H8", "days": 90},   # 90-day contractor lease
+    {"user": "charlie.eval",  "hwid": "HW-9F8E7D6C", "hours": 4},   # 4-hour evaluation seat
+]
+
+for artist in artists:
+    key = generate_license_key(artist["user"], artist["hwid"], days_valid=artist.get("days", 0), hours_valid=artist.get("hours", 0))
+    valid, msg, details = validate_license_key(artist["user"], key, current_hardware_id=artist["hwid"])
+    print(f"[{'OK' if valid else 'FAIL'}] {artist['user']}: {key} ({details.get('expiry_date')})")</code></pre>
+                </div>
+                <!-- ADMIN_ONLY_END -->
+
+            </div>
+        </div>
+    </div>
+
+
+    <script>
+        function showSection(sectionId, clickedEl) {
+            document.querySelectorAll('.doc-section').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+            
+            const targetSection = document.getElementById(sectionId);
+            if (targetSection) {
+                targetSection.classList.add('active');
+            }
+            
+            if (clickedEl) {
+                clickedEl.classList.add('active');
+            } else if (window.event && window.event.currentTarget) {
+                window.event.currentTarget.classList.add('active');
+            }
+            const main = document.querySelector('.main-content');
+            if (main) main.scrollTop = 0;
+        }
+
+        function filterNav() {
+            const input = document.getElementById('navSearch').value.toLowerCase();
+            const items = document.querySelectorAll('.nav-item');
+            items.forEach(item => {
+                const text = item.textContent.toLowerCase();
+                if (text.includes(input)) {
+                    item.style.display = 'flex';
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+        }
+
+        function toggleTheme() {
+            const body = document.body;
+            body.classList.toggle('dark-theme');
+            const isDark = body.classList.contains('dark-theme');
+            document.getElementById('themeIcon').textContent = isDark ? '☀️' : '🌙';
+            document.getElementById('themeLabel').textContent = isDark ? 'Light Mode' : 'Dark Mode';
+            localStorage.setItem('scartools_doc_theme', isDark ? 'dark' : 'light');
+        }
+
+        // Restore user theme preference if set
+        window.addEventListener('DOMContentLoaded', () => {
+            const savedTheme = localStorage.getItem('scartools_doc_theme');
+            if (savedTheme === 'dark') {
+                document.body.classList.add('dark-theme');
+                document.getElementById('themeIcon').textContent = '☀️';
+                document.getElementById('themeLabel').textContent = 'Light Mode';
+            }
+        });
+    </script>
+</body>
+</html>

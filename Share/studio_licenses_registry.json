@@ -1,0 +1,70 @@
+[
+  {
+    "user_id": "john.doe",
+    "hardware_id": "HW-E09F1551",
+    "license_key": "SCAR-JOHNDOE-HWE09F15-00000000-D798911CEA6B5AE4",
+    "expiry_date": "Perpetual (No Expiry)",
+    "department": "General",
+    "notes": "Generated via admin tool",
+    "issued_at": "2026-08-26 12:08:46",
+    "status": "Revoked",
+    "revoked_at": "2026-08-27 11:03:41",
+    "reinstated_at": "2026-08-26 12:13:09"
+  },
+  {
+    "user_id": "satyajit_pawar",
+    "hardware_id": "HW-E09F1551",
+    "license_key": "SCAR-SATYAJIT-HWE09F15-6A915622-C6FA11447C0F20D7",
+    "expiry_date": "2026-08-28 15:04:26",
+    "department": "General",
+    "notes": "Generated via admin tool",
+    "issued_at": "2026-08-26 13:49:43",
+    "status": "Deleted",
+    "reinstated_at": "2026-08-27 11:22:59",
+    "updated_at": "2026-08-27 15:04:26",
+    "deleted_at": "2026-08-27 15:05:10"
+  },
+  {
+    "user_id": "contractor.rig",
+    "hardware_id": "HW-B2D94411",
+    "license_key": "SCAR-CONTRACT-HWB2D944-6AB66C5C-E9BDF8A7438155CF",
+    "expiry_date": "2026-09-25",
+    "department": "General",
+    "notes": "Generated via admin tool",
+    "issued_at": "2026-08-26 18:13:08",
+    "status": "Deleted",
+    "deleted_at": "2026-08-27 11:27:49"
+  },
+  {
+    "user_id": "test.artist",
+    "hardware_id": "HW-E09F1551",
+    "license_key": "SCAR-TESTARTI-HWE09F15-6A8FEA6B-B11C872A81D68300",
+    "expiry_date": "2026-08-27 13:12:35",
+    "department": "General",
+    "notes": "Generated via admin tool",
+    "issued_at": "2026-08-27 12:42:35",
+    "status": "Active"
+  },
+  {
+    "user_id": "admin",
+    "hardware_id": "HW-B6E67028",
+    "license_key": "SCAR-ADMIN-HWB6E670-6A914718-2F5396AC756E3EBB",
+    "expiry_date": "2026-08-28 14:00:16",
+    "department": "General",
+    "notes": "Generated via admin tool",
+    "issued_at": "2026-08-27 14:00:16",
+    "status": "Deleted",
+    "deleted_at": "2026-08-27 14:01:45"
+  },
+  {
+    "user_id": "cinematic",
+    "hardware_id": "HW-ABB9D785",
+    "license_key": "SCAR-CINEMATI-HWABB9D7-6A914EE3-4080114D04FA6D0E",
+    "expiry_date": "2026-08-28 14:33:31",
+    "department": "General",
+    "notes": "Generated via admin tool",
+    "issued_at": "2026-08-27 14:33:31",
+    "status": "Deleted",
+    "deleted_at": "2026-08-27 15:00:09"
+  }
+]
