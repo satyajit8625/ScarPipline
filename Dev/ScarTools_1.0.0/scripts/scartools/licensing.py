@@ -263,8 +263,16 @@ def fetch_central_registry(force_refresh=False):
     if url:
         if not force_refresh and _REGISTRY_CACHE["data"] is not None and (now - _REGISTRY_CACHE["timestamp"]) < _REGISTRY_CACHE_TTL:
             return _REGISTRY_CACHE["data"]
-        
-        headers = {"User-Agent": "ScarTools-DCC"}
+
+        # Cache-busting URL to bypass GitHub Fastly CDN 5-minute cache
+        sep = "&" if "?" in url else "?"
+        cache_buster_url = "{}{}_nocache={}".format(url, sep, int(now))
+
+        headers = {
+            "User-Agent": "ScarTools-DCC",
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Pragma": "no-cache"
+        }
         token = os.environ.get("SCARTOOLS_GITHUB_TOKEN")
         if token:
             headers["Authorization"] = "token {}".format(token.strip())
@@ -274,8 +282,8 @@ def fetch_central_registry(force_refresh=False):
                 import urllib.request as urllib_req
             except ImportError:
                 import urllib2 as urllib_req
-            req = urllib_req.Request(url, headers=headers)
-            with urllib_req.urlopen(req, timeout=1.0) as resp:
+            req = urllib_req.Request(cache_buster_url, headers=headers)
+            with urllib_req.urlopen(req, timeout=4.0) as resp:
                 data = json.loads(resp.read().decode("utf-8"))
                 if isinstance(data, list):
                     _REGISTRY_CACHE["data"] = data
@@ -287,11 +295,11 @@ def fetch_central_registry(force_refresh=False):
         # 3. System Probe Fallback (Silent Windows curl probe: defeats firewall blocks on maya.exe)
         if sys.platform.startswith("win"):
             try:
-                cmd = ["curl.exe", "-s", "-m", "1"]
+                cmd = ["curl.exe", "-s", "-m", "4", "-H", "Cache-Control: no-cache"]
                 if token:
                     cmd.extend(["-H", "Authorization: token {}".format(token.strip())])
-                cmd.append(url)
-                out = _run_hidden_subprocess(cmd, timeout=1).decode("utf-8")
+                cmd.append(cache_buster_url)
+                out = _run_hidden_subprocess(cmd, timeout=4).decode("utf-8")
                 data = json.loads(out)
                 if isinstance(data, list):
                     _REGISTRY_CACHE["data"] = data

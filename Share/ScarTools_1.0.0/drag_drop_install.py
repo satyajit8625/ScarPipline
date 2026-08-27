@@ -112,12 +112,19 @@ def validate_license_key(user_id, license_key, current_hardware_id=None):
     default_url = "https://raw.githubusercontent.com/satyajit8625/scartools-licenses/main/studio_licenses_registry.json"
     url = os.environ.get("SCARTOOLS_LICENSE_URL", default_url)
     try:
+        sep = "&" if "?" in url else "?"
+        cache_buster_url = "{}{}_nocache={}".format(url, sep, int(time.time()))
+        headers = {
+            "User-Agent": "ScarTools-DCC",
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Pragma": "no-cache"
+        }
         try:
             import urllib.request as urllib_req
         except ImportError:
             import urllib2 as urllib_req
-        req = urllib_req.Request(url, headers={"User-Agent": "ScarTools-DCC"})
-        with urllib_req.urlopen(req, timeout=1.5) as resp:
+        req = urllib_req.Request(cache_buster_url, headers=headers)
+        with urllib_req.urlopen(req, timeout=4.0) as resp:
             records = json.loads(resp.read().decode("utf-8"))
             if isinstance(records, list):
                 matched_record = None
