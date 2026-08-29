@@ -91,43 +91,7 @@ def _compute_signature(user_id, hwid, expiry_timestamp):
     return hmac.new(STUDIO_SECRET_SALT, data, hashlib.sha256).hexdigest()[:16].upper()
 
 
-_REGISTRY_CACHE = {"data": None, "timestamp": 0}
-_REGISTRY_CACHE_TTL = 60.0
-
-
-def fetch_central_registry(force_refresh=False):
-    now = time.time()
-    if not force_refresh and _REGISTRY_CACHE["data"] is not None:
-        if (now - _REGISTRY_CACHE["timestamp"]) < _REGISTRY_CACHE_TTL:
-            return _REGISTRY_CACHE["data"]
-
-    default_url = "https://raw.githubusercontent.com/satyajit8625/scartools-licenses/main/studio_licenses_registry.json"
-    url = os.environ.get("SCARTOOLS_LICENSE_URL", default_url)
-    try:
-        sep = "&" if "?" in url else "?"
-        cache_buster_url = "{}{}_nocache={}".format(url, sep, int(time.time()))
-        headers = {
-            "User-Agent": "ScarTools-DCC",
-            "Cache-Control": "no-cache, no-store, must-revalidate",
-            "Pragma": "no-cache"
-        }
-        try:
-            import urllib.request as urllib_req
-        except ImportError:
-            import urllib2 as urllib_req
-        req = urllib_req.Request(cache_buster_url, headers=headers)
-        with urllib_req.urlopen(req, timeout=2.5) as resp:
-            records = json.loads(resp.read().decode("utf-8"))
-            if isinstance(records, list):
-                _REGISTRY_CACHE["data"] = records
-                _REGISTRY_CACHE["timestamp"] = now
-                return records
-    except Exception:
-        pass
-    return _REGISTRY_CACHE.get("data")
-
-
-def validate_license_key(user_id, license_key, current_hardware_id=None, force_refresh=False):
+def validate_license_key(user_id, license_key, current_hardware_id=None):
     """
     Validate a license key against User ID, physical Machine Hardware ID, and Central Cloud Registry.
 
@@ -145,32 +109,50 @@ def validate_license_key(user_id, license_key, current_hardware_id=None, force_r
     active_hwid = (current_hardware_id or get_machine_hardware_id()).strip().upper()
 
     # 1. Check Central / GitHub Cloud Registry
-    records = fetch_central_registry(force_refresh=force_refresh)
-    if isinstance(records, list):
-        matched_record = None
-        for r in records:
-            r_user = (r.get("user_id") or "").strip().lower()
-            r_key = (r.get("license_key") or "").strip().upper()
-            r_hwid = (r.get("hardware_id") or "").strip().upper()
+    default_url = "https://raw.githubusercontent.com/satyajit8625/scartools-licenses/main/studio_licenses_registry.json"
+    url = os.environ.get("SCARTOOLS_LICENSE_URL", default_url)
+    try:
+        sep = "&" if "?" in url else "?"
+        cache_buster_url = "{}{}_nocache={}".format(url, sep, int(time.time()))
+        headers = {
+            "User-Agent": "ScarTools-DCC",
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Pragma": "no-cache"
+        }
+        try:
+            import urllib.request as urllib_req
+        except ImportError:
+            import urllib2 as urllib_req
+        req = urllib_req.Request(cache_buster_url, headers=headers)
+        with urllib_req.urlopen(req, timeout=4.0) as resp:
+            records = json.loads(resp.read().decode("utf-8"))
+            if isinstance(records, list):
+                matched_record = None
+                for r in records:
+                    r_user = (r.get("user_id") or "").strip().lower()
+                    r_key = (r.get("license_key") or "").strip().upper()
+                    r_hwid = (r.get("hardware_id") or "").strip().upper()
 
-            if clean_key and r_key and clean_key == r_key:
-                matched_record = r
-                break
-            elif clean_user and active_hwid and r_user == clean_user and r_hwid == active_hwid:
-                matched_record = r
-                break
-            elif clean_user and r_user == clean_user and (not r_hwid or r_hwid == "ANY"):
-                matched_record = r
-                break
+                    if clean_key and r_key and clean_key == r_key:
+                        matched_record = r
+                        break
+                    elif clean_user and active_hwid and r_user == clean_user and r_hwid == active_hwid:
+                        matched_record = r
+                        break
+                    elif clean_user and r_user == clean_user and (not r_hwid or r_hwid == "ANY"):
+                        matched_record = r
+                        break
 
-        if matched_record is not None:
-            r_status = (matched_record.get("status") or "active").strip().lower()
-            if r_status in ["deleted", "purged", "wiped"]:
-                return False, "License seat was DELETED by Studio Administrator.", {"deleted": True, "action": "delete"}
-            elif r_status == "revoked":
-                return False, "License seat has been REVOKED by Studio Administrator.", {"revoked": True, "action": "revoke"}
-        else:
-            return False, "License seat is NOT authorized in the Studio Registry (Seat not in allowlist).", {"deleted": True, "action": "delete"}
+                if matched_record is not None:
+                    r_status = (matched_record.get("status") or "active").strip().lower()
+                    if r_status in ["deleted", "purged", "wiped"]:
+                        return False, "License seat was DELETED by Studio Administrator.", {"deleted": True, "action": "delete"}
+                    elif r_status == "revoked":
+                        return False, "License seat has been REVOKED by Studio Administrator.", {"revoked": True, "action": "revoke"}
+                else:
+                    return False, "License seat is NOT authorized in the Studio Registry (Seat not in allowlist).", {"deleted": True, "action": "delete"}
+    except Exception:
+        pass
 
     parts = clean_key.split("-")
     if len(parts) != 5 or parts[0] != "SCAR":
@@ -246,11 +228,11 @@ def get_installed_license():
 
     user_id = data.get("user_id", "")
     key = data.get("license_key", "")
-    return validate_license_key(user_id, key, force_refresh=force_check)
+    return validate_license_key(user_id, key)
 
 
-def is_activated(force_check=False):
-    is_valid, _, _ = get_installed_license(force_check=force_check)
+def is_activated():
+    is_valid, _, _ = get_installed_license()
     return is_valid
 
 

@@ -497,17 +497,7 @@ class MultiSelectComboBox(QtWidgets.QComboBox):
         super(MultiSelectComboBox, self).paintEvent(event)
 
 
-def create_path_picker(mode="save_file", filter_pattern="All Files (*.*)", placeholder="", parent=None):
-    from .widgets import create_path_picker as _cpp
-    return _cpp(mode=mode, filter_pattern=filter_pattern, placeholder=placeholder, parent=parent)
-
-
-def __getattr__(name):
-    if name == "PathPickerWidget":
-        from .widgets import PathPickerWidget
-        return PathPickerWidget
-    raise AttributeError("module {!r} has no attribute {!r}".format(__name__, name))
-
+from .widgets import PathPickerWidget, create_path_picker
 
 __all__ = [
     "SegmentedControl",
