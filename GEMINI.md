@@ -133,3 +133,31 @@ Whenever the user instructs **"check security"**, the agent must perform a rigor
 ### `[DIST-04]` Continuous Automated Share Deployment (Autonomous Default Rule)
 * Every time code changes, bug fixes, or new features are applied in `Dev/ScarTools_<version>`, the assistant **MUST autonomously run tests and compile the active release into `Share/ScarTools_<version>` and `Share/ScarTools_<version>.zip` without waiting for explicit user prompts**.
 * **1-Click Master Command**: Running `python sync_share.py` discovers the active Dev version, executes `mayapy.exe` unit tests, compiles `.pyc` bytecode into `Share/`, sanitizes user documentation, and generates clean distribution zip packages in 1 step.
+
+---
+
+## 🏛️ Category 6: Centralized Framework Standards (`[FW]`)
+
+### `[FW-01]` Central Tool Manifest Contract (`manifest.py`)
+* Every tool package in `scartools.tools.<tool_id>` must declare a `manifest.py` exporting `TOOL_MANIFEST = ToolManifest(...)` specifying `tool_id`, `name`, `department`, `version`, `entry_point`, and registered headless `services`.
+* Must be registered in `scartools.builtin.BUILTIN_TOOL_MODULES` and `BUILTIN_TOOL_MANIFESTS`.
+
+### `[FW-02]` Decoupled Service Registry Bus (`services.py` & `imports.py`)
+* All tool services must be registered as lazy entry points (e.g. `"scartools.tools.anim_io.operations:export_shot_package"`) and callable programmatically via `scartools.framework.SERVICES.call("dept.action", **kwargs)`. Heavy modules must not load on Maya startup.
+
+### `[FW-03]` Unified Singleton Lifecycle (`lifecycle.py` & `WINDOWS`)
+* Window instances must register via `register_window(tool_id, window_instance)`:
+  * Only 1 active instance of each tool window may exist at any time.
+  * Re-invoking an open tool raises and focuses the existing window without creating duplicate instances.
+  * Closing a window automatically deregisters and deletes Qt allocations from memory (`WA_DeleteOnClose`).
+  * `close_all_windows()` cleanly shuts down all active tool dialogs upon license deactivation or suite reload.
+
+### `[FW-04]` Structured Preflight & Diagnostic QA Engine (`preflight.py` & `validation.py`)
+* All model, rig, or scene validators must utilize `PreflightReport`, `PreflightIssue`, and `PreflightSeverity` (`INFO`, `WARNING`, `ERROR`, `CRITICAL`) with automatic viewport component selection.
+
+### `[FW-05]` Centralized Version Reservation & JSON Manifests (`snapshots.py`)
+* All department exports (skin weight packages, character SMD rigs, shot animation caches) must utilize `reserve_next_version()`, standardized JSON package manifests, and scene metadata lookup.
+
+### `[FW-06]` Standardized Studio Event Bus (`logging.py`)
+* All diagnostic and operation feedback must route through `emit_log(message, level="info"|"warning"|"error"|"success", source="ToolName")` to stream live to the studio Global Log Viewer and rotate in `~/.scartools/logs/`.
+
