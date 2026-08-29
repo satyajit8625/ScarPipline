@@ -24,7 +24,11 @@ try:
         create_labeled_slider,
         MultiSelectComboBox,
     )
-    QT_AVAILABLE = True
+    import maya.cmds as cmds
+    if cmds.about(batch=True):
+        QT_AVAILABLE = False
+    else:
+        QT_AVAILABLE = True
 except Exception:
     QT_AVAILABLE = False
 

@@ -14,38 +14,16 @@ _HERE = os.path.dirname(os.path.abspath(__file__))
 _SCRIPTS = os.path.join(os.path.dirname(_HERE), "scripts")
 if _SCRIPTS not in sys.path:
     sys.path.insert(0, _SCRIPTS)
+if _HERE not in sys.path:
+    sys.path.insert(0, _HERE)
 
-from tests.test_release import install_maya_stubs
-install_maya_stubs()
+try:
+    import maya.standalone
+    maya.standalone.initialize(name="python")
+except Exception:
+    pass
 
 import maya.cmds as cmds
-
-# Add any mock stubs for headless execution
-for func_name, default_impl in [
-    ("file", lambda *args, **kwargs: None),
-    ("camera", lambda *args, **kwargs: ["camera1", "cameraShape1"]),
-    ("setKeyframe", lambda *args, **kwargs: 1),
-    ("keyframe", lambda *args, **kwargs: [1001.0, 1010.0]),
-    ("group", lambda *args, **kwargs: kwargs.get("name", "group1")),
-    ("polySphere", lambda *args, **kwargs: ["pSphere1", "pSphereShape1"]),
-    ("polyCube", lambda *args, **kwargs: ["pCube1", "pCubeShape1"]),
-    ("parent", lambda *args, **kwargs: None),
-    ("playbackOptions", lambda *args, **kwargs: 1050 if kwargs.get("minTime") else (1120 if kwargs.get("maxTime") else 1001)),
-    ("currentTime", lambda *args, **kwargs: None),
-    ("delete", lambda *args, **kwargs: None),
-    ("objExists", lambda node: True),
-    ("rename", lambda obj, new_name: new_name),
-    ("bakeResults", lambda *args, **kwargs: None),
-    ("AbcExport", lambda *args, **kwargs: None),
-    ("AbcImport", lambda *args, **kwargs: None),
-    ("currentUnit", lambda *args, **kwargs: None),
-    ("listRelatives", lambda *args, **kwargs: ["cameraShape1"] if kwargs.get("shapes") else []),
-    ("attributeQuery", lambda *args, **kwargs: True),
-    ("connectAttr", lambda *args, **kwargs: None),
-    ("parentConstraint", lambda *args, **kwargs: ["parentConstraint1"]),
-]:
-    if not hasattr(cmds, func_name):
-        setattr(cmds, func_name, default_impl)
 
 from scartools.tools.anim_io.manifest import MANIFEST
 from scartools.tools.anim_io.api.manifest_builder import (
@@ -126,35 +104,38 @@ class TestAnimIO(unittest.TestCase):
 
     def test_camera_discovery_and_baking(self):
         """Verify discovery of custom cameras and world-space baking."""
-        orig_ls = cmds.ls
-        orig_rel = cmds.listRelatives
-        try:
-            cmds.ls = lambda *a, **kw: ["|ShotCam_010|ShotCam_010Shape"] if kw.get("type") == "camera" else orig_ls(*a, **kw)
-            cmds.listRelatives = lambda node, *a, **kw: ["|ShotCam_010"] if kw.get("parent") else (["|ShotCam_010Shape"] if kw.get("shapes") else [])
-            
-            cams = discover_shot_cameras()
-            short_names = [c.split("|")[-1] for c in cams]
-            self.assertIn("ShotCam_010", short_names)
+        raw_cam = cmds.camera()[0]
+        cam_tf = cmds.rename(raw_cam, "ShotCam_010")
+        cmds.setKeyframe(cam_tf, attribute="translateX", t=1001, v=0.0)
+        cmds.setKeyframe(cam_tf, attribute="translateX", t=1010, v=50.0)
 
-            baked_cam = bake_camera_world_space("|ShotCam_010", 1001, 1010)
-            self.assertTrue(cmds.objExists(baked_cam))
-        finally:
-            cmds.ls = orig_ls
-            cmds.listRelatives = orig_rel
+        cams = discover_shot_cameras()
+        short_names = [c.split("|")[-1] for c in cams]
+        self.assertIn("ShotCam_010", short_names)
+
+        baked_cam = bake_camera_world_space(cam_tf, 1001, 1010)
+        self.assertTrue(cmds.objExists(baked_cam))
+        keys = cmds.keyframe(baked_cam, attribute="translateX", query=True)
+        self.assertTrue(len(keys) >= 10)
+        cmds.delete(baked_cam)
 
     def test_scene_asset_discovery(self):
         """Verify asset discovery for characters, props, and cameras."""
-        orig_ls = cmds.ls
-        try:
-            cmds.ls = lambda *a, **kw: ["|char_hero_GRP", "|prop_sword_GRP"] if kw.get("assemblies") else orig_ls(*a, **kw)
-            assets = discover_scene_assets()
-            chars = [c.split("|")[-1] for c in assets["characters"]]
-            props = [p.split("|")[-1] for p in assets["props"]]
+        cmds.camera(name="main_shot_cam")
+        char_grp = cmds.group(em=True, name="char_hero_GRP")
+        mesh_a = cmds.polySphere(name="hero_body_GEO")[0]
+        cmds.parent(mesh_a, char_grp)
 
-            self.assertIn("char_hero_GRP", chars)
-            self.assertIn("prop_sword_GRP", props)
-        finally:
-            cmds.ls = orig_ls
+        prop_grp = cmds.group(em=True, name="prop_sword_GRP")
+        mesh_b = cmds.polyCube(name="sword_blade_GEO")[0]
+        cmds.parent(mesh_b, prop_grp)
+
+        assets = discover_scene_assets()
+        chars = [c.split("|")[-1] for c in assets["characters"]]
+        props = [p.split("|")[-1] for p in assets["props"]]
+
+        self.assertIn("char_hero_GRP", chars)
+        self.assertIn("prop_sword_GRP", props)
 
     def test_apply_shot_time_settings(self):
         """Verify time settings and playback range application."""

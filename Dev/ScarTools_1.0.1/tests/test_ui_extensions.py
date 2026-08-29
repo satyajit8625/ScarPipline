@@ -45,7 +45,11 @@ try:
         get_theme_stylesheet,
     )
     from scartools.framework.benchmark import ExecutionTimer, time_operation
-    QT_AVAILABLE = True
+    import maya.cmds as cmds
+    if cmds.about(batch=True):
+        QT_AVAILABLE = False
+    else:
+        QT_AVAILABLE = True
 except Exception as e:
     QT_AVAILABLE = False
 

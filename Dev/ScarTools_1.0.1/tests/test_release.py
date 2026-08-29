@@ -30,9 +30,22 @@ def install_maya_stubs():
         sys.modules["maya.cmds"] = cmds
     maya.cmds = cmds
 
-    state = {"selection": ["|character|body"], "events": [], "batch": True}
+    # Save real Maya C++ methods if not saved yet
+    for name in ("ls", "select", "undoInfo", "undo", "refresh", "about", "file", "objExists", "nodeType", "playbackOptions"):
+        real_attr = "_real_" + name
+        if hasattr(cmds, name) and not hasattr(cmds, real_attr):
+            fn = getattr(cmds, name)
+            if fn and getattr(fn, "__name__", "") != "stub_" + name:
+                setattr(cmds, real_attr, fn)
 
-    def about(version=False, apiVersion=False, batch=False, **_):
+    state = getattr(sys, "_maya_stub_state", None)
+    if state is None:
+        state = {"selection": ["|character|body"], "events": [], "batch": True}
+        sys._maya_stub_state = state
+    state["events"] = []
+    state["selection"] = ["|character|body"]
+
+    def stub_about(version=False, apiVersion=False, batch=False, **_):
         if version:
             return "2023"
         if apiVersion:
@@ -41,12 +54,15 @@ def install_maya_stubs():
             return state["batch"]
         return "2023"
 
-    def ls(*_, **kwargs):
+    def stub_ls(*a, **kwargs):
         if kwargs.get("selection") or kwargs.get("sl"):
             return list(state["selection"])
+        real = getattr(cmds, "_real_ls", None)
+        if real and hasattr(cmds, "_real_file") and getattr(cmds, "_real_file"):
+            return real(*a, **kwargs)
         return []
 
-    def select(items=None, replace=False, clear=False, **_):
+    def stub_select(items=None, replace=False, clear=False, **_):
         if clear:
             state["selection"] = []
         elif replace:
@@ -65,9 +81,9 @@ def install_maya_stubs():
     def refresh(suspend=False, force=False, **_):
         state["events"].append(("refresh", bool(suspend), bool(force)))
 
-    cmds.about = about
-    cmds.ls = ls
-    cmds.select = select
+    cmds.about = stub_about
+    cmds.ls = stub_ls
+    cmds.select = stub_select
     cmds.undoInfo = undo_info
     cmds.undo = undo
     cmds.refresh = refresh
@@ -124,13 +140,21 @@ class ReleaseTests(unittest.TestCase):
     def setUpClass(cls):
         cls._old_path = list(sys.path)
         sys.path.insert(0, str(SCRIPTS))
+        cmds = sys.modules.get("maya.cmds")
+        cls._orig_cmds = {}
+        if cmds:
+            for fn in ("ls", "select", "undoInfo", "undo", "refresh", "about"):
+                cls._orig_cmds[fn] = getattr(cmds, fn, None)
         cls.maya_state = install_maya_stubs()
 
     @classmethod
     def tearDownClass(cls):
         sys.path[:] = cls._old_path
-
-
+        cmds = sys.modules.get("maya.cmds")
+        if cmds and hasattr(cls, "_orig_cmds"):
+            for fn, original in cls._orig_cmds.items():
+                if original is not None:
+                    setattr(cmds, fn, original)
 
     def setUp(self):
         self.maya_state["events"][:] = []
@@ -221,6 +245,7 @@ class ReleaseTests(unittest.TestCase):
     def test_central_scene_transaction_rolls_back_partial_failure(self):
         from scartools.framework import SceneTransaction
 
+        self.maya_state["events"] = []
         with self.assertRaisesRegex(RuntimeError, "injected"):
             with SceneTransaction("FaultInjection", suspend_refresh=True) as transaction:
                 transaction.mark_mutating()

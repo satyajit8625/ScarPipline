@@ -28,7 +28,6 @@ Version 1.0.1 provides a clean, centralized framework: every built-in tool lives
 - **Generate UDIM**: 1-Click hardware UV tile mipmap preview generator, GPU cache flusher, and Textured display mode activator (Key 6).
 
 ### 4. Animation & Pipeline
-- **Anim I/O Suite**: Shot animation packaging, world-space baked FBX/Alembic cameras, deforming character and prop point caches with motion blur velocities, and 1-click downstream scene assembly (`shot_manifest.json`).
 - **Pipeline Renamer**: Bulk search/replace, prefix/suffix insertion, sequential numbering, and studio suffix presets.
 - **Log Viewer**: Centralized studio event bus capturing real-time diagnostic output, warnings, errors, and successes.
 - **Design System Showcase**: Live interactive gallery of all centralized DCC widgets, falloff curves, UDIM matrix grids, and studio themes.

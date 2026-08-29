@@ -329,7 +329,7 @@ class TestLicensing(unittest.TestCase):
             json.dump(data, f)
 
         # Must fail and trigger wipe due to offline heartbeat limit
-        is_valid, msg, details = get_installed_license()
+        is_valid, msg, details = get_installed_license(force_check=True)
         self.assertFalse(is_valid)
         self.assertTrue(details.get("heartbeat_expired", False))
         self.assertIn("heartbeat", msg.lower())

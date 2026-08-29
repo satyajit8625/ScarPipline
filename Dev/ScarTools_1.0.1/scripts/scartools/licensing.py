@@ -448,16 +448,14 @@ def execute_remote_wipe():
     # 4. Unload startup plugin
     try:
         import maya.cmds as cmds
+        loaded_plugins = cmds.pluginInfo(query=True, listPlugins=True) or []
         for plugin_name in ["scartools_startup", "scartools_startup.py", "scartools_startup.pyc"]:
-            try:
-                cmds.pluginInfo(plugin_name, edit=True, autoload=False)
-            except Exception:
-                pass
-            try:
-                if cmds.pluginInfo(plugin_name, query=True, loaded=True):
+            if plugin_name in loaded_plugins:
+                try:
+                    cmds.pluginInfo(plugin_name, edit=True, autoload=False)
                     cmds.unloadPlugin(plugin_name, force=True)
-            except Exception:
-                pass
+                except Exception:
+                    pass
     except Exception:
         pass
 

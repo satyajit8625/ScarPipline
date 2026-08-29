@@ -159,7 +159,21 @@ def run_sync(target_version_dir=None):
     test_dir = os.path.join(target_version_dir, "tests")
     if os.path.isdir(test_dir) and os.path.exists(MAYAPY_PATH):
         print("\n[1/3] Running Maya Unit Tests (mayapy)...")
-        cmd = [MAYAPY_PATH, "-m", "unittest", "discover", "-s", "tests", "-p", "test_*.py"]
+        runner_code = (
+            "import unittest, sys, os\n"
+            "loader = unittest.TestLoader()\n"
+            "suite = loader.discover('tests', pattern='test_*.py')\n"
+            "runner = unittest.TextTestRunner(verbosity=2, stream=sys.stdout)\n"
+            "res = runner.run(suite)\n"
+            "if not res.wasSuccessful():\n"
+            "    print('FAILURES:', len(res.failures), 'ERRORS:', len(res.errors))\n"
+            "    for t, e in res.failures:\n"
+            "        print('FAIL:', t, e)\n"
+            "    for t, e in res.errors:\n"
+            "        print('ERROR:', t, e)\n"
+            "os._exit(0 if res.wasSuccessful() else 1)\n"
+        )
+        cmd = [MAYAPY_PATH, "-c", runner_code]
         res = subprocess.call(cmd, cwd=target_version_dir)
         if res != 0:
             print("\n[ERROR] Tests failed! Aborting sync to Share.")
