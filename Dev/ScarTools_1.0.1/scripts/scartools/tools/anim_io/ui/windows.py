@@ -17,7 +17,10 @@ from scartools.ui.components import (
 from scartools.ui.controls import (
     create_segmented_control,
     create_toggle_switch,
+)
+from scartools.ui.widgets import (
     PathPickerWidget,
+    create_path_picker,
 )
 from scartools.ui import tokens
 
