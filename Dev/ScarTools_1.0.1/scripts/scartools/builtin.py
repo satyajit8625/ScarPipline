@@ -15,6 +15,7 @@ BUILTIN_TOOL_MODULES = (
     "scartools.tools.modeling",
     "scartools.tools.udim",
     "scartools.tools.renamer",
+    "scartools.tools.anim_io",
 )
 
 BUILTIN_TOOL_MANIFESTS = (
@@ -24,6 +25,7 @@ BUILTIN_TOOL_MANIFESTS = (
     "scartools.tools.modeling.manifest:MANIFEST",
     "scartools.tools.udim.manifest:MANIFEST",
     "scartools.tools.renamer.manifest:MANIFEST",
+    "scartools.tools.anim_io.manifest:MANIFEST",
 )
 
 

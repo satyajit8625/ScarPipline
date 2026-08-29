@@ -568,6 +568,9 @@
                 <div class="nav-item" onclick="showSection('udim_manager', this)">
                     <span class="nav-item-icon">🗺️</span> Generate UDIM (1-Click)
                 </div>
+                <div class="nav-item" onclick="showSection('anim_io', this)">
+                    <span class="nav-item-icon">🎬</span> Anim I/O Suite (Export/Import)
+                </div>
                 <div class="nav-item" onclick="showSection('character_finalizer', this)">
                     <span class="nav-item-icon">🎭</span> Character Finalizer
                 </div>
@@ -592,6 +595,9 @@
                 </div>
                 <div class="nav-item" onclick="showSection('api_udim', this)">
                     <span class="nav-item-icon">💻</span> UDIM Operations API (scartools.tools.udim)
+                </div>
+                <div class="nav-item" onclick="showSection('api_anim_io', this)">
+                    <span class="nav-item-icon">💻</span> Anim I/O API (scartools.tools.anim_io)
                 </div>
                 <div class="nav-item" onclick="showSection('api_finalizer', this)">
                     <span class="nav-item-icon">💻</span> Finalizer API (scartools.tools.character_finalizer)
@@ -642,6 +648,72 @@
                             <li><strong>Smart Cross-Department Transfers:</strong> Material and skin snapshots intelligently transfer across departments (e.g. Model scene to Rig scene to Animation scene).</li>
                         </ul>
                     </div>
+                </div>
+
+                
+                <!-- Anim I/O Suite -->
+                <div id="anim_io" class="doc-section">
+                    <div class="breadcrumb">Department Tools &bull; Animation</div>
+                    <h1>Anim I/O Suite</h1>
+                    <div class="doc-subtitle">Automated shot animation packaging, Alembic & FBX cache extraction, and 1-click downstream scene assembly.</div>
+
+                    <div class="callout callout-info">
+                        <div class="callout-title">💡 Why Anim I/O?</div>
+                        <p>Eliminates human error when passing animated assets to downstream departments (Lighting, FX, Comp, and Unreal Engine). Automatically bakes world-space cameras, extracts deforming character and prop geometry caches with vertex velocity vectors, and writes a standardized <code>shot_manifest.json</code> ID card for 1-click scene reconstruction.</p>
+                    </div>
+
+                    <h2>Core Supported Formats</h2>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Category</th>
+                                <th>Formats</th>
+                                <th>Key Capabilities & Features</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><strong>Shot Camera</strong></td>
+                                <td><span class="badge badge-purple">FBX</span> <span class="badge badge-teal">Alembic</span></td>
+                                <td>Bakes world-space constraints, focal length animation, filmback/aperture, clip planes, and camera shake curves.</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Characters & Creatures</strong></td>
+                                <td><span class="badge badge-teal">Alembic (.abc)</span> <span class="badge badge-purple">FBX (.fbx)</span></td>
+                                <td>Bakes vertex deformation, normals, UVs, and motion blur velocity vectors (<code>-writeVelocities</code>) for Arnold, V-Ray, and Houdini FX.</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Props & Environment</strong></td>
+                                <td><span class="badge badge-teal">Alembic (.abc)</span> <span class="badge badge-purple">FBX (.fbx)</span></td>
+                                <td>Extracts hierarchical transforms and mesh geometry caches for set dressing and interactable props.</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Shot Package Manifest</strong></td>
+                                <td><span class="badge badge-amber">JSON</span></td>
+                                <td>Auto-generates <code>shot_manifest.json</code> capturing exact frame ranges, simulation handles, FPS, active camera, and asset paths.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <h2>Export & Import Workflow</h2>
+                    <ol>
+                        <li><strong>Exporting a Shot Package:</strong>
+                            <ul>
+                                <li>Open <strong>Anim I/O Suite</strong> from the ScarTools shelf or menu.</li>
+                                <li>Choose your <strong>Target Destination</strong> directory and specify the <strong>Shot Name</strong> (e.g. <code>SQ01_SH010</code>).</li>
+                                <li>Select your <strong>Frame Range</strong> (Timeline or Custom) and set <strong>Simulation Handles</strong> (e.g. ±5 frames for FX).</li>
+                                <li>Select the active <strong>Shot Camera</strong> and choose format (<code>FBX</code> or <code>Alembic</code>).</li>
+                                <li>Check the characters and props to export, then click <strong>📦 EXPORT SHOT PACKAGE</strong>.</li>
+                            </ul>
+                        </li>
+                        <li><strong>1-Click Downstream Shot Assembly:</strong>
+                            <ul>
+                                <li>Switch to the <strong>📥 Import & Assemble</strong> tab.</li>
+                                <li>Browse to the exported shot folder containing <code>shot_manifest.json</code>.</li>
+                                <li>Click <strong>📥 ASSEMBLE SHOT SCENE</strong> — Maya automatically sets the timeline range and FPS, imports and locks the camera, and references all character/prop caches!</li>
+                            </ul>
+                        </li>
+                    </ol>
                 </div>
 
                 <!-- 2. Model Sanitizer -->
@@ -985,6 +1057,45 @@ pkg_path = export_skin_package(
     meshes=["hero_body_GEO", "hero_shirt_GEO"]
 )
 print("Saved skin snapshot to:", pkg_path)</code></pre>
+                </div>
+
+                
+                <!-- Technical API: Anim I/O -->
+                <div id="api_anim_io" class="doc-section">
+                    <div class="breadcrumb">Technical API Reference &bull; Animation</div>
+                    <h1>Anim I/O API</h1>
+                    <div class="doc-subtitle">Package: <code>scartools.tools.anim_io.api</code></div>
+
+                    <div class="api-method-header">
+                        <span class="badge badge-purple">FUNCTION</span>
+                        <span class="api-method-name">export_shot_package(output_dir, shot_name, start_frame, end_frame, ...)</span>
+                    </div>
+                    <div class="api-signature">export_shot_package(output_dir: str, shot_name: str, start_frame: int, end_frame: int, fps: float = 24.0, camera_node: str = None, camera_format: str = "fbx", character_nodes: list = None, character_formats: tuple = ("abc",), prop_nodes: list = None, prop_formats: tuple = ("abc",), handles: int = 0, write_velocities: bool = True) -> dict</div>
+                    <p>Master export pipeline: packages camera, character, and prop caches into a target directory and generates <code>shot_manifest.json</code>.</p>
+
+                    <div class="api-method-header">
+                        <span class="badge badge-purple">FUNCTION</span>
+                        <span class="api-method-name">import_shot_package(package_dir_or_manifest, import_time_settings=True, ...)</span>
+                    </div>
+                    <div class="api-signature">import_shot_package(package_dir_or_manifest: str, import_time_settings: bool = True, import_camera: bool = True, import_characters: bool = True, import_props: bool = True, lock_camera: bool = True) -> dict</div>
+                    <p>1-Click shot assembly: reads manifest data, configures Maya timeline and FPS, and connects camera and asset caches.</p>
+
+                    <pre><code>from scartools.tools.anim_io.api import export_shot_package, import_shot_package
+
+# 1. Export shot package
+result = export_shot_package(
+    output_dir="O:/Projects/Pirates/Shots",
+    shot_name="SQ01_SH010",
+    start_frame=1001,
+    end_frame=1085,
+    camera_node="|ShotCam_010",
+    character_nodes=["|char_hero_GRP"],
+    handles=5
+)
+print("Exported shot to:", result["target_dir"])
+
+# 2. Downstream shot assembly (Lighting/FX)
+import_shot_package("O:/Projects/Pirates/Shots/SQ01_SH010")</code></pre>
                 </div>
 
                 <!-- 12. Technical API: Shading -->

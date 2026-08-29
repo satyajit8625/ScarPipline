@@ -53,6 +53,13 @@ SHELF_TOOLS = [
         "annotation": "1-Click: Automatically format <UDIM> paths, generate hardware tile previews, and reload Viewport 2.0.",
     },
     {
+        "label": "Anim I/O",
+        "overlay_label": "Anim",
+        "command": "import scartools.tools.anim_io\nscartools.tools.anim_io.show()",
+        "icon": "department_animation.png",
+        "annotation": "Shot animation packaging, Alembic & FBX cache extraction, and 1-click scene assembly.",
+    },
+    {
         "label": "Pipeline Renamer",
         "overlay_label": "Rename",
         "command": "import scartools.tools.renamer\nscartools.tools.renamer.show_ui()",

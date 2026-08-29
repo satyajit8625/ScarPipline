@@ -176,12 +176,13 @@ class ReleaseTests(unittest.TestCase):
         self.assertIn("scartools.tools.modeling.manifest:MANIFEST", builtin)
         self.assertIn("scartools.tools.udim.manifest:MANIFEST", builtin)
         self.assertIn("scartools.tools.renamer.manifest:MANIFEST", builtin)
+        self.assertIn("scartools.tools.anim_io.manifest:MANIFEST", builtin)
 
     def test_manifests_share_contract_and_maya_floor(self):
         from scartools.catalog import manifests
 
         values = manifests()
-        self.assertEqual(len(values), 6)
+        self.assertEqual(len(values), 7)
         for manifest in values:
             self.assertEqual(manifest.version, "1.0.1")
             self.assertEqual(manifest.min_maya_version, 2023)
@@ -431,13 +432,14 @@ class ReleaseTests(unittest.TestCase):
     def test_shelf_tools_definition(self):
         from scartools.shelf import SHELF_TOOLS, SHELF_NAME
         self.assertEqual(SHELF_NAME, "ScarTools")
-        self.assertEqual(len(SHELF_TOOLS), 8)
+        self.assertEqual(len(SHELF_TOOLS), 9)
         labels = [t["label"] for t in SHELF_TOOLS]
         overlays = [t["overlay_label"] for t in SHELF_TOOLS]
         self.assertIn("Skin Tools", labels)
         self.assertIn("Shader Tools", labels)
         self.assertIn("Character Finalizer", labels)
         self.assertIn("Generate UDIM", labels)
+        self.assertIn("Anim I/O", labels)
         self.assertIn("Pipeline Renamer", labels)
         self.assertIn("Log Viewer", labels)
         self.assertIn("About ScarTools", labels)
@@ -445,6 +447,7 @@ class ReleaseTests(unittest.TestCase):
         self.assertIn("Shader", overlays)
         self.assertIn("Rig", overlays)
         self.assertIn("UDIM", overlays)
+        self.assertIn("Anim", overlays)
         self.assertIn("Rename", overlays)
         self.assertIn("Logs", overlays)
         self.assertIn("About", overlays)
