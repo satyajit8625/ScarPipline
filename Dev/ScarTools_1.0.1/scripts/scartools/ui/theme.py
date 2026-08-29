@@ -744,11 +744,23 @@ def apply(widget, theme_name=None):
     return widget
 
 
+def repolish(widget):
+    """Force Qt to re-evaluate dynamic property style rules on a widget."""
+    if widget is None:
+        return
+    style = widget.style()
+    if style is not None:
+        style.unpolish(widget)
+        style.polish(widget)
+    widget.update()
+
+
 __all__ = [
     "COLORS",
     "THEMES",
     "QSS",
     "apply",
+    "repolish",
     "get_theme_stylesheet",
     "get_available_themes",
     "get_active_theme",

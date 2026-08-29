@@ -22,6 +22,7 @@ from scartools.ui.widgets import (
     PathPickerWidget,
     create_path_picker,
 )
+from scartools.ui.theme import repolish
 from scartools.ui import tokens
 
 from ..controller import AnimIOController
@@ -50,7 +51,7 @@ class AnimIODialog(BaseToolDialog):
         root.setSpacing(10)
 
         # 1. Brand Header
-        header = create_brand_header(
+        header, _subtitle = create_brand_header(
             "ANIMATION I/O SUITE",
             "Shot Packaging, Alembic & FBX Cache Extraction & Assembly",
             parent=self,
@@ -60,7 +61,7 @@ class AnimIODialog(BaseToolDialog):
         # 2. Mode Selector
         self.mode_control = create_segmented_control(
             ["📦 Export Shot", "📥 Import & Assemble"],
-            initial_index=0,
+            current=0,
             parent=self,
         )
         self.mode_control.currentIndexChanged.connect(self._on_mode_changed)
@@ -77,7 +78,7 @@ class AnimIODialog(BaseToolDialog):
         export_layout.setSpacing(8)
 
         # A. Target Destination Panel
-        dest_panel, dest_layout = create_section_panel("📁 TARGET DESTINATION & SHOT", accent="pipeline", parent=self)
+        dest_panel, dest_layout, _ = create_section_panel("📁 TARGET DESTINATION & SHOT", accent="pipeline", parent=self)
         self.path_picker = PathPickerWidget(mode="directory", parent=self)
         dest_layout.addWidget(self.path_picker)
 
@@ -93,22 +94,31 @@ class AnimIODialog(BaseToolDialog):
         export_layout.addWidget(dest_panel)
 
         # B. Frame Range & Handles Panel
-        range_panel, range_layout = create_section_panel("⏱️ FRAME RANGE & HANDLES", accent="animation", parent=self)
-        self.range_mode = create_segmented_control(["Timeline", "Custom"], initial_index=0, parent=self)
+        range_panel, range_layout, _ = create_section_panel("⏱️ FRAME RANGE & HANDLES", accent="animation", parent=self)
+        self.range_mode = create_segmented_control(["Timeline", "Custom"], current=0, parent=self)
         self.range_mode.currentIndexChanged.connect(self._on_range_mode_changed)
         range_layout.addWidget(self.range_mode)
 
         spin_row = QtWidgets.QHBoxLayout()
+        start_f = 1001
+        end_f = 1100
+        try:
+            if hasattr(cmds, "playbackOptions"):
+                start_f = int(cmds.playbackOptions(q=True, minTime=True) or 1001)
+                end_f = int(cmds.playbackOptions(q=True, maxTime=True) or 1100)
+        except Exception:
+            pass
+
         spin_row.addWidget(QtWidgets.QLabel("Start:", self))
         self.start_spin = QtWidgets.QSpinBox(self)
         self.start_spin.setRange(-999999, 999999)
-        self.start_spin.setValue(int(cmds.playbackOptions(q=True, minTime=True) or 1001))
+        self.start_spin.setValue(start_f)
         spin_row.addWidget(self.start_spin)
 
         spin_row.addWidget(QtWidgets.QLabel("End:", self))
         self.end_spin = QtWidgets.QSpinBox(self)
         self.end_spin.setRange(-999999, 999999)
-        self.end_spin.setValue(int(cmds.playbackOptions(q=True, maxTime=True) or 1100))
+        self.end_spin.setValue(end_f)
         spin_row.addWidget(self.end_spin)
 
         spin_row.addWidget(QtWidgets.QLabel("Handles (±):", self))
@@ -120,7 +130,7 @@ class AnimIODialog(BaseToolDialog):
         export_layout.addWidget(range_panel)
 
         # C. Camera Selection Panel
-        cam_panel, cam_layout = create_section_panel("🎥 SHOT CAMERA", accent="animation", parent=self)
+        cam_panel, cam_layout, _ = create_section_panel("🎥 SHOT CAMERA", accent="animation", parent=self)
         cam_row = QtWidgets.QHBoxLayout()
         cam_lbl = QtWidgets.QLabel("Camera:", self)
         cam_lbl.setFixedWidth(75)
@@ -135,7 +145,7 @@ class AnimIODialog(BaseToolDialog):
         export_layout.addWidget(cam_panel)
 
         # D. Characters & Props Panel
-        asset_panel, asset_layout = create_section_panel("🎭 CHARACTERS & PROPS", accent="animation", parent=self)
+        asset_panel, asset_layout, _ = create_section_panel("🎭 CHARACTERS & PROPS", accent="animation", parent=self)
         fmt_row = QtWidgets.QHBoxLayout()
         fmt_lbl = QtWidgets.QLabel("Cache Format:", self)
         self.geo_format_combo = QtWidgets.QComboBox(self)
@@ -175,13 +185,13 @@ class AnimIODialog(BaseToolDialog):
         import_layout.setContentsMargins(0, 0, 0, 0)
         import_layout.setSpacing(10)
 
-        in_panel, in_layout = create_section_panel("📁 LOAD SHOT PACKAGE", accent="pipeline", parent=self)
+        in_panel, in_layout, _ = create_section_panel("📁 LOAD SHOT PACKAGE", accent="pipeline", parent=self)
         self.import_path_picker = PathPickerWidget(mode="directory", parent=self)
         self.import_path_picker.pathChanged.connect(self._on_import_path_changed)
         in_layout.addWidget(self.import_path_picker)
         import_layout.addWidget(in_panel)
 
-        info_panel, info_layout = create_section_panel("📋 SHOT MANIFEST DETAILS", accent="animation", parent=self)
+        info_panel, info_layout, _ = create_section_panel("📋 SHOT MANIFEST DETAILS", accent="animation", parent=self)
         self.manifest_summary = QtWidgets.QTextEdit(self)
         self.manifest_summary.setReadOnly(True)
         self.manifest_summary.setPlaceholderText("Select a shot directory containing shot_manifest.json...")
@@ -189,7 +199,7 @@ class AnimIODialog(BaseToolDialog):
         info_layout.addWidget(self.manifest_summary)
         import_layout.addWidget(info_panel)
 
-        opts_panel, opts_layout = create_section_panel("☑️ ASSEMBLY OPTIONS", accent="animation", parent=self)
+        opts_panel, opts_layout, _ = create_section_panel("☑️ ASSEMBLY OPTIONS", accent="animation", parent=self)
         self.chk_time = QtWidgets.QCheckBox("Set Timeline Frame Range & FPS", self)
         self.chk_time.setChecked(True)
         self.chk_cam = QtWidgets.QCheckBox("Import Shot Camera (Lock Transforms)", self)
@@ -208,30 +218,56 @@ class AnimIODialog(BaseToolDialog):
         self.stack.addWidget(import_widget)
 
         # 4. Action Footer
-        self.footer = create_action_footer(
+        (
+            action_footer,
+            self.message_label,
+            self.apply_button,
+            self.status_dot,
+            self.status_label,
+            self.view_log_button,
+            _status_layout,
+        ) = create_action_footer(
             "📦 EXPORT SHOT PACKAGE",
             message="Ready to package shot.",
             parent=self,
             include_log=False,
         )
-        self.footer.action_button.clicked.connect(self._on_action_clicked)
-        root.addWidget(self.footer)
+        self.apply_button.clicked.connect(self._on_action_clicked)
+        root.addWidget(action_footer)
 
         apply_theme(self)
+
+    def _set_status(self, text, state="idle"):
+        self.status_label.setText(str(text))
+        self.status_label.setProperty("state", state)
+        self.status_dot.setProperty("state", state)
+        repolish(self.status_label)
+        repolish(self.status_dot)
+
+    def _set_message(self, text, state="neutral"):
+        self.message_label.setText(str(text))
+        self.message_label.setProperty("state", state)
+        repolish(self.message_label)
 
     def _on_mode_changed(self, index):
         self.stack.setCurrentIndex(index)
         if index == 0:
-            self.footer.action_button.setText("📦 EXPORT SHOT PACKAGE")
-            self.footer.set_message("Ready to package shot.")
+            self.apply_button.setText("📦 EXPORT SHOT PACKAGE")
+            self._set_message("Ready to package shot.", "neutral")
+            self._set_status("Ready", "idle")
         else:
-            self.footer.action_button.setText("📥 ASSEMBLE SHOT SCENE")
-            self.footer.set_message("Select a shot package to assemble.")
+            self.apply_button.setText("📥 ASSEMBLE SHOT SCENE")
+            self._set_message("Select a shot package to assemble.", "neutral")
+            self._set_status("Ready", "idle")
 
     def _on_range_mode_changed(self, index):
         if index == 0:  # Timeline
-            self.start_spin.setValue(int(cmds.playbackOptions(q=True, minTime=True) or 1001))
-            self.end_spin.setValue(int(cmds.playbackOptions(q=True, maxTime=True) or 1100))
+            try:
+                if hasattr(cmds, "playbackOptions"):
+                    self.start_spin.setValue(int(cmds.playbackOptions(q=True, minTime=True) or 1001))
+                    self.end_spin.setValue(int(cmds.playbackOptions(q=True, maxTime=True) or 1100))
+            except Exception:
+                pass
 
     def refresh_scene_data(self):
         """Scan active Maya scene for cameras, characters, and props."""
@@ -275,6 +311,8 @@ class AnimIODialog(BaseToolDialog):
         manifest = load_shot_manifest(path)
         if not manifest:
             self.manifest_summary.setHtml("<span style='color:#E57373;'>⚠️ No valid shot_manifest.json found in this directory.</span>")
+            self._set_message("No valid shot_manifest.json found.", "warning")
+            self._set_status("No Manifest", "warning")
             return
 
         shot_name = manifest.get("shot_name", "Unknown")
@@ -294,10 +332,11 @@ class AnimIODialog(BaseToolDialog):
         <b>Export Date:</b> {}
         """.format(shot_name, fr.get("start"), fr.get("end"), fps, cam, chars, props, date)
         self.manifest_summary.setHtml(html)
-        self.footer.set_message("Manifest loaded for shot '{}'.".format(shot_name), status="success")
+        self._set_message("Manifest loaded for shot '{}'.".format(shot_name), "neutral")
+        self._set_status("Manifest Loaded", "idle")
 
     def _on_action_clicked(self):
-        mode = self.mode_control.currentIndex()
+        mode = self.mode_control.current_index()
         if mode == 0:
             self._do_export()
         else:
@@ -306,7 +345,8 @@ class AnimIODialog(BaseToolDialog):
     def _do_export(self):
         out_dir = self.path_picker.path()
         if not out_dir or not os.path.isdir(out_dir):
-            self.footer.set_message("Please specify a valid output directory.", status="error")
+            self._set_message("Please specify a valid output directory.", "warning")
+            self._set_status("Invalid Directory", "warning")
             return
 
         shot_name = self.shot_name_input.text().strip() or "untitled_shot"
@@ -334,10 +374,11 @@ class AnimIODialog(BaseToolDialog):
                 else:
                     props.append(anode)
 
-        vel = self.vel_toggle.isChecked()
+        vel = self.vel_toggle.is_checked()
 
         try:
-            self.footer.set_message("Exporting shot package...", status="running")
+            self._set_message("Exporting shot package...", "neutral")
+            self._set_status("Exporting...", "running")
             QtWidgets.QApplication.processEvents()
 
             from ..operations import export_shot_package
@@ -356,18 +397,22 @@ class AnimIODialog(BaseToolDialog):
                 handles=handles,
                 write_velocities=vel,
             )
-            self.footer.set_message("Exported shot '{}' successfully!".format(shot_name), status="success")
+            self._set_message("Exported shot '{}' successfully!".format(shot_name), "neutral")
+            self._set_status("Export Success", "idle")
         except Exception as e:
-            self.footer.set_message("Export failed: {}".format(e), status="error")
+            self._set_message("Export failed: {}".format(e), "warning")
+            self._set_status("Export Failed", "error")
 
     def _do_import(self):
         in_path = self.import_path_picker.path()
         if not in_path:
-            self.footer.set_message("Please select a shot package folder.", status="error")
+            self._set_message("Please select a shot package folder.", "warning")
+            self._set_status("No Folder Selected", "warning")
             return
 
         try:
-            self.footer.set_message("Assembling shot scene...", status="running")
+            self._set_message("Assembling shot scene...", "neutral")
+            self._set_status("Assembling...", "running")
             QtWidgets.QApplication.processEvents()
 
             from ..operations import import_shot_package
@@ -379,14 +424,16 @@ class AnimIODialog(BaseToolDialog):
                 import_props=self.chk_props.isChecked(),
                 lock_camera=True,
             )
-            self.footer.set_message(
+            self._set_message(
                 "Assembled {} chars, {} props successfully!".format(
-                    res["characters_imported"], res["props_imported"]
+                    res.get("characters_imported", 0), res.get("props_imported", 0)
                 ),
-                status="success",
+                "neutral",
             )
+            self._set_status("Assembly Success", "idle")
         except Exception as e:
-            self.footer.set_message("Assembly failed: {}".format(e), status="error")
+            self._set_message("Assembly failed: {}".format(e), "warning")
+            self._set_status("Assembly Failed", "error")
 
 
 _ACTIVE_DIALOG = None

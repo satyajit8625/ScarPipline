@@ -205,11 +205,17 @@ class ToggleSwitch(QtWidgets.QWidget):
     def is_checked(self):
         return self._checked
 
+    def isChecked(self):
+        return self._checked
+
     def set_checked(self, checked):
         if self._checked != bool(checked):
             self._checked = bool(checked)
             self.update()
             self.toggled.emit(self._checked)
+
+    def setChecked(self, checked):
+        self.set_checked(checked)
 
     def mousePressEvent(self, event):
         if event.button() == QtCore.Qt.LeftButton:
