@@ -676,14 +676,12 @@ def create_stat_card(fields=None, accent="neutral", parent=None):
     card.setObjectName("StatCard")
     card.setProperty("accent", str(accent))
 
-    card_style = (
-        "QFrame#StatCard {{ background: {}; border: 1px solid {}; border-radius: 4px; }}"
-    ).format(COLOR_BG_INPUT, COLOR_BORDER_SUBTLE)
+    card_style = "QFrame#StatCard { background: transparent; border: none; }"
     card.setStyleSheet(card_style)
 
     grid = QtWidgets.QGridLayout(card)
-    grid.setContentsMargins(10, 8, 10, 8)
-    grid.setHorizontalSpacing(10)
+    grid.setContentsMargins(4, 2, 4, 2)
+    grid.setHorizontalSpacing(14)
     grid.setVerticalSpacing(6)
 
     val_labels = {}
