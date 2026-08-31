@@ -90,11 +90,10 @@ class TestUIControls(unittest.TestCase):
         from scartools.ui import create_popup_menu, ScarPopupMenu
         menu = create_popup_menu()
         self.assertIsInstance(menu, ScarPopupMenu)
-        act1 = menu.addAction("◇  Alembic Settings…")
-        act2 = menu.addAction("◇  FBX Settings…")
+        act1 = menu.addAction("⚙  Export Settings…")
         menu.addSeparator()
-        act3 = menu.addAction("↻  Reset to Default")
-        self.assertEqual(len(menu.actions()), 4)
+        act2 = menu.addAction("↻  Reset to Default")
+        self.assertEqual(len(menu.actions()), 3)
 
 
 if __name__ == "__main__":

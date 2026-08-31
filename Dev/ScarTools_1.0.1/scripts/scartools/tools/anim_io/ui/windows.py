@@ -223,20 +223,17 @@ class AnimIODialog(BaseToolDialog):
         self.apply_button.clicked.connect(self._do_export)
 
     def _open_settings_menu(self):
-        """Show the standardized ScarPopupMenu with Alembic, FBX, and Defaults."""
+        """Show the standardized ScarPopupMenu with Export Settings and Defaults."""
         menu = create_popup_menu(parent=self)
 
-        act_alembic = menu.addAction("◇  Alembic Settings…")
-        act_fbx = menu.addAction("◇  FBX Settings…")
+        act_settings = menu.addAction("⚙  Export Settings…")
         menu.addSeparator()
         act_reset = menu.addAction("↻  Reset to Default")
 
         action = menu.exec_below_widget(self.settings_btn, offset_y=5, align="right")
 
-        if action == act_alembic:
-            show_settings_dialog(parent=self, focus_section="alembic")
-        elif action == act_fbx:
-            show_settings_dialog(parent=self, focus_section="fbx")
+        if action == act_settings:
+            show_settings_dialog(parent=self)
         elif action == act_reset:
             from .settings_dialog import reset_anim_export_settings
             reset_anim_export_settings()

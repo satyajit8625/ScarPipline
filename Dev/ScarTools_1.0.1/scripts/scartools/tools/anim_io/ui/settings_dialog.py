@@ -15,10 +15,6 @@ from scartools.ui import (
     create_button,
     apply_theme,
     repolish,
-    COLOR_TEXT_MUTED,
-    COLOR_TEXT_PRIMARY,
-    COLOR_PRIMARY_BLUE,
-    COLOR_ACCENT_PIPELINE,
     PRIMARY_BUTTON_WIDTH,
     SECONDARY_BUTTON_MIN_WIDTH,
 )
@@ -74,7 +70,7 @@ class AnimExportSettingsDialog(BaseToolDialog):
 
     OBJECT_NAME = "ScarToolsAnimExportSettingsDialog"
     TOOL_ID = "scartools_anim_io_settings"
-    WINDOW_TITLE = "Anim Export Settings"
+    WINDOW_TITLE = "Export Settings"
 
     def __init__(self, parent=None, focus_section=None):
         super(AnimExportSettingsDialog, self).__init__(
@@ -84,51 +80,41 @@ class AnimExportSettingsDialog(BaseToolDialog):
         self.setObjectName(self.OBJECT_NAME)
         self.setWindowTitle(self.WINDOW_TITLE)
         self.setAttribute(QtCore.Qt.WA_DeleteOnClose, True)
-        configure_window(self, (560, 470), (640, 550))
+        configure_window(self, (520, 480), (600, 560))
 
         self._current_settings = get_anim_export_settings()
         self._build_ui()
         self._load_values(self._current_settings)
-
-        if focus_section == "fbx":
-            self.tabs.setCurrentIndex(1)
-        elif focus_section == "alembic":
-            self.tabs.setCurrentIndex(0)
-
         apply_theme(self)
 
     def _build_ui(self):
         root = QtWidgets.QVBoxLayout(self)
         configure_root_layout(root)
 
-        # 1. Brand Header
+        # 1. Standard Brand Header [UI-02]
         header, _ = create_brand_header(
             "EXPORT SETTINGS",
-            "Alembic point cache and FBX animation take parameters",
+            "Studio Alembic & FBX Cache Configuration",
             parent=self,
         )
         root.addWidget(header)
 
-        # 2. Main Tabs
-        self.tabs = QtWidgets.QTabWidget(self)
-        self.tabs.setObjectName("MainTabs")
+        # 2. Alembic Cache Parameters Section Panel [UI-03, FW-07]
+        abc_panel, abc_layout, _ = create_section_panel(
+            "Alembic Cache Parameters", accent="pipeline", parent=self
+        )
+        abc_layout.setSpacing(10)
 
-        # Tab 1: Alembic Cache Settings
-        tab_abc = QtWidgets.QWidget()
-        abc_layout = QtWidgets.QVBoxLayout(tab_abc)
-        abc_layout.setContentsMargins(12, 14, 12, 12)
-        abc_layout.setSpacing(14)
-
-        # Velocities
+        # Row 1: Motion Blur Velocities
         vel_row = QtWidgets.QHBoxLayout()
-        vel_lbl = QtWidgets.QLabel("Motion Blur Velocity Vectors (-writeVelocities)", self)
+        vel_lbl = QtWidgets.QLabel("Motion Blur Velocities (-writeVelocities):", self)
         vel_lbl.setObjectName("SettingsFieldLabel")
         self.sw_abc_velocities = create_toggle_switch(text="", checked=True, accent="pipeline", parent=self)
         vel_row.addWidget(vel_lbl, 1)
         vel_row.addWidget(self.sw_abc_velocities)
         abc_layout.addLayout(vel_row)
 
-        # Step Sampling
+        # Row 2: Sub-Frame Step Sampling
         step_row = QtWidgets.QHBoxLayout()
         step_lbl = QtWidgets.QLabel("Sub-Frame Sampling Step:", self)
         step_lbl.setObjectName("SettingsMutedLabel")
@@ -142,9 +128,9 @@ class AnimExportSettingsDialog(BaseToolDialog):
         step_row.addWidget(self.seg_abc_step, 1)
         abc_layout.addLayout(step_row)
 
-        # Pre-Roll Handles
+        # Row 3: Pre-Roll Handles
         handle_row = QtWidgets.QHBoxLayout()
-        handle_lbl = QtWidgets.QLabel("Pre-Roll / Simulation Handles:", self)
+        handle_lbl = QtWidgets.QLabel("Pre-Roll / Handles:", self)
         handle_lbl.setObjectName("SettingsMutedLabel")
         self.seg_abc_handles = create_segmented_control(
             ["0 Frames", "±5 Frames", "±10 Frames"],
@@ -156,36 +142,42 @@ class AnimExportSettingsDialog(BaseToolDialog):
         handle_row.addWidget(self.seg_abc_handles, 1)
         abc_layout.addLayout(handle_row)
 
-        # Mesh Attributes Checkboxes
-        toggles_grid = QtWidgets.QGridLayout()
-        toggles_grid.setHorizontalSpacing(16)
-        toggles_grid.setVerticalSpacing(8)
+        # Row 4: Mesh Geometry Flags
+        flags_row = QtWidgets.QHBoxLayout()
+        flags_row.setSpacing(16)
 
-        lbl_uv = QtWidgets.QLabel("Write UV Sets (-uvWrite)", self)
+        lbl_uv = QtWidgets.QLabel("Write UVs:", self)
+        lbl_uv.setObjectName("SettingsMutedLabel")
         self.sw_abc_uv = create_toggle_switch(text="", checked=True, accent="pipeline", parent=self)
-        lbl_norm = QtWidgets.QLabel("Write Normals (-writeNormals)", self)
+
+        lbl_norm = QtWidgets.QLabel("Write Normals:", self)
+        lbl_norm.setObjectName("SettingsMutedLabel")
         self.sw_abc_norm = create_toggle_switch(text="", checked=True, accent="pipeline", parent=self)
-        lbl_rend = QtWidgets.QLabel("Renderable Only (-renderableOnly)", self)
+
+        lbl_rend = QtWidgets.QLabel("Renderable Only:", self)
+        lbl_rend.setObjectName("SettingsMutedLabel")
         self.sw_abc_rend = create_toggle_switch(text="", checked=True, accent="pipeline", parent=self)
 
-        toggles_grid.addWidget(lbl_uv, 0, 0)
-        toggles_grid.addWidget(self.sw_abc_uv, 0, 1)
-        toggles_grid.addWidget(lbl_norm, 0, 2)
-        toggles_grid.addWidget(self.sw_abc_norm, 0, 3)
-        toggles_grid.addWidget(lbl_rend, 1, 0)
-        toggles_grid.addWidget(self.sw_abc_rend, 1, 1)
+        flags_row.addWidget(lbl_uv)
+        flags_row.addWidget(self.sw_abc_uv)
+        flags_row.addSpacing(8)
+        flags_row.addWidget(lbl_norm)
+        flags_row.addWidget(self.sw_abc_norm)
+        flags_row.addSpacing(8)
+        flags_row.addWidget(lbl_rend)
+        flags_row.addWidget(self.sw_abc_rend)
+        flags_row.addStretch(1)
+        abc_layout.addLayout(flags_row)
 
-        abc_layout.addLayout(toggles_grid)
-        abc_layout.addStretch(1)
-        self.tabs.addTab(tab_abc, "🎬 Alembic Settings")
+        root.addWidget(abc_panel)
 
-        # Tab 2: FBX Export Settings
-        tab_fbx = QtWidgets.QWidget()
-        fbx_layout = QtWidgets.QVBoxLayout(tab_fbx)
-        fbx_layout.setContentsMargins(12, 14, 12, 12)
-        fbx_layout.setSpacing(14)
+        # 3. FBX Export Parameters Section Panel [UI-03, FW-07]
+        fbx_panel, fbx_layout, _ = create_section_panel(
+            "FBX Export Parameters", accent="data", parent=self
+        )
+        fbx_layout.setSpacing(10)
 
-        # Up-Axis
+        # Row 1: Coordinate Up-Axis
         axis_row = QtWidgets.QHBoxLayout()
         axis_lbl = QtWidgets.QLabel("Coordinate Up-Axis:", self)
         axis_lbl.setObjectName("SettingsFieldLabel")
@@ -199,52 +191,56 @@ class AnimExportSettingsDialog(BaseToolDialog):
         axis_row.addWidget(self.seg_fbx_axis, 1)
         fbx_layout.addLayout(axis_row)
 
-        # FBX Version & Mesh Flags
-        fbx_grid = QtWidgets.QGridLayout()
-        fbx_grid.setHorizontalSpacing(16)
-        fbx_grid.setVerticalSpacing(10)
+        # Row 2: Version & Flags
+        fbx_row2 = QtWidgets.QHBoxLayout()
+        fbx_row2.setSpacing(16)
 
         lbl_ver = QtWidgets.QLabel("FBX Version:", self)
         lbl_ver.setObjectName("SettingsMutedLabel")
         self.combo_fbx_ver = QtWidgets.QComboBox(self)
         self.combo_fbx_ver.addItems(["FBX 2020", "FBX 2018", "FBX 2016"])
-        configure_field(self.combo_fbx_ver, minimum_width=130)
+        configure_field(self.combo_fbx_ver, minimum_width=110)
 
-        lbl_smooth = QtWidgets.QLabel("Smoothing Groups", self)
+        lbl_smooth = QtWidgets.QLabel("Smoothing Groups:", self)
+        lbl_smooth.setObjectName("SettingsMutedLabel")
         self.sw_fbx_smooth = create_toggle_switch(text="", checked=True, accent="data", parent=self)
-        lbl_tri = QtWidgets.QLabel("Triangulate Polygons", self)
+
+        lbl_tri = QtWidgets.QLabel("Triangulate:", self)
+        lbl_tri.setObjectName("SettingsMutedLabel")
         self.sw_fbx_tri = create_toggle_switch(text="", checked=False, accent="data", parent=self)
 
-        fbx_grid.addWidget(lbl_ver, 0, 0)
-        fbx_grid.addWidget(self.combo_fbx_ver, 0, 1)
-        fbx_grid.addWidget(lbl_smooth, 0, 2)
-        fbx_grid.addWidget(self.sw_fbx_smooth, 0, 3)
-        fbx_grid.addWidget(lbl_tri, 1, 2)
-        fbx_grid.addWidget(self.sw_fbx_tri, 1, 3)
+        fbx_row2.addWidget(lbl_ver)
+        fbx_row2.addWidget(self.combo_fbx_ver)
+        fbx_row2.addSpacing(8)
+        fbx_row2.addWidget(lbl_smooth)
+        fbx_row2.addWidget(self.sw_fbx_smooth)
+        fbx_row2.addSpacing(8)
+        fbx_row2.addWidget(lbl_tri)
+        fbx_row2.addWidget(self.sw_fbx_tri)
+        fbx_row2.addStretch(1)
+        fbx_layout.addLayout(fbx_row2)
 
-        fbx_layout.addLayout(fbx_grid)
-        fbx_layout.addStretch(1)
-        self.tabs.addTab(tab_fbx, "🎮 FBX Settings")
+        root.addWidget(fbx_panel)
 
-        root.addWidget(self.tabs, 1)
-
-        # 3. Action Buttons Footer
-        footer_layout = QtWidgets.QHBoxLayout()
-        footer_layout.setContentsMargins(0, 8, 0, 0)
+        # 4. Standard Action Footer [UI-06]
+        footer_frame = QtWidgets.QFrame(self)
+        footer_frame.setObjectName("ActionFooter")
+        footer_layout = QtWidgets.QHBoxLayout(footer_frame)
+        footer_layout.setContentsMargins(10, 8, 10, 8)
         footer_layout.setSpacing(10)
 
         self.btn_reset = create_button("↺ Reset to Default", role="secondary", parent=self)
         self.btn_reset.setToolTip("Restore standard studio pipeline defaults")
 
-        self.btn_cancel = create_button("Cancel", role="secondary", fixed_width=100, parent=self)
-        self.btn_save = create_button("Save & Apply", role="primary", fixed_width=160, parent=self)
+        self.btn_cancel = create_button("Cancel", role="secondary", fixed_width=90, parent=self)
+        self.btn_save = create_button("Save Settings", role="primary", fixed_width=140, parent=self)
 
         footer_layout.addWidget(self.btn_reset)
         footer_layout.addStretch(1)
         footer_layout.addWidget(self.btn_cancel)
         footer_layout.addWidget(self.btn_save)
 
-        root.addLayout(footer_layout)
+        root.addWidget(footer_frame)
 
         # Connections
         self.btn_reset.clicked.connect(self._on_reset)
