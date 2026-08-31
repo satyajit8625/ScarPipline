@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 DCC Window for Anim Export tool strictly conforming to UI-01 - UI-07 and suite-wide consistency.
-Directly aligns with Shader Tools and Skin Tools architecture.
+Directly aligns with Shader Tools and Skin Tools interaction model.
 """
 
 from __future__ import absolute_import, division, print_function
@@ -41,9 +41,8 @@ from scartools.ui import (
     FONT_FAMILY_MONO,
 )
 
-from ..controller import AnimIOController
-from ..operations import discover_scene_assets
-from ..api.camera import find_active_shot_camera, fix_or_create_shot_camera
+from ..controller import AnimIOController, AnimExportStateEnum
+from ..api.camera import fix_or_create_shot_camera
 from .settings_dialog import (
     show_alembic_settings,
     show_fbx_settings,
@@ -52,9 +51,9 @@ from .settings_dialog import (
 )
 from scartools.framework import (
     open_in_file_manager,
-    parse_shot_scene_identity,
     OperationCallbacks,
 )
+from scartools.framework.logging import emit_log
 
 
 def _get_scene_fps():
@@ -92,6 +91,12 @@ class AnimIODialog(BaseToolDialog):
     TOOL_ID = "scartools_anim_io"
     WINDOW_TITLE = "Anim Export"
 
+    FORMAT_DESCRIPTIONS = {
+        0: "Geometry cache + animation/camera data",
+        1: "Geometry point cache (.abc)",
+        2: "Animation and camera data (.fbx)",
+    }
+
     def __init__(self, parent=None):
         super(AnimIODialog, self).__init__(
             parent=parent if parent is not None else maya_main_window(),
@@ -104,16 +109,13 @@ class AnimIODialog(BaseToolDialog):
         configure_window(self, (760, 560), (850, 650))
         apply_window_icon(self)
 
-        self._resolved_shot_name = "untitled_shot"
-        self._resolved_shot_root = ""
-        self._resolved_camera = None
         self._progress_popup = None
         self._script_job_ids = []
 
         self._build_ui()
         self._connect()
         apply_theme(self)
-        self.refresh_scene_data()
+        self.rescan_scene()
         self._register_scene_callbacks()
 
     def _build_ui(self):
@@ -142,9 +144,7 @@ class AnimIODialog(BaseToolDialog):
         self.format_combo.addItems(["Both (Alembic + FBX)", "Alembic (.abc)", "FBX (.fbx)"])
         configure_field(self.format_combo, minimum_width=180)
 
-        self.operation_help = QtWidgets.QLabel(
-            "Extract geometry point caches and character/camera takes into shot directory.", self
-        )
+        self.operation_help = QtWidgets.QLabel(self.FORMAT_DESCRIPTIONS[0], self)
         self.operation_help.setStyleSheet("color: #8A94A6; font-size: 11px;")
         self.operation_help.setWordWrap(True)
 
@@ -161,15 +161,15 @@ class AnimIODialog(BaseToolDialog):
         self.count_badge = QtWidgets.QLabel("0 assets detected", self)
         self.count_badge.setObjectName("CountBadge")
 
-        self.refresh_btn = create_button("Refresh Scene", role="secondary", parent=self)
-        self.refresh_btn.setToolTip("Scan active Maya scene for rigs and cameras (Hotkey: F5)")
+        self.rescan_btn = create_button("Rescan Scene", role="secondary", parent=self)
+        self.rescan_btn.setToolTip("Scan active Maya scene for rigs and cameras (Hotkey: F5)")
 
         self.settings_btn = create_button("Settings…", role="secondary", parent=self)
         self.settings_btn.setToolTip("Configure Alembic & FBX parameters")
 
         top_bar.addWidget(self.count_badge)
         top_bar.addStretch(1)
-        top_bar.addWidget(self.refresh_btn)
+        top_bar.addWidget(self.rescan_btn)
         top_bar.addWidget(self.settings_btn)
         asset_layout.addLayout(top_bar)
 
@@ -202,8 +202,8 @@ class AnimIODialog(BaseToolDialog):
         self.apply_button.setMinimumWidth(PRIMARY_BUTTON_WIDTH)
         self.apply_button.setToolTip("Export shot caches to Alembic and FBX (Hotkey: Ctrl+Enter)")
 
-        # Open Shot Folder Button (Initially hidden until export completes)
-        self.open_folder_btn = create_button("Open Folder", role="secondary", parent=self)
+        # Open Export Folder Button (Initially hidden until export completes)
+        self.open_folder_btn = create_button("Open Export Folder", role="secondary", parent=self)
         self.open_folder_btn.setVisible(False)
         self.open_folder_btn.setToolTip("Open destination shot root in Windows Explorer.")
         status_layout.insertWidget(0, self.open_folder_btn)
@@ -211,21 +211,30 @@ class AnimIODialog(BaseToolDialog):
         root.addWidget(action_footer)
 
     def _connect(self):
+        self.format_combo.currentIndexChanged.connect(self._on_format_changed)
         self.settings_btn.clicked.connect(self._open_settings_menu)
-        self.refresh_btn.clicked.connect(self.refresh_scene_data)
+        self.rescan_btn.clicked.connect(self.rescan_scene)
         self.asset_table.cellDoubleClicked.connect(self._on_table_double_clicked)
         self.asset_table.cellClicked.connect(self._on_cell_clicked)
         self.open_folder_btn.clicked.connect(self._open_shot_folder)
         self.apply_button.clicked.connect(self._do_export)
 
+    def _on_format_changed(self, index):
+        self.operation_help.setText(self.FORMAT_DESCRIPTIONS.get(index, ""))
+        fmt_map = {0: "both", 1: "abc", 2: "fbx"}
+        self.controller.format_mode = fmt_map.get(index, "both")
+        self.controller.recompute_state()
+        self._update_footer_state()
+
     def keyPressEvent(self, event):
-        """Keyboard accelerators: Ctrl+Enter (Export), F5 (Refresh), Escape (Close)."""
+        """Keyboard accelerators: Ctrl+Enter (Export), F5 (Rescan), Escape (Close)."""
         if (event.key() in (QtCore.Qt.Key_Return, QtCore.Qt.Key_Enter)) and (event.modifiers() & QtCore.Qt.ControlModifier):
-            self._do_export()
+            if self.apply_button.isEnabled():
+                self._do_export()
             event.accept()
             return
         elif event.key() == QtCore.Qt.Key_F5:
-            self.refresh_scene_data()
+            self.rescan_scene()
             event.accept()
             return
         elif event.key() == QtCore.Qt.Key_Escape:
@@ -238,10 +247,10 @@ class AnimIODialog(BaseToolDialog):
         """Show the standardized ScarPopupMenu with Alembic Settings, FBX Settings, and Defaults."""
         menu = create_popup_menu(parent=self)
 
-        act_alembic = menu.addAction("◇  Alembic Settings…")
-        act_fbx = menu.addAction("◇  FBX Settings…")
+        act_alembic = menu.addAction("Alembic Settings…")
+        act_fbx = menu.addAction("FBX Settings…")
         menu.addSeparator()
-        act_reset = menu.addAction("↻  Reset to Default")
+        act_reset = menu.addAction("Reset to Default")
 
         action = menu.exec_below_widget(self.settings_btn, offset_y=5, align="right")
 
@@ -251,16 +260,19 @@ class AnimIODialog(BaseToolDialog):
             show_fbx_settings(parent=self)
         elif action == act_reset:
             if confirm_and_reset_settings(parent=self):
-                self._set_message("All Alembic & FBX export settings restored to studio defaults.", "neutral")
-                self._set_status("Settings Reset", "idle")
+                self.controller.recompute_state()
+                self._update_footer_state()
 
     def _on_cell_clicked(self, row, col):
         """Clicking the Export column cell toggles the checkbox cleanly."""
         if col == 1:
             check_item = self.asset_table.item(row, 1)
-            if check_item:
+            if check_item and row < len(self.controller.assets):
                 new_state = QtCore.Qt.Unchecked if check_item.checkState() == QtCore.Qt.Checked else QtCore.Qt.Checked
                 check_item.setCheckState(new_state)
+                self.controller.assets[row].checked = (new_state == QtCore.Qt.Checked)
+                self.controller.recompute_state()
+                self._update_footer_state()
 
     def _register_scene_callbacks(self):
         """Register Maya scene scriptJobs for automatic real-time UI updates on scene open, new, save, and timing changes."""
@@ -268,7 +280,7 @@ class AnimIODialog(BaseToolDialog):
         if hasattr(cmds, "scriptJob") and not cmds.about(batch=True):
             for ev in ("SceneOpened", "NewSceneOpened", "SceneSaved", "playbackRangeChanged"):
                 try:
-                    jid = cmds.scriptJob(event=[ev, self.refresh_scene_data], runOnce=False)
+                    jid = cmds.scriptJob(event=[ev, self.rescan_scene], runOnce=False)
                     self._script_job_ids.append(jid)
                 except Exception:
                     pass
@@ -289,20 +301,24 @@ class AnimIODialog(BaseToolDialog):
 
     def changeEvent(self, event):
         if event.type() == QtCore.QEvent.ActivationChange and self.isActiveWindow():
-            self.refresh_scene_data()
+            self.rescan_scene()
         super(AnimIODialog, self).changeEvent(event)
 
-    def _set_status(self, text, state="idle"):
-        self.status_label.setText(str(text))
-        self.status_label.setProperty("state", state)
-        self.status_dot.setProperty("state", state)
+    def _update_footer_state(self):
+        """Derive all footer text, status dot, and button enablement strictly from controller."""
+        status_text, status_state, msg_text, msg_state, export_enabled = self.controller.get_status_info()
+
+        self.status_label.setText(str(status_text))
+        self.status_label.setProperty("state", status_state)
+        self.status_dot.setProperty("state", status_state)
         repolish(self.status_label)
         repolish(self.status_dot)
 
-    def _set_message(self, text, state="neutral"):
-        self.message_label.setText(str(text))
-        self.message_label.setProperty("state", state)
+        self.message_label.setText(str(msg_text))
+        self.message_label.setProperty("state", msg_state)
         repolish(self.message_label)
+
+        self.apply_button.setEnabled(export_enabled)
 
     @staticmethod
     def _item(text, color=None, alignment=QtCore.Qt.AlignLeft):
@@ -312,108 +328,45 @@ class AnimIODialog(BaseToolDialog):
             item.setForeground(QtGui.QColor(color))
         return item
 
-    def refresh_scene_data(self):
-        """Scan active Maya scene for shot identity, cameras, characters, props, and timeline range."""
-        identity = parse_shot_scene_identity()
+    def rescan_scene(self):
+        """Inspect active Maya scene and populate table and state."""
+        self.controller.scan_scene()
 
-        self._resolved_shot_name = identity.get("shot_name") or "untitled_shot"
-        self._resolved_shot_root = identity.get("export_dir") or ""
-        is_unsaved = (self._resolved_shot_name.lower() in ("untitled_shot", "untitled_scene", "untitled"))
+        # Update Asset Count
+        self.count_badge.setText(self.controller.get_asset_count_text())
 
-        target_cam_name = self._resolved_shot_name + "_CAM" if not is_unsaved else "Shot_CAM"
-        cam_node = find_active_shot_camera(self._resolved_shot_name)
-        self._resolved_camera = cam_node
+        # Populate Table
+        self.asset_table.setRowCount(len(self.controller.assets))
+        for row, asset_item in enumerate(self.controller.assets):
+            # Col 0: Name
+            name_item = QtWidgets.QTableWidgetItem(asset_item.name)
+            name_item.setData(QtCore.Qt.UserRole, (asset_item.item_type, asset_item.node))
+            name_item.setToolTip("{}: {}".format(asset_item.details, asset_item.node or "Not in scene"))
 
-        data = discover_scene_assets()
+            # Col 1: Checkbox
+            check_item = QtWidgets.QTableWidgetItem()
+            check_item.setCheckState(QtCore.Qt.Checked if asset_item.checked else QtCore.Qt.Unchecked)
+            check_item.setTextAlignment(QtCore.Qt.AlignCenter)
+            check_item.setFlags(QtCore.Qt.ItemIsUserCheckable | QtCore.Qt.ItemIsEnabled | QtCore.Qt.ItemIsSelectable)
+            check_item.setToolTip("Include in export")
 
-        # Elements Table: Camera + Scene Assets (all checked by default)
-        assets = data.get("assets", []) or (data.get("characters", []) + data.get("props", []))
-        seen_assets = set()
-        clean_assets = []
-        for a in assets:
-            if a not in seen_assets:
-                seen_assets.add(a)
-                clean_assets.append(a)
-
-        total = (1 if cam_node else 0) + len(clean_assets)
-        self.count_badge.setText("{} assets detected".format(total))
-
-        self.asset_table.setRowCount(0)
-        row = 0
-
-        # 1. Camera Row (Indicates status directly in the list!)
-        if cam_node and cmds.objExists(cam_node):
-            short_cam = cam_node.split("|")[-1]
-            self.asset_table.insertRow(row)
-
-            # Col 0: Asset Name
-            item_cam_name = QtWidgets.QTableWidgetItem(short_cam)
-            item_cam_name.setData(QtCore.Qt.UserRole, ("camera", cam_node))
-            item_cam_name.setToolTip("Shot Camera: {}".format(cam_node))
-
-            # Col 1: Export Checkbox
-            item_cam_check = QtWidgets.QTableWidgetItem()
-            item_cam_check.setCheckState(QtCore.Qt.Checked)
-            item_cam_check.setTextAlignment(QtCore.Qt.AlignCenter)
-            item_cam_check.setFlags(QtCore.Qt.ItemIsUserCheckable | QtCore.Qt.ItemIsEnabled | QtCore.Qt.ItemIsSelectable)
-            item_cam_check.setToolTip("Include shot camera in export")
-
-            self.asset_table.setItem(row, 0, item_cam_name)
-            self.asset_table.setItem(row, 1, item_cam_check)
-
-            # Col 2: Status (clean text matching Shader Tools & Skin Tools)
-            if short_cam.lower() == target_cam_name.lower():
-                item_cam_status = self._item("Ready", color=COLOR_STATUS_SUCCESS, alignment=QtCore.Qt.AlignCenter)
+            # Col 2: Status
+            if asset_item.status_variant == "success":
+                status_color = COLOR_STATUS_SUCCESS
+            elif asset_item.status_variant == "warning":
+                status_color = COLOR_STATUS_WARNING
+            elif asset_item.status_variant == "error":
+                status_color = COLOR_STATUS_ERROR
             else:
-                item_cam_status = self._item("Rename Needed", color=COLOR_STATUS_WARNING, alignment=QtCore.Qt.AlignCenter)
-            self.asset_table.setItem(row, 2, item_cam_status)
-            row += 1
-        elif not is_unsaved:
-            # Missing standardized camera row
-            self.asset_table.insertRow(row)
-            item_cam_name = QtWidgets.QTableWidgetItem(target_cam_name)
-            item_cam_name.setData(QtCore.Qt.UserRole, ("camera", None))
-            item_cam_name.setToolTip("Camera '{}' not found in scene. Double-click to create.".format(target_cam_name))
+                status_color = COLOR_TEXT_MUTED
 
-            item_cam_check = QtWidgets.QTableWidgetItem()
-            item_cam_check.setCheckState(QtCore.Qt.Unchecked)
-            item_cam_check.setTextAlignment(QtCore.Qt.AlignCenter)
-            item_cam_check.setFlags(QtCore.Qt.ItemIsUserCheckable | QtCore.Qt.ItemIsEnabled | QtCore.Qt.ItemIsSelectable)
+            status_item = self._item(asset_item.status, color=status_color, alignment=QtCore.Qt.AlignCenter)
 
-            self.asset_table.setItem(row, 0, item_cam_name)
-            self.asset_table.setItem(row, 1, item_cam_check)
-            item_cam_status = self._item("Missing Camera", color=COLOR_STATUS_ERROR, alignment=QtCore.Qt.AlignCenter)
-            self.asset_table.setItem(row, 2, item_cam_status)
-            row += 1
+            self.asset_table.setItem(row, 0, name_item)
+            self.asset_table.setItem(row, 1, check_item)
+            self.asset_table.setItem(row, 2, status_item)
 
-        # 2. Scene Asset Rows
-        for a in clean_assets:
-            short = a.split("|")[-1]
-            self.asset_table.insertRow(row)
-
-            # Col 0: Asset Name
-            item_name = QtWidgets.QTableWidgetItem(short)
-            item_name.setData(QtCore.Qt.UserRole, ("asset", a))
-            item_name.setToolTip("Scene Hierarchy: {}".format(a))
-
-            # Col 1: Export Checkbox
-            item_check = QtWidgets.QTableWidgetItem()
-            item_check.setCheckState(QtCore.Qt.Checked)
-            item_check.setTextAlignment(QtCore.Qt.AlignCenter)
-            item_check.setFlags(QtCore.Qt.ItemIsUserCheckable | QtCore.Qt.ItemIsEnabled | QtCore.Qt.ItemIsSelectable)
-            item_check.setToolTip("Include asset in export")
-
-            self.asset_table.setItem(row, 0, item_name)
-            self.asset_table.setItem(row, 1, item_check)
-            item_status = self._item("Ready", color=COLOR_STATUS_SUCCESS, alignment=QtCore.Qt.AlignCenter)
-            self.asset_table.setItem(row, 2, item_status)
-            row += 1
-
-        if total > 0:
-            self._set_message("{} asset(s) ready for shot cache extraction.".format(total), "success")
-        else:
-            self._set_message("No assets detected. Select or import character/prop rigs.", "neutral")
-        self._set_status("Ready", "idle")
+        self._update_footer_state()
 
     def _on_table_double_clicked(self, row, col):
         """Double clicking a camera row standardizes or creates the shot camera."""
@@ -423,87 +376,53 @@ class AnimIODialog(BaseToolDialog):
         data = name_item.data(QtCore.Qt.UserRole)
         if isinstance(data, (tuple, list)) and data[0] == "camera":
             src_node = data[1]
-            self._fix_shot_camera(source_camera_node=src_node)
-
-    def _fix_shot_camera(self, source_camera_node=None):
-        """1-Click Camera Fix Helper: rename selected camera or create standardized shot camera."""
-        try:
-            fixed_cam = fix_or_create_shot_camera(self._resolved_shot_name, source_camera_node=source_camera_node)
-            self.refresh_scene_data()
-            self._set_message("Shot camera '{}' standardized successfully.".format(fixed_cam.split("|")[-1]), "success")
-            self._set_status("Camera Fixed", "idle")
-        except Exception as e:
-            self._set_message("Camera fix error: {}".format(e), "warning")
+            try:
+                fixed_cam = fix_or_create_shot_camera(self.controller.shot_name, source_camera_node=src_node)
+                self.rescan_scene()
+                emit_log("Shot camera '{}' standardized.".format(fixed_cam.split("|")[-1]), level="SUCCESS", source="anim_io")
+            except Exception as e:
+                emit_log("Camera fix error: {}".format(e), level="WARNING", source="anim_io")
 
     def _open_shot_folder(self):
         """Open the resolved shot root directory in native OS file manager."""
-        if self._resolved_shot_root:
-            opened = open_in_file_manager(self._resolved_shot_root)
-            if opened:
-                self._set_message("Opened: {}".format(self._resolved_shot_root), "neutral")
-            else:
-                self._set_message("Could not open path: {}".format(self._resolved_shot_root), "warning")
+        if self.controller.shot_root:
+            opened = open_in_file_manager(self.controller.shot_root)
+            if not opened:
+                emit_log("Could not open directory: {}".format(self.controller.shot_root), level="WARNING", source="anim_io")
 
     def _do_export(self):
-        out_dir = self._resolved_shot_root
+        """Execute export using internal export plan and atomic undo safety."""
+        self.controller.recompute_state()
+        if self.controller.state == AnimExportStateEnum.BLOCKED:
+            return
+
+        out_dir = self.controller.shot_root
         if not out_dir or not os.path.isdir(out_dir):
             cur_scene = cmds.file(q=True, sceneName=True)
             if cur_scene:
+                from scartools.framework import parse_shot_scene_identity
                 identity = parse_shot_scene_identity(cur_scene)
                 out_dir = identity.get("export_dir")
-                self._resolved_shot_root = out_dir
+                self.controller.shot_root = out_dir
 
         if not out_dir or not os.path.isdir(out_dir):
-            self._set_message("Could not resolve valid shot directory from active Maya file. Please save the scene.", "warning")
-            self._set_status("Invalid Shot Root", "warning")
+            emit_log("Invalid shot directory. Please save the scene.", level="ERROR", source="anim_io")
             return
 
-        shot_name = self._resolved_shot_name or "untitled_shot"
-
-        # Frame range directly from Maya playback slider
-        start_f = 1001
-        end_f = 1100
-        try:
-            if hasattr(cmds, "playbackOptions"):
-                min_t = cmds.playbackOptions(q=True, minTime=True)
-                max_t = cmds.playbackOptions(q=True, maxTime=True)
-                if min_t is not None and max_t is not None:
-                    start_f = int(min_t)
-                    end_f = int(max_t)
-                    if start_f > end_f:
-                        start_f, end_f = end_f, start_f
-        except Exception:
-            pass
-
+        shot_name = self.controller.shot_name or "untitled_shot"
+        start_f = self.controller.start_frame
+        end_f = self.controller.end_frame
         fps = _get_scene_fps()
 
-        # Selected elements from table
-        assets_to_export = []
-        export_cam_node = None
-        for i in range(self.asset_table.rowCount()):
-            check_item = self.asset_table.item(i, 1)
-            name_item = self.asset_table.item(i, 0)
-            if check_item and check_item.checkState() == QtCore.Qt.Checked and name_item:
-                data = name_item.data(QtCore.Qt.UserRole)
-                if isinstance(data, (tuple, list)):
-                    atype, anode = data
-                    if atype == "camera" and anode:
-                        export_cam_node = anode
-                    elif atype == "asset":
-                        assets_to_export.append(anode)
+        # Build export parameters from export plan
+        plan = self.controller.export_plan
+        if not plan:
+            emit_log("No assets selected in export plan.", level="WARNING", source="anim_io")
+            return
 
-        total_items = (1 if export_cam_node else 0) + len(assets_to_export)
+        emit_log("Anim Export started for shot '{}' ({} assets selected)".format(shot_name, len(plan)), level="INFO", source="anim_io")
 
-        # Geo formats: Both / Alembic / FBX
-        fmt_idx = self.format_combo.currentIndex()
-        if fmt_idx == 0:
-            geo_fmts = ("abc", "fbx")
-        elif fmt_idx == 1:
-            geo_fmts = ("abc",)
-        else:
-            geo_fmts = ("fbx",)
-
-        # Read configured Alembic and FBX parameters
+        # Read configured settings
         user_cfg = get_anim_export_settings()
         abc_cfg = user_cfg.get("alembic", {})
         fbx_cfg = user_cfg.get("fbx", {})
@@ -520,30 +439,39 @@ class AnimIODialog(BaseToolDialog):
         fbx_ver = str(fbx_cfg.get("fbx_version", "FBX 2020"))
         fbx_tri = bool(fbx_cfg.get("triangulate", False))
 
-        # Launch Centralized OperationProgressPopup
+        # Categorize plan nodes
+        cam_node = None
+        char_nodes = []
+        prop_nodes = []
+        for p in plan:
+            emit_log("Export Plan: {} -> {}".format(p["name"], ", ".join(p["formats"])), level="INFO", source="anim_io")
+            if p["type"] == "camera":
+                cam_node = p["node"]
+            elif p["type"] == "character":
+                char_nodes.append(p["node"])
+            else:
+                prop_nodes.append(p["node"])
+
+        geo_fmts = ("abc", "fbx") if self.controller.format_mode == "both" else ((self.controller.format_mode,))
+
+        # Progress popup
         self._progress_popup = OperationProgressPopup(
             title="Anim Export - Caching Shot",
             parent=self.window(),
             unit="assets",
         )
-        self._progress_popup.start("Exporting Shot Caches", total=total_items)
+        self._progress_popup.start("Exporting Shot Caches", total=len(plan))
+        self.controller.state = AnimExportStateEnum.EXPORTING
+        self._update_footer_state()
 
         def _on_progress(pct, msg):
             if self._progress_popup:
                 self._progress_popup.update_progress(pct, message=str(msg))
-            self._set_status("Exporting ({}%)".format(pct), "running")
-            self._set_message(msg, "neutral")
             QtWidgets.QApplication.processEvents()
 
-        callbacks = OperationCallbacks(
-            progress_callback=_on_progress,
-        )
+        callbacks = OperationCallbacks(progress_callback=_on_progress)
 
         try:
-            self._set_message("Exporting shot caches into Alembic/ and FBX/...", "neutral")
-            self._set_status("Exporting...", "running")
-            QtWidgets.QApplication.processEvents()
-
             from ..operations import export_shot_package
             res = export_shot_package(
                 output_dir=out_dir,
@@ -551,11 +479,11 @@ class AnimIODialog(BaseToolDialog):
                 start_frame=start_f,
                 end_frame=end_f,
                 fps=fps,
-                camera_node=export_cam_node,
+                camera_node=cam_node,
                 camera_format="fbx",
-                character_nodes=assets_to_export,
+                character_nodes=char_nodes,
                 character_formats=geo_fmts,
-                prop_nodes=[],
+                prop_nodes=prop_nodes,
                 prop_formats=geo_fmts,
                 handles=handles,
                 step=step,
@@ -575,16 +503,19 @@ class AnimIODialog(BaseToolDialog):
                 self._progress_popup = None
                 popup.finish("Shot Caches Exported Successfully!", state="success")
 
-            self._set_message("Exported shot caches successfully to '{}'!".format(res["target_dir"]), "success")
-            self._set_status("Export Success", "idle")
+            self.controller.last_export_result = res
+            self.controller.state = AnimExportStateEnum.SUCCESS
+            self._update_footer_state()
             self.open_folder_btn.setVisible(True)
+            emit_log("Anim Export completed successfully.", level="SUCCESS", source="anim_io")
         except Exception as e:
             if self._progress_popup:
                 popup = self._progress_popup
                 self._progress_popup = None
                 popup.finish("Export Failed", state="error")
-            self._set_message("Export failed: {}".format(e), "warning")
-            self._set_status("Export Failed", "error")
+            self.controller.state = AnimExportStateEnum.FAILED
+            self._update_footer_state()
+            emit_log("Anim Export failed: {}".format(e), level="ERROR", source="anim_io")
 
 
 _ACTIVE_DIALOG = None
