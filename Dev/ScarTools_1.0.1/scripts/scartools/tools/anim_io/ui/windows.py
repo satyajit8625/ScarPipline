@@ -138,7 +138,50 @@ class AnimIODialog(BaseToolDialog):
         info_layout.addLayout(info_grid)
         root.addWidget(info_panel)
 
-        # 3. Smart Frame Range & Timing Panel [UI-03, UI-04, UI-05]
+        # 3. Characters & Props Data Table [UI-03, UI-05]
+        asset_panel, asset_layout, _ = create_section_panel(
+            "Characters & Props to Export", accent="data", parent=self
+        )
+        top_bar = QtWidgets.QHBoxLayout()
+        self.count_badge = QtWidgets.QLabel("0 assets detected")
+        self.count_badge.setObjectName("CountBadge")
+        top_bar.addWidget(self.count_badge)
+        top_bar.addStretch(1)
+
+        fmt_lbl = QtWidgets.QLabel("Format:", self)
+        self.geo_format_combo = QtWidgets.QComboBox(self)
+        self.geo_format_combo.addItems(["Alembic (.abc)", "FBX (.fbx)", "Both (.abc + .fbx)"])
+        configure_field(self.geo_format_combo, minimum_width=140)
+        top_bar.addWidget(fmt_lbl)
+        top_bar.addWidget(self.geo_format_combo)
+
+        self.refresh_btn = create_button("Refresh Scene", role="secondary", parent=self)
+        self.select_all_btn = create_button("Select All", role="secondary", parent=self)
+        top_bar.addWidget(self.refresh_btn)
+        top_bar.addWidget(self.select_all_btn)
+        asset_layout.addLayout(top_bar)
+
+        self.asset_table = create_data_table(
+            ["Asset Name", "Type", "Source Hierarchy", "Status"],
+            stretch_columns=(0, 2),
+            fixed_columns={1: 90, 3: TABLE_STATUS_WIDTH},
+            extended_selection=True,
+            minimum_height=160,
+            parent=self,
+        )
+        asset_layout.addWidget(self.asset_table, 1)
+
+        # Velocity toggle
+        vel_row = QtWidgets.QHBoxLayout()
+        vel_lbl = QtWidgets.QLabel("Alembic Motion Blur Velocity Vectors", self)
+        self.vel_toggle = create_toggle_switch(text="", checked=True, accent="pipeline", parent=self)
+        vel_row.addWidget(vel_lbl, 1)
+        vel_row.addWidget(self.vel_toggle)
+        asset_layout.addLayout(vel_row)
+
+        root.addWidget(asset_panel, 1)
+
+        # 4. Smart Frame Range & Timing Panel [UI-03, UI-04, UI-05]
         range_panel, range_layout, _ = create_section_panel(
             "Frame Range & Timing", accent="pipeline", parent=self
         )
@@ -213,49 +256,6 @@ class AnimIODialog(BaseToolDialog):
         range_layout.addWidget(self.range_summary_lbl)
 
         root.addWidget(range_panel)
-
-        # 4. Characters & Props Data Table [UI-03, UI-05]
-        asset_panel, asset_layout, _ = create_section_panel(
-            "Characters & Props to Export", accent="data", parent=self
-        )
-        top_bar = QtWidgets.QHBoxLayout()
-        self.count_badge = QtWidgets.QLabel("0 assets detected")
-        self.count_badge.setObjectName("CountBadge")
-        top_bar.addWidget(self.count_badge)
-        top_bar.addStretch(1)
-
-        fmt_lbl = QtWidgets.QLabel("Format:", self)
-        self.geo_format_combo = QtWidgets.QComboBox(self)
-        self.geo_format_combo.addItems(["Alembic (.abc)", "FBX (.fbx)", "Both (.abc + .fbx)"])
-        configure_field(self.geo_format_combo, minimum_width=140)
-        top_bar.addWidget(fmt_lbl)
-        top_bar.addWidget(self.geo_format_combo)
-
-        self.refresh_btn = create_button("Refresh Scene", role="secondary", parent=self)
-        self.select_all_btn = create_button("Select All", role="secondary", parent=self)
-        top_bar.addWidget(self.refresh_btn)
-        top_bar.addWidget(self.select_all_btn)
-        asset_layout.addLayout(top_bar)
-
-        self.asset_table = create_data_table(
-            ["Asset Name", "Type", "Source Hierarchy", "Status"],
-            stretch_columns=(0, 2),
-            fixed_columns={1: 90, 3: TABLE_STATUS_WIDTH},
-            extended_selection=True,
-            minimum_height=150,
-            parent=self,
-        )
-        asset_layout.addWidget(self.asset_table, 1)
-
-        # Velocity toggle
-        vel_row = QtWidgets.QHBoxLayout()
-        vel_lbl = QtWidgets.QLabel("Alembic Motion Blur Velocity Vectors", self)
-        self.vel_toggle = create_toggle_switch(text="", checked=True, accent="pipeline", parent=self)
-        vel_row.addWidget(vel_lbl, 1)
-        vel_row.addWidget(self.vel_toggle)
-        asset_layout.addLayout(vel_row)
-
-        root.addWidget(asset_panel, 1)
 
         # 5. Standard Action Footer [UI-06]
         (
