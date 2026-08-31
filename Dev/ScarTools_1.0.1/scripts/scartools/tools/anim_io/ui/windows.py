@@ -1,5 +1,8 @@
 # -*- coding: utf-8 -*-
-"""DCC Window for Anim Export tool strictly conforming to UI-01 - UI-07 and centralized framework."""
+"""
+DCC Window for Anim Export tool strictly conforming to UI-01 - UI-07 and suite-wide consistency.
+Directly aligns with Shader Tools and Skin Tools architecture.
+"""
 
 from __future__ import absolute_import, division, print_function
 
@@ -20,15 +23,11 @@ from scartools.ui import (
     configure_field,
     create_brand_header,
     create_section_panel,
-    create_stat_card,
     create_popup_menu,
     ScarPopupMenu,
     create_data_table,
     create_action_footer,
     create_button,
-    create_badge,
-    create_segmented_control,
-    create_empty_state,
     apply_theme,
     repolish,
     OperationProgressPopup,
@@ -85,7 +84,9 @@ def _get_scene_fps():
 
 
 class AnimIODialog(BaseToolDialog):
-    """Ultra-Clean Automated Studio UI Dialog for Anim Export Tool."""
+    """
+    Unified Production Anim Export Window matching the Shader Tools and Skin Tools interaction model.
+    """
 
     OBJECT_NAME = "ScarToolsAnimIODialog"
     TOOL_ID = "scartools_anim_io"
@@ -100,7 +101,7 @@ class AnimIODialog(BaseToolDialog):
         self.setWindowTitle(self.WINDOW_TITLE)
         self.controller = AnimIOController()
         self.setAttribute(QtCore.Qt.WA_DeleteOnClose, True)
-        configure_window(self, (720, 520), (840, 620))
+        configure_window(self, (760, 560), (850, 650))
         apply_window_icon(self)
 
         self._resolved_shot_name = "untitled_shot"
@@ -120,81 +121,67 @@ class AnimIODialog(BaseToolDialog):
         configure_root_layout(root)
 
         # 1. Standard Brand Header [UI-02]
-        header, self.header_subtitle = create_brand_header(
+        header, _subtitle = create_brand_header(
             "ANIM EXPORT",
             "Automatic Alembic and FBX shot cache extraction",
             parent=self,
         )
         root.addWidget(header)
 
-        # 2. Shot & Pipeline Information (Centralized 2-Column Split Stat Cards) [UI-03, FW-07]
-        info_panel, info_layout, _ = create_section_panel(
-            "Shot Pipeline Context", accent="pipeline", parent=self
+        # 2. Standard Operation Panel (matches Shader Tools / Skin Tools) [UI-03]
+        op_panel, op_layout, _ = create_section_panel("Operation", accent="operation", parent=self)
+        op_row = QtWidgets.QHBoxLayout()
+        op_row.setContentsMargins(0, 0, 0, 0)
+        op_row.setSpacing(INLINE_SPACING)
+
+        lbl_mode = QtWidgets.QLabel("Format", self)
+        lbl_mode.setFixedWidth(FORM_LABEL_WIDTH)
+        lbl_mode.setStyleSheet("color: #D2D2D2; font-size: 11px; font-weight: 500;")
+
+        self.format_combo = QtWidgets.QComboBox(self)
+        self.format_combo.addItems(["Both (Alembic + FBX)", "Alembic (.abc)", "FBX (.fbx)"])
+        configure_field(self.format_combo, minimum_width=180)
+
+        self.operation_help = QtWidgets.QLabel(
+            "Extract geometry point caches and character/camera takes into shot directory.", self
         )
-        cards_row = QtWidgets.QHBoxLayout()
-        cards_row.setSpacing(28)
-        cards_row.setContentsMargins(0, 0, 0, 0)
+        self.operation_help.setStyleSheet("color: #8A94A6; font-size: 11px;")
+        self.operation_help.setWordWrap(True)
 
-        # Left Card: Shot & Project Identity (using centralized create_stat_card)
-        card_left, left_labels = create_stat_card([
-            ("Active Shot:", "Detecting...", "primary"),
-            ("Project:", "Detecting...", "blue"),
-        ], parent=self)
-        self.val_shot = left_labels["Active Shot:"]
-        self.val_project = left_labels["Project:"]
+        op_row.addWidget(lbl_mode)
+        op_row.addWidget(self.format_combo)
+        op_row.addWidget(self.operation_help, 1)
+        op_layout.addLayout(op_row)
+        root.addWidget(op_panel)
 
-        # Right Card: Timing & Destination Root (using centralized create_stat_card)
-        card_right, right_labels = create_stat_card([
-            ("Timeline:", "Detecting...", "pipeline"),
-            ("Shot Root:", "Detecting...", "mono"),
-        ], parent=self)
-        self.val_range = right_labels["Timeline:"]
-        self.val_path = right_labels["Shot Root:"]
+        # 3. Meshes & Assets Table Panel (matches Shader Tools) [UI-03, UI-05]
+        asset_panel, asset_layout, _ = create_section_panel("Shot Assets", accent="pipeline", parent=self)
 
-        cards_row.addWidget(card_left, 0)
-        cards_row.addWidget(card_right, 1)
-        info_layout.addLayout(cards_row)
-        root.addWidget(info_panel)
-
-        # 3. Shot Assets to Export Data Table [UI-03, UI-05]
-        asset_panel, asset_layout, _ = create_section_panel(
-            "Shot Assets to Export", accent="data", parent=self
-        )
         top_bar = QtWidgets.QHBoxLayout()
-        self.count_badge = QtWidgets.QLabel("0 assets detected")
+        self.count_badge = QtWidgets.QLabel("0 assets detected", self)
         self.count_badge.setObjectName("CountBadge")
-        top_bar.addWidget(self.count_badge)
-        top_bar.addStretch(1)
-
-        fmt_lbl = QtWidgets.QLabel("Format:", self)
-        fmt_lbl.setStyleSheet("color: #8A94A6; font-size: 11px; font-weight: 500;")
-        self.geo_format_seg = create_segmented_control(["Alembic", "FBX", "Both"], current=2, accent="pipeline", parent=self)
-        top_bar.addWidget(fmt_lbl)
-        top_bar.addWidget(self.geo_format_seg)
-        top_bar.addSpacing(10)
 
         self.refresh_btn = create_button("Refresh Scene", role="secondary", parent=self)
-        self.refresh_btn.setToolTip("Scan active Maya scene for new rigs and cameras (Hotkey: F5)")
+        self.refresh_btn.setToolTip("Scan active Maya scene for rigs and cameras (Hotkey: F5)")
+
+        self.settings_btn = create_button("Settings…", role="secondary", parent=self)
+        self.settings_btn.setToolTip("Configure Alembic & FBX parameters")
+
+        top_bar.addWidget(self.count_badge)
+        top_bar.addStretch(1)
         top_bar.addWidget(self.refresh_btn)
-
-        self.settings_btn = create_button("⋮", role="secondary", fixed_width=32, parent=self)
-        self.settings_btn.setObjectName("TableOverflowButton")
-        self.settings_btn.setToolTip("Export Settings (Alembic & FBX Parameters)")
         top_bar.addWidget(self.settings_btn)
-
         asset_layout.addLayout(top_bar)
 
         self.asset_table = create_data_table(
             ["Asset Name", "Export", "Status"],
             stretch_columns=(0,),
-            fixed_columns={1: 75, 2: 190},
+            fixed_columns={1: 75, 2: TABLE_STATUS_WIDTH + 30},
             extended_selection=True,
-            minimum_height=180,
             parent=self,
         )
         self.asset_table.setToolTip("Tip: Double-click a Camera row to automatically standardize or create it.")
         asset_layout.addWidget(self.asset_table, 1)
-
         root.addWidget(asset_panel, 1)
 
         # 4. Standard Action Footer [UI-06]
@@ -317,15 +304,13 @@ class AnimIODialog(BaseToolDialog):
         self.message_label.setProperty("state", state)
         repolish(self.message_label)
 
-    def _set_cell_badge(self, row, text, variant="neutral"):
-        """Attach a centered StatusBadge widget to a table cell."""
-        badge = create_badge(text=text, variant=variant, parent=self.asset_table)
-        cell_widget = QtWidgets.QWidget()
-        cell_layout = QtWidgets.QHBoxLayout(cell_widget)
-        cell_layout.setContentsMargins(4, 2, 4, 2)
-        cell_layout.setAlignment(QtCore.Qt.AlignCenter)
-        cell_layout.addWidget(badge)
-        self.asset_table.setCellWidget(row, 2, cell_widget)
+    @staticmethod
+    def _item(text, color=None, alignment=QtCore.Qt.AlignLeft):
+        item = QtWidgets.QTableWidgetItem(str(text))
+        item.setTextAlignment(alignment | QtCore.Qt.AlignVCenter)
+        if color:
+            item.setForeground(QtGui.QColor(color))
+        return item
 
     def refresh_scene_data(self):
         """Scan active Maya scene for shot identity, cameras, characters, props, and timeline range."""
@@ -338,39 +323,6 @@ class AnimIODialog(BaseToolDialog):
         target_cam_name = self._resolved_shot_name + "_CAM" if not is_unsaved else "Shot_CAM"
         cam_node = find_active_shot_camera(self._resolved_shot_name)
         self._resolved_camera = cam_node
-
-        proj = identity.get("project")
-
-        if is_unsaved:
-            self.val_shot.setText(self._resolved_shot_name + " (Unsaved)")
-            self.val_shot.setProperty("state", "warning")
-            self.val_project.setText("Unsaved Scene")
-        else:
-            self.val_shot.setText(self._resolved_shot_name)
-            self.val_shot.setProperty("state", "primary")
-            self.val_project.setText(proj or "Active Maya Scene")
-        repolish(self.val_shot)
-
-        self.val_path.setText(self._resolved_shot_root or "Active Maya Project / Current Scene Directory")
-
-        # Timeline range - robust start/end bounds check
-        start_f = 1001
-        end_f = 1100
-        try:
-            if hasattr(cmds, "playbackOptions"):
-                min_t = cmds.playbackOptions(q=True, minTime=True)
-                max_t = cmds.playbackOptions(q=True, maxTime=True)
-                if min_t is not None and max_t is not None:
-                    start_f = int(min_t)
-                    end_f = int(max_t)
-                    if start_f > end_f:
-                        start_f, end_f = end_f, start_f
-        except Exception:
-            pass
-
-        total_frames = max(0, end_f - start_f + 1)
-        self.val_range.setText("Frames {} to {} ({} frames)".format(start_f, end_f, total_frames))
-        self.header_subtitle.setText("Automatic Alembic and FBX shot cache extraction")
 
         data = discover_scene_assets()
 
@@ -409,11 +361,12 @@ class AnimIODialog(BaseToolDialog):
             self.asset_table.setItem(row, 0, item_cam_name)
             self.asset_table.setItem(row, 1, item_cam_check)
 
-            # Col 2: Status Badge
+            # Col 2: Status (clean text matching Shader Tools & Skin Tools)
             if short_cam.lower() == target_cam_name.lower():
-                self._set_cell_badge(row, "✓ Ready", variant="success")
+                item_cam_status = self._item("Ready", color=COLOR_STATUS_SUCCESS, alignment=QtCore.Qt.AlignCenter)
             else:
-                self._set_cell_badge(row, "⚠️ Rename Needed", variant="warning")
+                item_cam_status = self._item("Rename Needed", color=COLOR_STATUS_WARNING, alignment=QtCore.Qt.AlignCenter)
+            self.asset_table.setItem(row, 2, item_cam_status)
             row += 1
         elif not is_unsaved:
             # Missing standardized camera row
@@ -429,7 +382,8 @@ class AnimIODialog(BaseToolDialog):
 
             self.asset_table.setItem(row, 0, item_cam_name)
             self.asset_table.setItem(row, 1, item_cam_check)
-            self._set_cell_badge(row, "❌ Missing Camera", variant="error")
+            item_cam_status = self._item("Missing Camera", color=COLOR_STATUS_ERROR, alignment=QtCore.Qt.AlignCenter)
+            self.asset_table.setItem(row, 2, item_cam_status)
             row += 1
 
         # 2. Scene Asset Rows
@@ -451,8 +405,15 @@ class AnimIODialog(BaseToolDialog):
 
             self.asset_table.setItem(row, 0, item_name)
             self.asset_table.setItem(row, 1, item_check)
-            self._set_cell_badge(row, "✓ Ready", variant="success")
+            item_status = self._item("Ready", color=COLOR_STATUS_SUCCESS, alignment=QtCore.Qt.AlignCenter)
+            self.asset_table.setItem(row, 2, item_status)
             row += 1
+
+        if total > 0:
+            self._set_message("{} asset(s) ready for shot cache extraction.".format(total), "success")
+        else:
+            self._set_message("No assets detected. Select or import character/prop rigs.", "neutral")
+        self._set_status("Ready", "idle")
 
     def _on_table_double_clicked(self, row, col):
         """Double clicking a camera row standardizes or creates the shot camera."""
@@ -469,7 +430,7 @@ class AnimIODialog(BaseToolDialog):
         try:
             fixed_cam = fix_or_create_shot_camera(self._resolved_shot_name, source_camera_node=source_camera_node)
             self.refresh_scene_data()
-            self._set_message("Shot camera '{}' standardized successfully.".format(fixed_cam.split("|")[-1]), "neutral")
+            self._set_message("Shot camera '{}' standardized successfully.".format(fixed_cam.split("|")[-1]), "success")
             self._set_status("Camera Fixed", "idle")
         except Exception as e:
             self._set_message("Camera fix error: {}".format(e), "warning")
@@ -533,9 +494,14 @@ class AnimIODialog(BaseToolDialog):
 
         total_items = (1 if export_cam_node else 0) + len(assets_to_export)
 
-        # Geo formats
-        geo_idx = self.geo_format_seg.current_index()
-        geo_fmts = ("abc",) if geo_idx == 0 else (("fbx",) if geo_idx == 1 else ("abc", "fbx"))
+        # Geo formats: Both / Alembic / FBX
+        fmt_idx = self.format_combo.currentIndex()
+        if fmt_idx == 0:
+            geo_fmts = ("abc", "fbx")
+        elif fmt_idx == 1:
+            geo_fmts = ("abc",)
+        else:
+            geo_fmts = ("fbx",)
 
         # Read configured Alembic and FBX parameters
         user_cfg = get_anim_export_settings()
@@ -609,7 +575,7 @@ class AnimIODialog(BaseToolDialog):
                 self._progress_popup = None
                 popup.finish("Shot Caches Exported Successfully!", state="success")
 
-            self._set_message("Exported shot caches successfully to '{}'!".format(res["target_dir"]), "neutral")
+            self._set_message("Exported shot caches successfully to '{}'!".format(res["target_dir"]), "success")
             self._set_status("Export Success", "idle")
             self.open_folder_btn.setVisible(True)
         except Exception as e:
