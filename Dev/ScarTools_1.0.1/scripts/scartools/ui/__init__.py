@@ -680,9 +680,11 @@ def create_stat_card(fields=None, accent="neutral", parent=None):
     card.setStyleSheet(card_style)
 
     grid = QtWidgets.QGridLayout(card)
-    grid.setContentsMargins(4, 2, 4, 2)
-    grid.setHorizontalSpacing(14)
+    grid.setContentsMargins(2, 2, 2, 2)
+    grid.setHorizontalSpacing(8)
     grid.setVerticalSpacing(6)
+    grid.setColumnStretch(0, 0)
+    grid.setColumnStretch(1, 1)
 
     val_labels = {}
 
@@ -707,8 +709,11 @@ def create_stat_card(fields=None, accent="neutral", parent=None):
 
         lbl = QtWidgets.QLabel(str(lbl_text), card)
         lbl.setStyleSheet("color: {}; font-weight: bold;".format(COLOR_TEXT_MUTED))
+        lbl.setSizePolicy(QtWidgets.QSizePolicy.Maximum, QtWidgets.QSizePolicy.Preferred)
+        lbl.setAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
 
         val_lbl = QtWidgets.QLabel(str(def_val), card)
+        val_lbl.setAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
         c_val = color_map.get(role, COLOR_TEXT_PRIMARY)
 
         if role == "mono":
@@ -719,7 +724,7 @@ def create_stat_card(fields=None, accent="neutral", parent=None):
         else:
             val_lbl.setStyleSheet("color: {}; font-weight: bold; font-size: 12px;".format(c_val))
 
-        grid.addWidget(lbl, row_idx, 0)
+        grid.addWidget(lbl, row_idx, 0, QtCore.Qt.AlignLeft)
         grid.addWidget(val_lbl, row_idx, 1)
         val_labels[str(lbl_text)] = val_lbl
 

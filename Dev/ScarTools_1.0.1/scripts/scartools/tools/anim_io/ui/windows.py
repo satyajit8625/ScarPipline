@@ -124,7 +124,7 @@ class AnimIODialog(BaseToolDialog):
             "Shot Pipeline Context", accent="pipeline", parent=self
         )
         cards_row = QtWidgets.QHBoxLayout()
-        cards_row.setSpacing(12)
+        cards_row.setSpacing(28)
         cards_row.setContentsMargins(0, 0, 0, 0)
 
         # Left Card: Shot & Department Identity (using centralized create_stat_card)
@@ -143,8 +143,8 @@ class AnimIODialog(BaseToolDialog):
         self.val_range = right_labels["Timeline:"]
         self.val_path = right_labels["Shot Root:"]
 
-        cards_row.addWidget(card_left, 1)
-        cards_row.addWidget(card_right, 2)
+        cards_row.addWidget(card_left, 0)
+        cards_row.addWidget(card_right, 1)
         info_layout.addLayout(cards_row)
         root.addWidget(info_panel)
 
