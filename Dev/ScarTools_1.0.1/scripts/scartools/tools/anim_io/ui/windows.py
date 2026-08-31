@@ -12,6 +12,7 @@ from scartools.ui import (
     FORM_LABEL_WIDTH,
     INLINE_SPACING,
     FIELD_HEIGHT,
+    PRIMARY_BUTTON_WIDTH,
     configure_window,
     configure_root_layout,
     configure_field,
@@ -48,7 +49,7 @@ class AnimIODialog(BaseToolDialog):
         )
         self.controller = AnimIOController()
         self.setWindowTitle(self.WINDOW_TITLE)
-        configure_window(self, (480, 640), (700, 850))
+        configure_window(self, (680, 620), (820, 750))
         apply_window_icon(self)
 
         self._build_ui()
@@ -63,14 +64,14 @@ class AnimIODialog(BaseToolDialog):
         # 1. Shared Brand Header [UI-02]
         header, self.header_subtitle = create_brand_header(
             "ANIMATION I/O SUITE",
-            "Shot Packaging, Alembic & FBX Cache Extraction & Assembly",
+            "Shot packaging, Alembic & FBX cache extraction, and scene assembly",
             parent=self,
         )
         root.addWidget(header)
 
         # 2. Centralized Segmented Mode Selector [UI-05]
         self.mode_control = create_segmented_control(
-            ["📦 Export Shot", "📥 Import & Assemble"],
+            ["Export Shot", "Import & Assemble"],
             current=0,
             accent="pipeline",
             parent=self,
@@ -89,9 +90,9 @@ class AnimIODialog(BaseToolDialog):
 
         # A. Target Destination Panel [UI-03]
         dest_panel, dest_layout, _ = create_section_panel(
-            "📁 TARGET DESTINATION & SHOT", accent="pipeline", parent=self
+            "Target Destination & Shot", accent="pipeline", parent=self
         )
-        self.path_picker = PathPickerWidget(mode="directory", parent=self)
+        self.path_picker = PathPickerWidget(mode="directory", placeholder="Select export directory...", parent=self)
         dest_layout.addWidget(self.path_picker)
 
         shot_row = QtWidgets.QHBoxLayout()
@@ -109,7 +110,7 @@ class AnimIODialog(BaseToolDialog):
 
         # B. Frame Range & Handles Panel [UI-03, UI-04]
         range_panel, range_layout, _ = create_section_panel(
-            "⏱️ FRAME RANGE & HANDLES", accent="pipeline", parent=self
+            "Frame Range & Handles", accent="pipeline", parent=self
         )
         self.range_mode = create_segmented_control(
             ["Timeline", "Custom"], current=0, accent="pipeline", parent=self
@@ -127,35 +128,38 @@ class AnimIODialog(BaseToolDialog):
         except Exception:
             pass
 
-        start_lbl = QtWidgets.QLabel("Start:", self)
+        start_lbl = QtWidgets.QLabel("Start Frame:", self)
+        start_lbl.setFixedWidth(75)
         self.start_spin = QtWidgets.QSpinBox(self)
         self.start_spin.setRange(-999999, 999999)
         self.start_spin.setValue(start_f)
         configure_field(self.start_spin)
         spin_row.addWidget(start_lbl)
-        spin_row.addWidget(self.start_spin)
+        spin_row.addWidget(self.start_spin, 1)
 
-        end_lbl = QtWidgets.QLabel("End:", self)
+        end_lbl = QtWidgets.QLabel("End Frame:", self)
+        end_lbl.setFixedWidth(70)
         self.end_spin = QtWidgets.QSpinBox(self)
         self.end_spin.setRange(-999999, 999999)
         self.end_spin.setValue(end_f)
         configure_field(self.end_spin)
         spin_row.addWidget(end_lbl)
-        spin_row.addWidget(self.end_spin)
+        spin_row.addWidget(self.end_spin, 1)
 
         handles_lbl = QtWidgets.QLabel("Handles (±):", self)
+        handles_lbl.setFixedWidth(75)
         self.handles_spin = QtWidgets.QSpinBox(self)
         self.handles_spin.setRange(0, 100)
         self.handles_spin.setValue(5)
         configure_field(self.handles_spin)
         spin_row.addWidget(handles_lbl)
-        spin_row.addWidget(self.handles_spin)
+        spin_row.addWidget(self.handles_spin, 1)
         range_layout.addLayout(spin_row)
         export_layout.addWidget(range_panel)
 
         # C. Camera Selection Panel [UI-03, UI-04]
         cam_panel, cam_layout, _ = create_section_panel(
-            "🎥 SHOT CAMERA", accent="pipeline", parent=self
+            "Shot Camera", accent="pipeline", parent=self
         )
         cam_row = QtWidgets.QHBoxLayout()
         cam_row.setSpacing(INLINE_SPACING)
@@ -165,7 +169,7 @@ class AnimIODialog(BaseToolDialog):
         configure_field(self.cam_combo)
         self.cam_format_combo = QtWidgets.QComboBox(self)
         self.cam_format_combo.addItems(["FBX (.fbx)", "Alembic (.abc)"])
-        configure_field(self.cam_format_combo, minimum_width=110)
+        configure_field(self.cam_format_combo, minimum_width=120)
         cam_row.addWidget(cam_lbl)
         cam_row.addWidget(self.cam_combo, 1)
         cam_row.addWidget(self.cam_format_combo)
@@ -174,7 +178,7 @@ class AnimIODialog(BaseToolDialog):
 
         # D. Characters & Props Panel [UI-03, UI-05]
         asset_panel, asset_layout, _ = create_section_panel(
-            "🎭 CHARACTERS & PROPS", accent="pipeline", parent=self
+            "Characters & Props", accent="pipeline", parent=self
         )
         fmt_row = QtWidgets.QHBoxLayout()
         fmt_row.setSpacing(INLINE_SPACING)
@@ -190,12 +194,12 @@ class AnimIODialog(BaseToolDialog):
         self.asset_list = QtWidgets.QListWidget(self)
         self.asset_list.setObjectName("MeshTable")
         self.asset_list.setSelectionMode(QtWidgets.QAbstractItemView.ExtendedSelection)
-        self.asset_list.setMaximumHeight(140)
+        self.asset_list.setMaximumHeight(130)
         asset_layout.addWidget(self.asset_list)
 
         btn_row = QtWidgets.QHBoxLayout()
         btn_row.setSpacing(INLINE_SPACING)
-        self.refresh_btn = create_button("🔄 Refresh Scene", role="secondary", parent=self)
+        self.refresh_btn = create_button("Refresh Selection", role="secondary", parent=self)
         self.select_all_btn = create_button("Select All", role="secondary", parent=self)
         btn_row.addWidget(self.refresh_btn)
         btn_row.addWidget(self.select_all_btn)
@@ -220,24 +224,24 @@ class AnimIODialog(BaseToolDialog):
         import_layout.setSpacing(10)
 
         in_panel, in_layout, _ = create_section_panel(
-            "📁 LOAD SHOT PACKAGE", accent="pipeline", parent=self
+            "Load Shot Package", accent="pipeline", parent=self
         )
-        self.import_path_picker = PathPickerWidget(mode="directory", parent=self)
+        self.import_path_picker = PathPickerWidget(mode="directory", placeholder="Select shot package directory...", parent=self)
         in_layout.addWidget(self.import_path_picker)
         import_layout.addWidget(in_panel)
 
         info_panel, info_layout, _ = create_section_panel(
-            "📋 SHOT MANIFEST DETAILS", accent="pipeline", parent=self
+            "Shot Manifest Details", accent="pipeline", parent=self
         )
         self.manifest_summary = QtWidgets.QTextEdit(self)
         self.manifest_summary.setReadOnly(True)
         self.manifest_summary.setPlaceholderText("Select a shot directory containing shot_manifest.json...")
-        self.manifest_summary.setMaximumHeight(160)
+        self.manifest_summary.setMaximumHeight(150)
         info_layout.addWidget(self.manifest_summary)
         import_layout.addWidget(info_panel)
 
         opts_panel, opts_layout, _ = create_section_panel(
-            "☑️ ASSEMBLY OPTIONS", accent="pipeline", parent=self
+            "Assembly Options", accent="pipeline", parent=self
         )
         self.chk_time = QtWidgets.QCheckBox("Set Timeline Frame Range & FPS", self)
         self.chk_time.setChecked(True)
@@ -266,11 +270,12 @@ class AnimIODialog(BaseToolDialog):
             self.view_log_button,
             _status_layout,
         ) = create_action_footer(
-            "📦 EXPORT SHOT PACKAGE",
+            "EXPORT SHOT PACKAGE",
             message="Ready to package shot.",
             parent=self,
             include_log=False,
         )
+        self.apply_button.setMinimumWidth(PRIMARY_BUTTON_WIDTH)
         root.addWidget(action_footer)
 
     def _connect(self):
@@ -296,11 +301,11 @@ class AnimIODialog(BaseToolDialog):
     def _on_mode_changed(self, index):
         self.stack.setCurrentIndex(index)
         if index == 0:
-            self.apply_button.setText("📦 EXPORT SHOT PACKAGE")
+            self.apply_button.setText("EXPORT SHOT PACKAGE")
             self._set_message("Ready to package shot.", "neutral")
             self._set_status("Ready", "idle")
         else:
-            self.apply_button.setText("📥 ASSEMBLE SHOT SCENE")
+            self.apply_button.setText("ASSEMBLE SHOT SCENE")
             self._set_message("Select a shot package to assemble.", "neutral")
             self._set_status("Ready", "idle")
 
@@ -325,7 +330,7 @@ class AnimIODialog(BaseToolDialog):
                 short = c.split("|")[-1]
                 self.cam_combo.addItem(short, c)
         else:
-            self.cam_combo.addItem("None (No custom camera)", None)
+            self.cam_combo.addItem("None (No custom camera in scene)", None)
 
         # Characters & Props
         self.asset_list.clear()
@@ -334,14 +339,14 @@ class AnimIODialog(BaseToolDialog):
 
         for c in chars:
             short = c.split("|")[-1]
-            item = QtWidgets.QListWidgetItem("👤 [CHAR] " + short)
+            item = QtWidgets.QListWidgetItem("[CHAR] " + short)
             item.setData(QtCore.Qt.UserRole, ("character", c))
             item.setCheckState(QtCore.Qt.Checked)
             self.asset_list.addItem(item)
 
         for p in props:
             short = p.split("|")[-1]
-            item = QtWidgets.QListWidgetItem("📦 [PROP] " + short)
+            item = QtWidgets.QListWidgetItem("[PROP] " + short)
             item.setData(QtCore.Qt.UserRole, ("prop", p))
             item.setCheckState(QtCore.Qt.Checked)
             self.asset_list.addItem(item)
@@ -354,7 +359,7 @@ class AnimIODialog(BaseToolDialog):
         """Read manifest and populate summary."""
         manifest = load_shot_manifest(path)
         if not manifest:
-            self.manifest_summary.setHtml("<span style='color:#E57373;'>⚠️ No valid shot_manifest.json found in this directory.</span>")
+            self.manifest_summary.setHtml("<span style='color:#E57373;'>No valid shot_manifest.json found in this directory.</span>")
             self._set_message("No valid shot_manifest.json found.", "warning")
             self._set_status("No Manifest", "warning")
             return
