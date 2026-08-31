@@ -74,6 +74,18 @@ class TestUIControls(unittest.TestCase):
         combo.set_checked_items(["mesh_A", "mesh_C"])
         self.assertEqual(combo.checked_items(), ["mesh_A", "mesh_C"])
 
+    def test_create_stat_card(self):
+        from scartools.ui import create_stat_card
+        card, labels = create_stat_card([
+            ("Active Shot:", "PRT_SH_020", "primary"),
+            ("Department:", "Animation (ANM)", "blue"),
+        ])
+        self.assertIsNotNone(card)
+        self.assertIn("Active Shot:", labels)
+        self.assertEqual(labels["Active Shot:"].text(), "PRT_SH_020")
+        self.assertIn("Department:", labels)
+        self.assertEqual(labels["Department:"].text(), "Animation (ANM)")
+
 
 if __name__ == "__main__":
     unittest.main()

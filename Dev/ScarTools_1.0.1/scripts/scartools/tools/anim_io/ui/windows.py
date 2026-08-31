@@ -20,14 +20,13 @@ from scartools.ui import (
     configure_field,
     create_brand_header,
     create_section_panel,
+    create_stat_card,
     create_data_table,
     create_action_footer,
     create_button,
     apply_theme,
     repolish,
     OperationProgressPopup,
-    COLOR_BG_INPUT,
-    COLOR_BORDER_SUBTLE,
     COLOR_TEXT_MUTED,
     COLOR_TEXT_PRIMARY,
     COLOR_PRIMARY_BLUE,
@@ -120,7 +119,7 @@ class AnimIODialog(BaseToolDialog):
         )
         root.addWidget(header)
 
-        # 2. Shot & Pipeline Information (2-Column Split Dashboard Cards) [UI-03]
+        # 2. Shot & Pipeline Information (Centralized 2-Column Split Stat Cards) [UI-03, FW-07]
         info_panel, info_layout, _ = create_section_panel(
             "Shot Pipeline Context", accent="pipeline", parent=self
         )
@@ -128,56 +127,21 @@ class AnimIODialog(BaseToolDialog):
         cards_row.setSpacing(12)
         cards_row.setContentsMargins(0, 0, 0, 0)
 
-        card_style = (
-            "QFrame {{ background: {}; border: 1px solid {}; border-radius: 4px; }}"
-        ).format(COLOR_BG_INPUT, COLOR_BORDER_SUBTLE)
+        # Left Card: Shot & Department Identity (using centralized create_stat_card)
+        card_left, left_labels = create_stat_card([
+            ("Active Shot:", "Detecting...", "primary"),
+            ("Department:", "Animation (ANM)", "blue"),
+        ], parent=self)
+        self.val_shot = left_labels["Active Shot:"]
+        self.val_dept = left_labels["Department:"]
 
-        # Left Card: Shot & Department Identity
-        card_left = QtWidgets.QFrame(self)
-        card_left.setStyleSheet(card_style)
-        left_grid = QtWidgets.QGridLayout(card_left)
-        left_grid.setContentsMargins(10, 8, 10, 8)
-        left_grid.setHorizontalSpacing(10)
-        left_grid.setVerticalSpacing(6)
-
-        lbl_shot_title = QtWidgets.QLabel("Active Shot:", self)
-        lbl_shot_title.setStyleSheet("color: {}; font-weight: bold; min-width: 70px;".format(COLOR_TEXT_MUTED))
-        self.val_shot = QtWidgets.QLabel("Detecting...", self)
-        self.val_shot.setStyleSheet("color: {}; font-weight: bold; font-size: 13px;".format(COLOR_TEXT_PRIMARY))
-
-        lbl_dept_title = QtWidgets.QLabel("Department:", self)
-        lbl_dept_title.setStyleSheet("color: {}; font-weight: bold; min-width: 70px;".format(COLOR_TEXT_MUTED))
-        self.val_dept = QtWidgets.QLabel("Animation (ANM)", self)
-        self.val_dept.setStyleSheet("color: {}; font-weight: bold; font-size: 12px;".format(COLOR_PRIMARY_BLUE))
-
-        left_grid.addWidget(lbl_shot_title, 0, 0)
-        left_grid.addWidget(self.val_shot, 0, 1)
-        left_grid.addWidget(lbl_dept_title, 1, 0)
-        left_grid.addWidget(self.val_dept, 1, 1)
-
-        # Right Card: Timing & Destination Root
-        card_right = QtWidgets.QFrame(self)
-        card_right.setStyleSheet(card_style)
-        right_grid = QtWidgets.QGridLayout(card_right)
-        right_grid.setContentsMargins(10, 8, 10, 8)
-        right_grid.setHorizontalSpacing(10)
-        right_grid.setVerticalSpacing(6)
-
-        lbl_range_title = QtWidgets.QLabel("Timeline:", self)
-        lbl_range_title.setStyleSheet("color: {}; font-weight: bold; min-width: 65px;".format(COLOR_TEXT_MUTED))
-        self.val_range = QtWidgets.QLabel("Detecting...", self)
-        self.val_range.setStyleSheet("color: {}; font-weight: bold; font-size: 12px;".format(COLOR_ACCENT_PIPELINE))
-
-        lbl_path_title = QtWidgets.QLabel("Shot Root:", self)
-        lbl_path_title.setStyleSheet("color: {}; font-weight: bold; min-width: 65px;".format(COLOR_TEXT_MUTED))
-        self.val_path = QtWidgets.QLabel("Detecting...", self)
-        self.val_path.setStyleSheet("color: {}; font-family: {}; font-size: 11px;".format(COLOR_TEXT_MUTED, FONT_FAMILY_MONO))
-        self.val_path.setWordWrap(True)
-
-        right_grid.addWidget(lbl_range_title, 0, 0)
-        right_grid.addWidget(self.val_range, 0, 1)
-        right_grid.addWidget(lbl_path_title, 1, 0)
-        right_grid.addWidget(self.val_path, 1, 1)
+        # Right Card: Timing & Destination Root (using centralized create_stat_card)
+        card_right, right_labels = create_stat_card([
+            ("Timeline:", "Detecting...", "pipeline"),
+            ("Shot Root:", "Detecting...", "mono"),
+        ], parent=self)
+        self.val_range = right_labels["Timeline:"]
+        self.val_path = right_labels["Shot Root:"]
 
         cards_row.addWidget(card_left, 1)
         cards_row.addWidget(card_right, 2)

@@ -657,6 +657,77 @@ def create_action_card(
     return card, button
 
 
+def create_stat_card(fields=None, accent="neutral", parent=None):
+    """
+    Create a standardized Studio Dashboard Stat Card.
+
+    Args:
+        fields (list[tuple[str, str, str]], optional): List of (label_text, default_value, color_role).
+            Color roles: 'primary', 'blue', 'pipeline', 'success', 'warning', 'error', 'mono', 'muted'.
+        accent (str): Department accent or border accent.
+        parent (QWidget, optional): Parent Qt widget.
+
+    Returns:
+        tuple[QFrame, dict[str, QLabel]]:
+            - card_frame: Styled container QFrame conforming to centralized tokens.
+            - val_labels: Dictionary mapping field label key to its value QLabel for dynamic updates.
+    """
+    card = QtWidgets.QFrame(parent)
+    card.setObjectName("StatCard")
+    card.setProperty("accent", str(accent))
+
+    card_style = (
+        "QFrame#StatCard {{ background: {}; border: 1px solid {}; border-radius: 4px; }}"
+    ).format(COLOR_BG_INPUT, COLOR_BORDER_SUBTLE)
+    card.setStyleSheet(card_style)
+
+    grid = QtWidgets.QGridLayout(card)
+    grid.setContentsMargins(10, 8, 10, 8)
+    grid.setHorizontalSpacing(10)
+    grid.setVerticalSpacing(6)
+
+    val_labels = {}
+
+    color_map = {
+        "primary": COLOR_TEXT_PRIMARY,
+        "blue": COLOR_PRIMARY_BLUE,
+        "pipeline": COLOR_ACCENT_PIPELINE,
+        "success": COLOR_STATUS_SUCCESS,
+        "warning": COLOR_STATUS_WARNING,
+        "error": COLOR_STATUS_ERROR,
+        "muted": COLOR_TEXT_MUTED,
+    }
+
+    for row_idx, item in enumerate(fields or []):
+        if len(item) == 2:
+            lbl_text, def_val = item
+            role = "primary"
+        elif len(item) >= 3:
+            lbl_text, def_val, role = item[:3]
+        else:
+            continue
+
+        lbl = QtWidgets.QLabel(str(lbl_text), card)
+        lbl.setStyleSheet("color: {}; font-weight: bold;".format(COLOR_TEXT_MUTED))
+
+        val_lbl = QtWidgets.QLabel(str(def_val), card)
+        c_val = color_map.get(role, COLOR_TEXT_PRIMARY)
+
+        if role == "mono":
+            val_lbl.setStyleSheet("color: {}; font-family: {}; font-size: 11px;".format(COLOR_TEXT_MUTED, FONT_FAMILY_MONO))
+            val_lbl.setWordWrap(True)
+        elif role == "primary":
+            val_lbl.setStyleSheet("color: {}; font-weight: bold; font-size: 13px;".format(c_val))
+        else:
+            val_lbl.setStyleSheet("color: {}; font-weight: bold; font-size: 12px;".format(c_val))
+
+        grid.addWidget(lbl, row_idx, 0)
+        grid.addWidget(val_lbl, row_idx, 1)
+        val_labels[str(lbl_text)] = val_lbl
+
+    return card, val_labels
+
+
 def repolish(widget):
     widget.style().unpolish(widget)
     widget.style().polish(widget)
@@ -897,6 +968,7 @@ __all__ = [
     "configure_table_columns",
     "configure_window",
     "create_action_card",
+    "create_stat_card",
     "create_action_footer",
     "create_brand_header",
     "create_button",
