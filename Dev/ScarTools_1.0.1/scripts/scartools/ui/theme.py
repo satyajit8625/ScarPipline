@@ -504,31 +504,33 @@ QProgressBar::chunk { background: #665A82; border-radius: 3px; }
 QScrollBar:vertical { background: #242424; width: 10px; margin: 1px; }
 QScrollBar::handle:vertical { background: #4A4A4A; min-height: 24px; border-radius: 4px; }
 QScrollBar:add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }
-QMenu {
-    background-color: #242424;
-    color: #DCDCDC;
-    border: 1px solid #3E3E3E;
+QMenu, QMenu#ScarPopupMenu {
+    background-color: #292929;
+    color: #D2D2D2;
+    border: 1px solid #3A3A3A;
     border-radius: 6px;
     padding: 4px;
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 500;
 }
-QMenu::item {
+QMenu::item, QMenu#ScarPopupMenu::item {
     background: transparent;
-    padding: 6px 20px 6px 12px;
+    padding: 6px 16px 6px 12px;
+    min-height: 20px;
     border-radius: 4px;
     margin: 1px 2px;
+    color: #D2D2D2;
 }
-QMenu::item:selected {
-    background-color: #4F78B8;
+QMenu::item:selected, QMenu#ScarPopupMenu::item:selected {
+    background-color: #3B5A8A;
     color: #FFFFFF;
 }
-QMenu::item:disabled {
+QMenu::item:disabled, QMenu#ScarPopupMenu::item:disabled {
     color: #666666;
 }
-QMenu::separator {
+QMenu::separator, QMenu#ScarPopupMenu::separator {
     height: 1px;
-    background: #383838;
+    background: #3A3A3A;
     margin: 4px 6px;
 }
 

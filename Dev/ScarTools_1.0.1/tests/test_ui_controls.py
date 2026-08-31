@@ -78,13 +78,23 @@ class TestUIControls(unittest.TestCase):
         from scartools.ui import create_stat_card
         card, labels = create_stat_card([
             ("Active Shot:", "PRT_SH_020", "primary"),
-            ("Department:", "Animation (ANM)", "blue"),
+            ("Project:", "PRT", "blue"),
         ])
         self.assertIsNotNone(card)
         self.assertIn("Active Shot:", labels)
         self.assertEqual(labels["Active Shot:"].text(), "PRT_SH_020")
-        self.assertIn("Department:", labels)
-        self.assertEqual(labels["Department:"].text(), "Animation (ANM)")
+        self.assertIn("Project:", labels)
+        self.assertEqual(labels["Project:"].text(), "PRT")
+
+    def test_create_popup_menu(self):
+        from scartools.ui import create_popup_menu, ScarPopupMenu
+        menu = create_popup_menu()
+        self.assertIsInstance(menu, ScarPopupMenu)
+        act1 = menu.addAction("◇  Alembic Settings…")
+        act2 = menu.addAction("◇  FBX Settings…")
+        menu.addSeparator()
+        act3 = menu.addAction("↻  Reset to Default")
+        self.assertEqual(len(menu.actions()), 4)
 
 
 if __name__ == "__main__":

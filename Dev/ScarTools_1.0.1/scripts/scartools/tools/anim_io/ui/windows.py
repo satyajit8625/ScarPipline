@@ -21,6 +21,8 @@ from scartools.ui import (
     create_brand_header,
     create_section_panel,
     create_stat_card,
+    create_popup_menu,
+    ScarPopupMenu,
     create_data_table,
     create_action_footer,
     create_button,
@@ -115,9 +117,9 @@ class AnimIODialog(BaseToolDialog):
             "Automatic Alembic and FBX shot cache extraction",
             parent=self,
         )
-        self.settings_btn = create_button("☰", role="secondary", fixed_width=36, parent=self)
-        self.settings_btn.setObjectName("HeaderHamburgerButton")
-        self.settings_btn.setToolTip("Export Settings (Alembic & FBX Parameters)")
+        self.settings_btn = create_button("⋮", role="secondary", fixed_width=32, parent=self)
+        self.settings_btn.setObjectName("HeaderOverflowButton")
+        self.settings_btn.setToolTip("Export Settings")
         header.layout().addWidget(self.settings_btn, 0, QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
         root.addWidget(header)
 
@@ -219,17 +221,15 @@ class AnimIODialog(BaseToolDialog):
         self.apply_button.clicked.connect(self._do_export)
 
     def _open_settings_menu(self):
-        """Show the Hamburger dropdown menu with options for Alembic, FBX, and Defaults."""
-        menu = QtWidgets.QMenu(self)
-        menu.setObjectName("HamburgerMenu")
+        """Show the standardized ScarPopupMenu with Alembic, FBX, and Defaults."""
+        menu = create_popup_menu(parent=self)
 
-        act_alembic = menu.addAction("🎬 Alembic Settings...")
-        act_fbx = menu.addAction("🎮 FBX Settings...")
+        act_alembic = menu.addAction("◇  Alembic Settings…")
+        act_fbx = menu.addAction("◇  FBX Settings…")
         menu.addSeparator()
-        act_reset = menu.addAction("↺ Reset to Default")
+        act_reset = menu.addAction("↻  Reset to Default")
 
-        pos = self.settings_btn.mapToGlobal(QtCore.QPoint(0, self.settings_btn.height() + 2))
-        action = menu.exec_(pos)
+        action = menu.exec_below_widget(self.settings_btn, offset_y=5, align="right")
 
         if action == act_alembic:
             show_settings_dialog(parent=self, focus_section="alembic")

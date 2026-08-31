@@ -731,6 +731,55 @@ def create_stat_card(fields=None, accent="neutral", parent=None):
     return card, val_labels
 
 
+class ScarPopupMenu(QtWidgets.QMenu):
+    """
+    Studio-standard popup context and overflow menu conforming strictly to centralized design tokens.
+
+    Provides:
+    - Consistent dark panel background (#292929) and border (#3A3A3A).
+    - 6px corner radius and consistent 28-30px item height with centered padding.
+    - Anchor alignment method (exec_below_widget) with right/left alignment and vertical gap.
+    """
+
+    def __init__(self, parent=None):
+        super(ScarPopupMenu, self).__init__(parent)
+        self.setObjectName("ScarPopupMenu")
+        self.setAttribute(QtCore.Qt.WA_DeleteOnClose, False)
+
+    def exec_below_widget(self, widget, offset_y=5, align="right"):
+        """
+        Execute popup menu cleanly positioned below the anchor widget.
+
+        Args:
+            widget (QWidget): Target anchor button or widget.
+            offset_y (int): Vertical gap below widget (default 5px).
+            align (str): 'right' aligns right edge of menu with right edge of widget; 'left' aligns left edge.
+
+        Returns:
+            QAction: Selected action or None if dismissed.
+        """
+        if not widget:
+            return self.exec_(QtGui.QCursor.pos())
+
+        self.adjustSize()
+        menu_width = max(self.sizeHint().width(), 170)
+        widget_rect = widget.rect()
+        global_bottom_right = widget.mapToGlobal(QtCore.QPoint(widget_rect.width(), widget_rect.height() + offset_y))
+        global_bottom_left = widget.mapToGlobal(QtCore.QPoint(0, widget_rect.height() + offset_y))
+
+        if align == "right":
+            pos = QtCore.QPoint(global_bottom_right.x() - menu_width, global_bottom_right.y())
+        else:
+            pos = global_bottom_left
+
+        return self.exec_(pos)
+
+
+def create_popup_menu(parent=None):
+    """Create a standardized ScarPopupMenu instance conforming to studio design tokens."""
+    return ScarPopupMenu(parent=parent)
+
+
 def repolish(widget):
     widget.style().unpolish(widget)
     widget.style().polish(widget)
@@ -972,6 +1021,8 @@ __all__ = [
     "configure_window",
     "create_action_card",
     "create_stat_card",
+    "ScarPopupMenu",
+    "create_popup_menu",
     "create_action_footer",
     "create_brand_header",
     "create_button",
