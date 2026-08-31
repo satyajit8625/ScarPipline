@@ -1,8 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 Dedicated Studio Settings Architecture for Anim Export (Alembic & FBX Parameters).
-Provides validated pipeline presets, department color hierarchy, locked studio standards,
-and collapsible advanced options.
+Consolidates all settings into a single master department card using 100% centralized components.
 """
 
 from __future__ import absolute_import, division, print_function
@@ -153,12 +152,21 @@ def confirm_and_reset_settings(parent=None):
     return False
 
 
+def _create_separator():
+    """Create a subtle horizontal divider for single-card layouts."""
+    sep = QtWidgets.QFrame()
+    sep.setFrameShape(QtWidgets.QFrame.HLine)
+    sep.setFrameShadow(QtWidgets.QFrame.Sunken)
+    sep.setStyleSheet("border: none; border-top: 1px solid #333740; margin: 4px 0;")
+    return sep
+
+
 # ==============================================================================
-# 🎬 Dedicated Alembic Settings Dialog (Multi-Department Hierarchy)
+# 🎬 Dedicated Alembic Settings Dialog (Single Master Card Architecture)
 # ==============================================================================
 
 class AlembicSettingsDialog(BaseToolDialog):
-    """Dedicated Alembic Point Cache & Geometry Export Configuration Dialog."""
+    """Dedicated Alembic Point Cache Export Configuration Dialog."""
 
     OBJECT_NAME = "ScarToolsAlembicSettingsDialog"
     TOOL_ID = "scartools_anim_io_alembic_settings"
@@ -172,7 +180,7 @@ class AlembicSettingsDialog(BaseToolDialog):
         self.setObjectName(self.OBJECT_NAME)
         self.setWindowTitle(self.WINDOW_TITLE)
         self.setAttribute(QtCore.Qt.WA_DeleteOnClose, True)
-        configure_window(self, (520, 560), (600, 680))
+        configure_window(self, (520, 520), (600, 600))
 
         self._current_settings = get_anim_export_settings()["alembic"]
         self._build_ui()
@@ -193,7 +201,7 @@ class AlembicSettingsDialog(BaseToolDialog):
 
         # 2. Preset Selection Bar
         preset_bar = QtWidgets.QHBoxLayout()
-        preset_bar.setContentsMargins(4, 2, 4, 2)
+        preset_bar.setContentsMargins(4, 0, 4, 0)
         lbl_pre = QtWidgets.QLabel("Preset:", self)
         lbl_pre.setObjectName("SettingsFieldLabel")
         self.combo_preset = QtWidgets.QComboBox(self)
@@ -204,10 +212,11 @@ class AlembicSettingsDialog(BaseToolDialog):
         preset_bar.addStretch(1)
         root.addLayout(preset_bar)
 
-        # 3. Cache Panel [accent="pipeline", #4E937B]
-        cache_panel, cache_layout, _ = create_section_panel("CACHE & TIMING", accent="pipeline", parent=self)
-        cache_layout.setSpacing(8)
+        # 3. Unified Single Master Card [UI-03, FW-07]
+        master_panel, layout, _ = create_section_panel("Alembic Cache Parameters", accent="pipeline", parent=self)
+        layout.setSpacing(9)
 
+        # Cache & Timing Rows
         row_fmt = QtWidgets.QHBoxLayout()
         lbl_fmt = QtWidgets.QLabel("Data Format:", self)
         lbl_fmt.setObjectName("SettingsMutedLabel")
@@ -217,7 +226,7 @@ class AlembicSettingsDialog(BaseToolDialog):
         row_fmt.addWidget(lbl_fmt)
         row_fmt.addWidget(val_fmt)
         row_fmt.addStretch(1)
-        cache_layout.addLayout(row_fmt)
+        layout.addLayout(row_fmt)
 
         row_step = QtWidgets.QHBoxLayout()
         lbl_step = QtWidgets.QLabel("Frame Step:", self)
@@ -225,7 +234,7 @@ class AlembicSettingsDialog(BaseToolDialog):
         self.seg_step = create_segmented_control(["1.0 (Standard)", "0.5 (2x FX)", "0.25 (4x FX)"], current=0, accent="pipeline", parent=self)
         row_step.addWidget(lbl_step)
         row_step.addWidget(self.seg_step, 1)
-        cache_layout.addLayout(row_step)
+        layout.addLayout(row_step)
 
         row_handles = QtWidgets.QHBoxLayout()
         lbl_handles = QtWidgets.QLabel("Simulation Handles:", self)
@@ -236,16 +245,14 @@ class AlembicSettingsDialog(BaseToolDialog):
         row_handles.addWidget(lbl_handles)
         row_handles.addWidget(self.combo_handles)
         row_handles.addStretch(1)
-        cache_layout.addLayout(row_handles)
-        root.addWidget(cache_panel)
+        layout.addLayout(row_handles)
 
-        # 4. Geometry Panel [accent="modeling", #5F7FA8]
-        geo_panel, geo_layout, _ = create_section_panel("GEOMETRY & SHADING", accent="modeling", parent=self)
-        geo_layout.setSpacing(8)
+        layout.addWidget(_create_separator())
 
+        # Geometry & Shading Flags
         grid_geo = QtWidgets.QGridLayout()
         grid_geo.setHorizontalSpacing(18)
-        grid_geo.setVerticalSpacing(8)
+        grid_geo.setVerticalSpacing(7)
 
         lbl_uv = QtWidgets.QLabel("UV Sets", self)
         lbl_uv.setToolTip("Export UV sets into Alembic (-uvWrite)")
@@ -279,14 +286,11 @@ class AlembicSettingsDialog(BaseToolDialog):
 
         grid_geo.addWidget(lbl_col, 2, 0)
         grid_geo.addWidget(self.sw_col, 2, 1)
+        layout.addLayout(grid_geo)
 
-        geo_layout.addLayout(grid_geo)
-        root.addWidget(geo_panel)
+        layout.addWidget(_create_separator())
 
-        # 5. Transforms & Naming Panel [accent="rig", #766A8E]
-        tf_panel, tf_layout, _ = create_section_panel("TRANSFORMS & NAMING", accent="rig", parent=self)
-        tf_layout.setSpacing(8)
-
+        # Transforms & Naming
         row_tf = QtWidgets.QHBoxLayout()
         lbl_ws = QtWidgets.QLabel("World Space Matrix", self)
         lbl_ws.setToolTip("Bake world space transforms for cinematic cache exchange (-worldSpace)")
@@ -302,22 +306,17 @@ class AlembicSettingsDialog(BaseToolDialog):
         row_tf.addWidget(lbl_strip)
         row_tf.addWidget(self.sw_strip)
         row_tf.addStretch(1)
-        tf_layout.addLayout(row_tf)
-        root.addWidget(tf_panel)
+        layout.addLayout(row_tf)
 
-        # 6. Collapsible Advanced Options Panel
-        adv_card = QtWidgets.QFrame(self)
-        adv_card.setObjectName("ActionCard")
-        adv_card_layout = QtWidgets.QVBoxLayout(adv_card)
-        adv_card_layout.setContentsMargins(10, 6, 10, 6)
-        adv_card_layout.setSpacing(6)
+        layout.addWidget(_create_separator())
 
+        # Collapsible Advanced Section inside the master card
         self.adv_btn = QtWidgets.QPushButton("▸  Advanced Options (Rarely Modified)", self)
         self.adv_btn.setObjectName("SettingsFieldLabel")
         self.adv_btn.setFlat(True)
         self.adv_btn.setStyleSheet("text-align: left; padding: 2px 0; color: #8A94A6; font-weight: 500;")
         self.adv_btn.setCursor(QtCore.Qt.PointingHandCursor)
-        adv_card_layout.addWidget(self.adv_btn)
+        layout.addWidget(self.adv_btn)
 
         self.adv_frame = QtWidgets.QFrame(self)
         self.adv_frame.setVisible(False)
@@ -363,10 +362,11 @@ class AlembicSettingsDialog(BaseToolDialog):
         grid_adv.addWidget(self.sw_euler, 2, 1)
 
         adv_sub_layout.addLayout(grid_adv)
-        adv_card_layout.addWidget(self.adv_frame)
-        root.addWidget(adv_card)
+        layout.addWidget(self.adv_frame)
 
-        # 7. Action Footer [UI-06]
+        root.addWidget(master_panel)
+
+        # 4. Standard Action Footer [UI-06]
         footer_frame = QtWidgets.QFrame(self)
         footer_frame.setObjectName("ActionFooter")
         footer_layout = QtWidgets.QHBoxLayout(footer_frame)
@@ -452,11 +452,11 @@ class AlembicSettingsDialog(BaseToolDialog):
 
 
 # ==============================================================================
-# 🎮 Dedicated FBX Settings Dialog (Multi-Department Hierarchy)
+# 🎮 Dedicated FBX Settings Dialog (Single Master Card Architecture)
 # ==============================================================================
 
 class FBXSettingsDialog(BaseToolDialog):
-    """Dedicated FBX Animation Take & Scene Data Export Configuration Dialog."""
+    """Dedicated FBX Animation Take Export Configuration Dialog."""
 
     OBJECT_NAME = "ScarToolsFBXSettingsDialog"
     TOOL_ID = "scartools_anim_io_fbx_settings"
@@ -470,7 +470,7 @@ class FBXSettingsDialog(BaseToolDialog):
         self.setObjectName(self.OBJECT_NAME)
         self.setWindowTitle(self.WINDOW_TITLE)
         self.setAttribute(QtCore.Qt.WA_DeleteOnClose, True)
-        configure_window(self, (520, 560), (600, 680))
+        configure_window(self, (520, 520), (600, 600))
 
         self._current_settings = get_anim_export_settings()["fbx"]
         self._build_ui()
@@ -491,7 +491,7 @@ class FBXSettingsDialog(BaseToolDialog):
 
         # 2. Preset Selection Bar
         preset_bar = QtWidgets.QHBoxLayout()
-        preset_bar.setContentsMargins(4, 2, 4, 2)
+        preset_bar.setContentsMargins(4, 0, 4, 0)
         lbl_pre = QtWidgets.QLabel("Preset:", self)
         lbl_pre.setObjectName("SettingsFieldLabel")
         self.combo_preset = QtWidgets.QComboBox(self)
@@ -502,13 +502,14 @@ class FBXSettingsDialog(BaseToolDialog):
         preset_bar.addStretch(1)
         root.addLayout(preset_bar)
 
-        # 3. Animation & Deformation Panel [accent="rig", #766A8E]
-        anim_panel, anim_layout, _ = create_section_panel("ANIMATION & DEFORMATION", accent="rig", parent=self)
-        anim_layout.setSpacing(8)
+        # 3. Unified Single Master Card [UI-03, FW-07]
+        master_panel, layout, _ = create_section_panel("FBX Export Configuration", accent="rig", parent=self)
+        layout.setSpacing(9)
 
+        # Animation & Deformation Grid
         grid_anim = QtWidgets.QGridLayout()
         grid_anim.setHorizontalSpacing(18)
-        grid_anim.setVerticalSpacing(8)
+        grid_anim.setVerticalSpacing(7)
 
         lbl_anim = QtWidgets.QLabel("Animation Takes", self)
         lbl_anim.setToolTip("Export keyframe animation takes")
@@ -542,17 +543,14 @@ class FBXSettingsDialog(BaseToolDialog):
 
         grid_anim.addWidget(lbl_blend, 2, 0)
         grid_anim.addWidget(self.sw_blend, 2, 1)
+        layout.addLayout(grid_anim)
 
-        anim_layout.addLayout(grid_anim)
-        root.addWidget(anim_panel)
+        layout.addWidget(_create_separator())
 
-        # 4. Geometry & Scene Data Panel [accent="modeling", #5F7FA8]
-        geo_panel, geo_layout, _ = create_section_panel("GEOMETRY & SCENE DATA", accent="modeling", parent=self)
-        geo_layout.setSpacing(8)
-
+        # Geometry & Scene Data Grid
         grid_geo = QtWidgets.QGridLayout()
         grid_geo.setHorizontalSpacing(18)
-        grid_geo.setVerticalSpacing(8)
+        grid_geo.setVerticalSpacing(7)
 
         lbl_smooth = QtWidgets.QLabel("Smoothing Groups", self)
         lbl_smooth.setToolTip("Export polygon smoothing groups")
@@ -586,14 +584,11 @@ class FBXSettingsDialog(BaseToolDialog):
 
         grid_geo.addWidget(lbl_light, 2, 0)
         grid_geo.addWidget(self.sw_light, 2, 1)
+        layout.addLayout(grid_geo)
 
-        geo_layout.addLayout(grid_geo)
-        root.addWidget(geo_panel)
+        layout.addWidget(_create_separator())
 
-        # 5. Pipeline Locked Defaults [accent="data", #667A70]
-        pipe_panel, pipe_layout, _ = create_section_panel("PIPELINE LOCKED STANDARDS", accent="data", parent=self)
-        pipe_layout.setSpacing(6)
-
+        # Pipeline Standards Row
         grid_pipe = QtWidgets.QGridLayout()
         grid_pipe.setHorizontalSpacing(18)
         grid_pipe.setVerticalSpacing(6)
@@ -627,23 +622,17 @@ class FBXSettingsDialog(BaseToolDialog):
         grid_pipe.addWidget(val_p_unit, 1, 1)
         grid_pipe.addWidget(lbl_p_media, 1, 2)
         grid_pipe.addWidget(val_p_media, 1, 3)
+        layout.addLayout(grid_pipe)
 
-        pipe_layout.addLayout(grid_pipe)
-        root.addWidget(pipe_panel)
+        layout.addWidget(_create_separator())
 
-        # 6. Collapsible Advanced Options Panel
-        adv_card = QtWidgets.QFrame(self)
-        adv_card.setObjectName("ActionCard")
-        adv_card_layout = QtWidgets.QVBoxLayout(adv_card)
-        adv_card_layout.setContentsMargins(10, 6, 10, 6)
-        adv_card_layout.setSpacing(6)
-
+        # Collapsible Advanced Section inside the master card
         self.adv_btn = QtWidgets.QPushButton("▸  Advanced Options (Rarely Modified)", self)
         self.adv_btn.setObjectName("SettingsFieldLabel")
         self.adv_btn.setFlat(True)
         self.adv_btn.setStyleSheet("text-align: left; padding: 2px 0; color: #8A94A6; font-weight: 500;")
         self.adv_btn.setCursor(QtCore.Qt.PointingHandCursor)
-        adv_card_layout.addWidget(self.adv_btn)
+        layout.addWidget(self.adv_btn)
 
         self.adv_frame = QtWidgets.QFrame(self)
         self.adv_frame.setVisible(False)
@@ -675,10 +664,11 @@ class FBXSettingsDialog(BaseToolDialog):
         grid_adv.addWidget(self.sw_pres, 1, 1)
 
         adv_sub_layout.addLayout(grid_adv)
-        adv_card_layout.addWidget(self.adv_frame)
-        root.addWidget(adv_card)
+        layout.addWidget(self.adv_frame)
 
-        # 7. Action Footer [UI-06]
+        root.addWidget(master_panel)
+
+        # 4. Standard Action Footer [UI-06]
         footer_frame = QtWidgets.QFrame(self)
         footer_frame.setObjectName("ActionFooter")
         footer_layout = QtWidgets.QHBoxLayout(footer_frame)
