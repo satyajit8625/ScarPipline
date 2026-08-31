@@ -127,13 +127,13 @@ class AnimIODialog(BaseToolDialog):
         cards_row.setSpacing(28)
         cards_row.setContentsMargins(0, 0, 0, 0)
 
-        # Left Card: Shot & Department Identity (using centralized create_stat_card)
+        # Left Card: Shot & Project Identity (using centralized create_stat_card)
         card_left, left_labels = create_stat_card([
             ("Active Shot:", "Detecting...", "primary"),
-            ("Department:", "Animation (ANM)", "blue"),
+            ("Project:", "Detecting...", "blue"),
         ], parent=self)
         self.val_shot = left_labels["Active Shot:"]
-        self.val_dept = left_labels["Department:"]
+        self.val_project = left_labels["Project:"]
 
         # Right Card: Timing & Destination Root (using centralized create_stat_card)
         card_right, right_labels = create_stat_card([
@@ -283,11 +283,11 @@ class AnimIODialog(BaseToolDialog):
         if is_unsaved:
             self.val_shot.setText(self._resolved_shot_name + " (Unsaved)")
             self.val_shot.setStyleSheet("color: {}; font-weight: bold; font-size: 13px;".format(COLOR_STATUS_WARNING))
-            self.val_dept.setText("Unsaved Scene")
+            self.val_project.setText("Unsaved Scene")
         else:
             self.val_shot.setText(self._resolved_shot_name)
             self.val_shot.setStyleSheet("color: {}; font-weight: bold; font-size: 13px;".format(COLOR_TEXT_PRIMARY))
-            self.val_dept.setText("{} ({})".format(proj or "Scene", dept))
+            self.val_project.setText(proj or "Active Maya Scene")
 
         self.val_path.setText(self._resolved_shot_root or "Active Maya Project / Current Scene Directory")
 
@@ -308,15 +308,7 @@ class AnimIODialog(BaseToolDialog):
 
         total_frames = max(0, end_f - start_f + 1)
         self.val_range.setText("Frames {} to {} ({} frames)".format(start_f, end_f, total_frames))
-
-        if proj:
-            self.header_subtitle.setText(
-                "Project: {} | Shot: {} | Dept: {} | Scene: {}".format(
-                    proj, self._resolved_shot_name, dept, ver
-                )
-            )
-        else:
-            self.header_subtitle.setText("Automatic Alembic (.abc) and FBX (.fbx) shot cache extraction")
+        self.header_subtitle.setText("Automatic Alembic (.abc) and FBX (.fbx) shot cache extraction")
 
         data = discover_scene_assets()
 
