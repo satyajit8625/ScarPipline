@@ -708,10 +708,18 @@ Shot_010/
                         <li>Open <strong>Anim Export</strong> from the ScarTools shelf or menu.</li>
                         <li>The tool automatically inspects the active scene (e.g. <code>PRT_SH_020_ANM_V001.ma</code>) and auto-resolves the <strong>Active Shot</strong> (<code>PRT_SH_020</code>), <strong>Project</strong> (<code>PRT</code>), <strong>Timeline Range</strong>, and <strong>Target Shot Root</strong>.</li>
                         <li>If the camera is non-standard (e.g. <code>Shot_020_Camera</code>) or missing, it is indicated directly in the list table with status <code>Rename Needed &rarr; PRT_SH_020_CAM</code>. Double-clicking the row renames the camera in-place in 1 step with zero duplicates.</li>
-                        <li>Detected assets and camera are automatically checked in the clean 2-column table (<code>Asset Name</code>, <code>Status</code>).</li>
+                        <li>Detected assets and camera are listed in the dedicated 3-column table (<code>Asset Name</code>, <code>Export</code> checkbox, and <code>Status</code>).</li>
                         <li>Click <strong>EXPORT SHOT CACHES</strong>. The centralized <code>OperationProgressPopup</code> displays real-time caching progress across all assets.</li>
                         <li>Upon completion, click <strong>Open Folder</strong> to instantly view the exported files in Windows Explorer.</li>
                     </ol>
+
+                    <h2>⚙️ Export Settings & Kebab Menu (⋮)</h2>
+                    <p>Clicking the <strong>Kebab Menu (<code>⋮</code>)</strong> in the top-right header opens the standardized <code>ScarPopupMenu</code>:</p>
+                    <ul>
+                        <li><strong><code>◇ Alembic Settings…</code></strong>: Opens the settings dialog directly to the Alembic tab to configure Motion Blur Velocity Vectors (<code>-writeVelocities</code>), Sub-Frame Sampling Steps (1.0 / 0.5 / 0.25), Simulation Handles (0 / &plusmn;5 / &plusmn;10 frames), and mesh attributes (UVs, Normals, Renderable Only).</li>
+                        <li><strong><code>◇ FBX Settings…</code></strong>: Opens the settings dialog directly to the FBX tab to configure Coordinate Up-Axis (<code>Y-Up</code> Maya/Film vs <code>Z-Up</code> Unreal Engine), FBX SDK Versions (2020 / 2018 / 2016), Smoothing Groups, and Triangulation.</li>
+                        <li><strong><code>↻ Reset to Default</code></strong>: 1-Click action that instantly restores all export parameters to studio pipeline standards and notifies the artist in the status bar.</li>
+                    </ul>
                 </div>
 
                 <!-- 2. Model Sanitizer -->

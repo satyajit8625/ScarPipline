@@ -281,7 +281,7 @@ These values are defaults, not permission to clip translated text or break respo
 
 ### `[UI-05]` Shared Controls
 
-**Requirement:** If an equivalent shared control exists, tools MUST reuse it. This includes segmented controls, toggle switches, labeled sliders, vector inputs, path pickers, UV tile grids, curve editors, palette grids, token inputs, step wizards, and preset bars.
+**Requirement:** If an equivalent shared control exists, tools MUST reuse it. This includes segmented controls, toggle switches, labeled sliders, vector inputs, path pickers, UV tile grids, curve editors, palette grids, token inputs, step wizards, preset bars, stat cards (`create_stat_card`), and popup menus (`ScarPopupMenu` / `create_popup_menu`).
 
 **Exception:** A specialized tool control MAY be local until it meets `[ARCH-03]` promotion criteria.
 

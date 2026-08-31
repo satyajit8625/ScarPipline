@@ -122,7 +122,7 @@ class AnimExportSettingsDialog(BaseToolDialog):
         # Velocities
         vel_row = QtWidgets.QHBoxLayout()
         vel_lbl = QtWidgets.QLabel("Motion Blur Velocity Vectors (-writeVelocities)", self)
-        vel_lbl.setStyleSheet("color: {}; font-weight: 500;".format(COLOR_TEXT_PRIMARY))
+        vel_lbl.setObjectName("SettingsFieldLabel")
         self.sw_abc_velocities = create_toggle_switch(text="", checked=True, accent="pipeline", parent=self)
         vel_row.addWidget(vel_lbl, 1)
         vel_row.addWidget(self.sw_abc_velocities)
@@ -131,7 +131,7 @@ class AnimExportSettingsDialog(BaseToolDialog):
         # Step Sampling
         step_row = QtWidgets.QHBoxLayout()
         step_lbl = QtWidgets.QLabel("Sub-Frame Sampling Step:", self)
-        step_lbl.setStyleSheet("color: {};".format(COLOR_TEXT_MUTED))
+        step_lbl.setObjectName("SettingsMutedLabel")
         self.seg_abc_step = create_segmented_control(
             ["1.0 (Standard)", "0.5 (2x FX)", "0.25 (4x FX)"],
             current=0,
@@ -145,7 +145,7 @@ class AnimExportSettingsDialog(BaseToolDialog):
         # Pre-Roll Handles
         handle_row = QtWidgets.QHBoxLayout()
         handle_lbl = QtWidgets.QLabel("Pre-Roll / Simulation Handles:", self)
-        handle_lbl.setStyleSheet("color: {};".format(COLOR_TEXT_MUTED))
+        handle_lbl.setObjectName("SettingsMutedLabel")
         self.seg_abc_handles = create_segmented_control(
             ["0 Frames", "±5 Frames", "±10 Frames"],
             current=0,
@@ -188,7 +188,7 @@ class AnimExportSettingsDialog(BaseToolDialog):
         # Up-Axis
         axis_row = QtWidgets.QHBoxLayout()
         axis_lbl = QtWidgets.QLabel("Coordinate Up-Axis:", self)
-        axis_lbl.setStyleSheet("color: {}; font-weight: 500;".format(COLOR_TEXT_PRIMARY))
+        axis_lbl.setObjectName("SettingsFieldLabel")
         self.seg_fbx_axis = create_segmented_control(
             ["Y-Up (Maya / Film)", "Z-Up (Unreal Engine)"],
             current=0,
@@ -205,7 +205,7 @@ class AnimExportSettingsDialog(BaseToolDialog):
         fbx_grid.setVerticalSpacing(10)
 
         lbl_ver = QtWidgets.QLabel("FBX Version:", self)
-        lbl_ver.setStyleSheet("color: {};".format(COLOR_TEXT_MUTED))
+        lbl_ver.setObjectName("SettingsMutedLabel")
         self.combo_fbx_ver = QtWidgets.QComboBox(self)
         self.combo_fbx_ver.addItems(["FBX 2020", "FBX 2018", "FBX 2016"])
         configure_field(self.combo_fbx_ver, minimum_width=130)

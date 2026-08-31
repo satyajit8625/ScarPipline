@@ -277,9 +277,9 @@ class ReleaseTests(unittest.TestCase):
         ):
             self.assertTrue((ui / name).is_file(), name)
         tokens = source(ui / "tokens.py")
-        self.assertIn("PRIMARY_BUTTON_HEIGHT = 38", tokens)
+        self.assertIn("PRIMARY_BUTTON_HEIGHT = 42", tokens)
         self.assertIn("SECONDARY_BUTTON_HEIGHT = 30", tokens)
-        self.assertIn("WINDOW_MARGIN = 10", tokens)
+        self.assertIn("WINDOW_MARGIN = 14", tokens)
 
     def test_every_tool_window_uses_central_base_and_theme(self):
         for tool in ("skin", "shader", "character_finalizer"):

@@ -28,6 +28,7 @@ Version 1.0.1 provides a clean, centralized framework: every built-in tool lives
 - **Generate UDIM**: 1-Click hardware UV tile mipmap preview generator, GPU cache flusher, and Textured display mode activator (Key 6).
 
 ### 4. Animation & Pipeline
+- **Anim Export**: 1-Page automated shot caching engine exporting point caches (`Alembic/`) and character/camera takes (`FBX/`) with automated shot parsing, in-place camera standardization (`<shot>_CAM`), and Kebab (`⋮`) export settings menu.
 - **Pipeline Renamer**: Bulk search/replace, prefix/suffix insertion, sequential numbering, and studio suffix presets.
 - **Log Viewer**: Centralized studio event bus capturing real-time diagnostic output, warnings, errors, and successes.
 - **Design System Showcase**: Live interactive gallery of all centralized DCC widgets, falloff curves, UDIM matrix grids, and studio themes.
@@ -37,6 +38,7 @@ Version 1.0.1 provides a clean, centralized framework: every built-in tool lives
 ## 🎨 Centralized DCC UI Framework (`scartools.ui`)
 
 All tools reuse modular, standardized UI controls from `scartools.ui`:
+* **`ScarPopupMenu` / `create_popup_menu`**: Studio-standard dark popup menu with automatic edge alignment (`exec_below_widget`).
 * **`Vector3Input`**: 3-Axis linked coordinate input with X/Y/Z color badges.
 * **`UVTileGrid`**: Interactive $10 \times 10$ matrix grid for UDIMs (`1001`–`1040`).
 * **`CurveEditorWidget`**: 2D Bézier curve graph for custom falloff curves.

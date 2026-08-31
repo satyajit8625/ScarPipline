@@ -156,21 +156,23 @@ class AnimIODialog(BaseToolDialog):
         asset_panel, asset_layout, _ = create_section_panel(
             "Shot Assets to Export", accent="data", parent=self
         )
+        top_bar = QtWidgets.QHBoxLayout()
         self.count_badge = QtWidgets.QLabel("0 assets detected")
         self.count_badge.setObjectName("CountBadge")
+        top_bar.addWidget(self.count_badge)
+        top_bar.addStretch(1)
 
         fmt_lbl = QtWidgets.QLabel("Format:", self)
         self.geo_format_combo = QtWidgets.QComboBox(self)
         self.geo_format_combo.addItems(["Alembic", "FBX", "Both"])
         self.geo_format_combo.setCurrentIndex(2)  # Default: Both
-        configure_field(self.geo_format_combo, minimum_width=110)
+        configure_field(self.geo_format_combo, minimum_width=140)
+        top_bar.addWidget(fmt_lbl)
+        top_bar.addWidget(self.geo_format_combo)
 
         self.refresh_btn = create_button("Refresh Scene", role="secondary", parent=self)
-
-        asset_panel.add_header_action(self.count_badge)
-        asset_panel.add_header_action(fmt_lbl)
-        asset_panel.add_header_action(self.geo_format_combo)
-        asset_panel.add_header_action(self.refresh_btn)
+        top_bar.addWidget(self.refresh_btn)
+        asset_layout.addLayout(top_bar)
 
         self.asset_table = create_data_table(
             ["Asset Name", "Export", "Status"],
@@ -305,12 +307,13 @@ class AnimIODialog(BaseToolDialog):
 
         if is_unsaved:
             self.val_shot.setText(self._resolved_shot_name + " (Unsaved)")
-            self.val_shot.setStyleSheet("color: {}; font-weight: bold; font-size: 13px;".format(COLOR_STATUS_WARNING))
+            self.val_shot.setProperty("state", "warning")
             self.val_project.setText("Unsaved Scene")
         else:
             self.val_shot.setText(self._resolved_shot_name)
-            self.val_shot.setStyleSheet("color: {}; font-weight: bold; font-size: 13px;".format(COLOR_TEXT_PRIMARY))
+            self.val_shot.setProperty("state", "primary")
             self.val_project.setText(proj or "Active Maya Scene")
+        repolish(self.val_shot)
 
         self.val_path.setText(self._resolved_shot_root or "Active Maya Project / Current Scene Directory")
 

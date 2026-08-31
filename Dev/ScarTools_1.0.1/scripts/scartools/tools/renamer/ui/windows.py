@@ -71,19 +71,15 @@ class PipelineRenamerWindow(BaseToolDialog):
             "Fast batch node renaming and department suffixing",
             parent=self,
         )
-        self.overflow_btn = create_button("⋮", role="secondary", fixed_width=32, parent=self)
-        self.overflow_btn.setObjectName("HeaderOverflowButton")
-        self.overflow_btn.setToolTip("More Options")
-        header.layout().addWidget(self.overflow_btn, 0, QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
         root.addWidget(header)
 
         # 2. Section 1: Search and Replace -----------------------------
         sr_panel, sr_layout, _ = create_section_panel(
-            "Search and Replace", accent="neutral", parent=self
+            "Search and Replace", accent="pipeline", parent=self
         )
 
         search_row = QtWidgets.QHBoxLayout()
-        search_row.setSpacing(INLINE_SPACING)
+        search_row.setSpacing(8)
         search_lbl = QtWidgets.QLabel("Search")
         search_lbl.setFixedWidth(FORM_LABEL_WIDTH)
         self.sr_search_edit = QtWidgets.QLineEdit()
@@ -93,7 +89,7 @@ class PipelineRenamerWindow(BaseToolDialog):
         sr_layout.addLayout(search_row)
 
         replace_row = QtWidgets.QHBoxLayout()
-        replace_row.setSpacing(INLINE_SPACING)
+        replace_row.setSpacing(8)
         replace_lbl = QtWidgets.QLabel("Replace")
         replace_lbl.setFixedWidth(FORM_LABEL_WIDTH)
         self.sr_replace_edit = QtWidgets.QLineEdit()
@@ -106,7 +102,7 @@ class PipelineRenamerWindow(BaseToolDialog):
 
         # 3. Section 2: Prefix & Suffix --------------------------------
         ps_panel, ps_layout, _ = create_section_panel(
-            "Prefix & Suffix", accent="neutral", parent=self
+            "Prefix & Suffix", accent="pipeline", parent=self
         )
 
         ps_row = QtWidgets.QHBoxLayout()
@@ -133,14 +129,14 @@ class PipelineRenamerWindow(BaseToolDialog):
 
         # 4. Section 3: Numbering --------------------------------------
         num_panel, num_layout, _ = create_section_panel(
-            "Numbering", accent="neutral", parent=self
+            "Numbering", accent="pipeline", parent=self
         )
 
-        # Enable Numbering Checkbox in Section Header
-        self.num_enable_check = QtWidgets.QCheckBox("Enable")
+        # Enable Numbering Checkbox
+        self.num_enable_check = QtWidgets.QCheckBox("Enable Numbering")
         self.num_enable_check.setChecked(True)
-        self.num_enable_check.setStyleSheet("color: #E2E8F0; font-size: 11px; font-weight: 500;")
-        num_panel.add_header_action(self.num_enable_check)
+        self.num_enable_check.setStyleSheet("color: #E2E8F0; font-size: 11px; font-weight: 600;")
+        num_layout.addWidget(self.num_enable_check)
 
         num_row = QtWidgets.QHBoxLayout()
         num_row.setSpacing(INLINE_SPACING)
@@ -171,7 +167,7 @@ class PipelineRenamerWindow(BaseToolDialog):
 
         # 5. Section 4: Rename -----------------------------------------
         rename_panel, rename_layout, _ = create_section_panel(
-            "Rename", accent="neutral", parent=self
+            "Rename", accent="pipeline", parent=self
         )
 
         rename_row = QtWidgets.QHBoxLayout()

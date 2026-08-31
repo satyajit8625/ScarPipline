@@ -534,6 +534,27 @@ QMenu::separator, QMenu#ScarPopupMenu::separator {
     margin: 4px 6px;
 }
 
+/* Centralized Settings Dialog Labels */
+QLabel#SettingsFieldLabel {
+    color: #E2E8F0;
+    font-weight: 500;
+    font-size: 11px;
+}
+QLabel#SettingsMutedLabel {
+    color: #A0AEC0;
+    font-size: 11px;
+}
+QLabel#StatCardValue[state="warning"] {
+    color: #D6B36A;
+    font-weight: bold;
+    font-size: 13px;
+}
+QLabel#StatCardValue[state="primary"] {
+    color: #FFFFFF;
+    font-weight: bold;
+    font-size: 13px;
+}
+
 /* Centralized Installer & Setup Components */
 QLabel#SetupTitle { color: #FFFFFF; font-size: 17px; font-weight: 600; }
 QLabel#SetupSubtitle { color: #999999; font-size: 11px; }

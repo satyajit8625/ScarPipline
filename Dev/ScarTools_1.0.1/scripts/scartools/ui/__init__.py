@@ -121,16 +121,12 @@ def configure_button(button, primary=False, fixed_width=None, role=None):
     """Apply the suite-wide role, height, and optional width to a button."""
     role = str(role or ("primary" if primary else "secondary"))
     button.setProperty("role", role)
-    if role == "primary":
-        button.setFixedHeight(PRIMARY_BUTTON_HEIGHT)
-    elif role == "compact":
-        button.setFixedHeight(COMPACT_BUTTON_HEIGHT)
-    else:
-        button.setFixedHeight(BUTTON_HEIGHT)
-
+    button.setFixedHeight(
+        PRIMARY_BUTTON_HEIGHT if role == "primary" else SECONDARY_BUTTON_HEIGHT
+    )
     if fixed_width:
         button.setFixedWidth(int(fixed_width))
-    elif role not in ("primary", "compact", "tertiary"):
+    elif role != "primary":
         button.setMinimumWidth(SECONDARY_BUTTON_MIN_WIDTH)
     return button
 
@@ -188,7 +184,7 @@ def configure_group_layout(layout):
 
 def configure_field(widget, minimum_width=None):
     """Normalize line-edit and combo-box heights across the suite."""
-    widget.setFixedHeight(CONTROL_HEIGHT)
+    widget.setMinimumHeight(FIELD_HEIGHT)
     if minimum_width is not None:
         widget.setMinimumWidth(int(minimum_width))
     return widget
@@ -205,8 +201,7 @@ def configure_table(table, minimum_height=TABLE_MIN_HEIGHT):
     table.setWordWrap(False)
     table.setFocusPolicy(QtCore.Qt.StrongFocus)
     table.verticalHeader().setVisible(False)
-    table.verticalHeader().setDefaultSectionSize(TABLE_ROW_HEIGHT)
-    table.horizontalHeader().setFixedHeight(TABLE_HEADER_HEIGHT)
+    table.verticalHeader().setDefaultSectionSize(34)
     table.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAsNeeded)
     table.setVerticalScrollMode(QtWidgets.QAbstractItemView.ScrollPerPixel)
     header = table.horizontalHeader()
@@ -277,21 +272,15 @@ def create_section_panel(title, accent="neutral", layout_kind="vertical", parent
     shell = QtWidgets.QVBoxLayout(panel)
     shell.setContentsMargins(
         GROUP_MARGIN_X,
-        GROUP_MARGIN_TOP,
+        10,
         GROUP_MARGIN_X,
         GROUP_MARGIN_BOTTOM,
     )
     shell.setSpacing(GROUP_SPACING)
 
-    title_row = QtWidgets.QHBoxLayout()
-    title_row.setContentsMargins(0, 0, 0, 0)
-    title_row.setSpacing(GROUP_SPACING)
-
     title_label = QtWidgets.QLabel(str(title))
     title_label.setObjectName("SectionTitle")
-    title_row.addWidget(title_label)
-    title_row.addStretch(1)
-    shell.addLayout(title_row)
+    shell.addWidget(title_label)
 
     kinds = {
         "vertical": QtWidgets.QVBoxLayout,
@@ -306,13 +295,6 @@ def create_section_panel(title, accent="neutral", layout_kind="vertical", parent
     content.setContentsMargins(0, 0, 0, 0)
     content.setSpacing(GROUP_SPACING)
     shell.addLayout(content)
-
-    def add_header_action(widget):
-        title_row.addWidget(widget)
-        return widget
-
-    panel.add_header_action = add_header_action
-    panel.title_row = title_row
     return panel, content, title_label
 
 
@@ -731,7 +713,9 @@ def create_stat_card(fields=None, accent="neutral", parent=None):
         lbl.setAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
 
         val_lbl = QtWidgets.QLabel(str(def_val), card)
+        val_lbl.setObjectName("StatCardValue")
         val_lbl.setAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
+        val_lbl.setProperty("state", role)
         c_val = color_map.get(role, COLOR_TEXT_PRIMARY)
 
         if role == "mono":
