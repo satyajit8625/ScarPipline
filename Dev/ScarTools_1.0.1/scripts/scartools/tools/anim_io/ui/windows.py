@@ -91,7 +91,7 @@ class AnimIODialog(BaseToolDialog):
         self.setWindowTitle(self.WINDOW_TITLE)
         self.controller = AnimIOController()
         self.setAttribute(QtCore.Qt.WA_DeleteOnClose, True)
-        configure_window(self, (740, 540), (860, 640))
+        configure_window(self, (720, 520), (840, 620))
         apply_window_icon(self)
 
         self._resolved_shot_name = "untitled_shot"
@@ -169,12 +169,12 @@ class AnimIODialog(BaseToolDialog):
         info_layout.addLayout(info_grid)
         root.addWidget(info_panel)
 
-        # 3. Camera, Characters & Props Data Table with Editable Type [UI-03, UI-05]
+        # 3. Shot Assets to Export Data Table [UI-03, UI-05]
         asset_panel, asset_layout, _ = create_section_panel(
-            "Camera, Characters & Props to Export", accent="data", parent=self
+            "Shot Assets to Export", accent="data", parent=self
         )
         top_bar = QtWidgets.QHBoxLayout()
-        self.count_badge = QtWidgets.QLabel("0 elements detected")
+        self.count_badge = QtWidgets.QLabel("0 assets detected")
         self.count_badge.setObjectName("CountBadge")
         top_bar.addWidget(self.count_badge)
         top_bar.addStretch(1)
@@ -192,14 +192,13 @@ class AnimIODialog(BaseToolDialog):
         asset_layout.addLayout(top_bar)
 
         self.asset_table = create_data_table(
-            ["Asset Name", "Type", "Source Hierarchy", "Status"],
-            stretch_columns=(0, 2),
-            fixed_columns={1: 100, 3: TABLE_STATUS_WIDTH},
+            ["Asset Name", "Source Hierarchy", "Status"],
+            stretch_columns=(0, 1),
+            fixed_columns={2: TABLE_STATUS_WIDTH},
             extended_selection=True,
             minimum_height=180,
             parent=self,
         )
-        self.asset_table.setToolTip("Tip: Double-click any 'Type' cell to toggle between Character and Prop.")
         asset_layout.addWidget(self.asset_table, 1)
 
         # Velocity toggle
@@ -240,7 +239,6 @@ class AnimIODialog(BaseToolDialog):
     def _connect(self):
         self.refresh_btn.clicked.connect(self.refresh_scene_data)
         self.fix_cam_btn.clicked.connect(self._fix_shot_camera)
-        self.asset_table.cellDoubleClicked.connect(self._on_table_double_clicked)
         self.open_folder_btn.clicked.connect(self._open_shot_folder)
         self.apply_button.clicked.connect(self._do_export)
 
@@ -357,12 +355,19 @@ class AnimIODialog(BaseToolDialog):
 
         data = discover_scene_assets()
 
-        # Elements Table: Camera + Characters + Props (all checked by default)
-        chars = data.get("characters", [])
-        props = data.get("props", [])
+        # Elements Table: Camera + Scene Assets (all checked by default)
+        assets = data.get("assets", []) or (data.get("characters", []) + data.get("props", []))
+        # Deduplicate while preserving order
+        seen_assets = set()
+        clean_assets = []
+        for a in assets:
+            if a not in seen_assets:
+                seen_assets.add(a)
+                clean_assets.append(a)
+
         has_cam = bool(cam_node and cmds.objExists(cam_node))
-        total = (1 if has_cam else 0) + len(chars) + len(props)
-        self.count_badge.setText("{} elements detected".format(total))
+        total = (1 if has_cam else 0) + len(clean_assets)
+        self.count_badge.setText("{} assets detected".format(total))
 
         self.asset_table.setRowCount(0)
         row = 0
@@ -376,65 +381,33 @@ class AnimIODialog(BaseToolDialog):
             item_cam_name.setData(QtCore.Qt.UserRole, ("camera", cam_node))
             item_cam_name.setCheckState(QtCore.Qt.Checked)
 
-            item_cam_type = QtWidgets.QTableWidgetItem("Camera")
-            item_cam_type.setTextAlignment(QtCore.Qt.AlignCenter)
-            item_cam_type.setForeground(QtGui.QColor(COLOR_PRIMARY_BLUE))
-
             item_cam_path = QtWidgets.QTableWidgetItem(cam_node)
             item_cam_status = QtWidgets.QTableWidgetItem("Ready")
             item_cam_status.setTextAlignment(QtCore.Qt.AlignCenter)
             item_cam_status.setForeground(QtGui.QColor(COLOR_STATUS_SUCCESS))
 
             self.asset_table.setItem(row, 0, item_cam_name)
-            self.asset_table.setItem(row, 1, item_cam_type)
-            self.asset_table.setItem(row, 2, item_cam_path)
-            self.asset_table.setItem(row, 3, item_cam_status)
+            self.asset_table.setItem(row, 1, item_cam_path)
+            self.asset_table.setItem(row, 2, item_cam_status)
             row += 1
 
-        # 2. Character Rows
-        for c in chars:
-            short = c.split("|")[-1]
+        # 2. Scene Asset Rows
+        for a in clean_assets:
+            short = a.split("|")[-1]
             self.asset_table.insertRow(row)
 
             item_name = QtWidgets.QTableWidgetItem(short)
-            item_name.setData(QtCore.Qt.UserRole, ("character", c))
+            item_name.setData(QtCore.Qt.UserRole, ("asset", a))
             item_name.setCheckState(QtCore.Qt.Checked)
 
-            item_type = QtWidgets.QTableWidgetItem("Character")
-            item_type.setTextAlignment(QtCore.Qt.AlignCenter)
-
-            item_path = QtWidgets.QTableWidgetItem(c)
+            item_path = QtWidgets.QTableWidgetItem(a)
             item_status = QtWidgets.QTableWidgetItem("Ready")
             item_status.setTextAlignment(QtCore.Qt.AlignCenter)
             item_status.setForeground(QtGui.QColor(COLOR_STATUS_SUCCESS))
 
             self.asset_table.setItem(row, 0, item_name)
-            self.asset_table.setItem(row, 1, item_type)
-            self.asset_table.setItem(row, 2, item_path)
-            self.asset_table.setItem(row, 3, item_status)
-            row += 1
-
-        # 3. Prop Rows
-        for p in props:
-            short = p.split("|")[-1]
-            self.asset_table.insertRow(row)
-
-            item_name = QtWidgets.QTableWidgetItem(short)
-            item_name.setData(QtCore.Qt.UserRole, ("prop", p))
-            item_name.setCheckState(QtCore.Qt.Checked)
-
-            item_type = QtWidgets.QTableWidgetItem("Prop")
-            item_type.setTextAlignment(QtCore.Qt.AlignCenter)
-
-            item_path = QtWidgets.QTableWidgetItem(p)
-            item_status = QtWidgets.QTableWidgetItem("Ready")
-            item_status.setTextAlignment(QtCore.Qt.AlignCenter)
-            item_status.setForeground(QtGui.QColor(COLOR_STATUS_SUCCESS))
-
-            self.asset_table.setItem(row, 0, item_name)
-            self.asset_table.setItem(row, 1, item_type)
-            self.asset_table.setItem(row, 2, item_path)
-            self.asset_table.setItem(row, 3, item_status)
+            self.asset_table.setItem(row, 1, item_path)
+            self.asset_table.setItem(row, 2, item_status)
             row += 1
 
     def _fix_shot_camera(self):
@@ -446,32 +419,6 @@ class AnimIODialog(BaseToolDialog):
             self._set_status("Camera Fixed", "idle")
         except Exception as e:
             self._set_message("Camera fix error: {}".format(e), "warning")
-
-    def _on_table_double_clicked(self, row, col):
-        """Toggle Type between Character and Prop on cell double click."""
-        if col != 1:
-            return
-        type_item = self.asset_table.item(row, 1)
-        name_item = self.asset_table.item(row, 0)
-        if not type_item or not name_item:
-            return
-
-        cur_data = name_item.data(QtCore.Qt.UserRole)
-        role_type = cur_data[0] if isinstance(cur_data, (tuple, list)) else "character"
-        node = cur_data[1] if isinstance(cur_data, (tuple, list)) else name_item.text()
-
-        if role_type == "camera":
-            # Camera type is fixed
-            return
-
-        if type_item.text() == "Character":
-            type_item.setText("Prop")
-            name_item.setData(QtCore.Qt.UserRole, ("prop", node))
-            self._set_message("Switched '{}' to Prop cache.".format(name_item.text()), "neutral")
-        else:
-            type_item.setText("Character")
-            name_item.setData(QtCore.Qt.UserRole, ("character", node))
-            self._set_message("Switched '{}' to Character cache.".format(name_item.text()), "neutral")
 
     def _open_shot_folder(self):
         """Open the resolved shot root directory in native OS file manager."""
@@ -516,8 +463,7 @@ class AnimIODialog(BaseToolDialog):
         fps = _get_scene_fps()
 
         # Selected elements from table
-        chars = []
-        props = []
+        assets_to_export = []
         export_cam_node = None
         for i in range(self.asset_table.rowCount()):
             item = self.asset_table.item(i, 0)
@@ -525,13 +471,11 @@ class AnimIODialog(BaseToolDialog):
                 atype, anode = item.data(QtCore.Qt.UserRole)
                 if atype == "camera":
                     export_cam_node = anode
-                elif atype == "character":
-                    chars.append(anode)
                 else:
-                    props.append(anode)
+                    assets_to_export.append(anode)
 
         vel = self.vel_toggle.is_checked()
-        total_items = (1 if export_cam_node else 0) + len(chars) + len(props)
+        total_items = (1 if export_cam_node else 0) + len(assets_to_export)
 
         # Geo formats
         geo_idx = self.geo_format_combo.currentIndex()
@@ -541,7 +485,7 @@ class AnimIODialog(BaseToolDialog):
         self._progress_popup = OperationProgressPopup(
             title="Anim Export - Caching Shot",
             parent=self.window(),
-            unit="elements",
+            unit="assets",
         )
         self._progress_popup.start("Exporting Shot Caches", total=total_items)
 
@@ -570,9 +514,9 @@ class AnimIODialog(BaseToolDialog):
                 fps=fps,
                 camera_node=export_cam_node,
                 camera_format="fbx",
-                character_nodes=chars,
+                character_nodes=assets_to_export,
                 character_formats=geo_fmts,
-                prop_nodes=props,
+                prop_nodes=[],
                 prop_formats=geo_fmts,
                 handles=0,
                 step=1.0,
