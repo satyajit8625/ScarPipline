@@ -740,7 +740,7 @@ class ScarPopupMenu(QtWidgets.QMenu):
     Provides:
     - Consistent dark panel background (#292929) and border (#3A3A3A).
     - 6px corner radius and consistent 28-30px item height with centered padding.
-    - Anchor alignment method (exec_below_widget) with right/left alignment and vertical gap.
+    - Anchor alignment method (exec_below_widget) with right/left alignment, vertical gap, and screen bounds protection.
     """
 
     def __init__(self, parent=None):
@@ -750,7 +750,7 @@ class ScarPopupMenu(QtWidgets.QMenu):
 
     def exec_below_widget(self, widget, offset_y=5, align="right"):
         """
-        Execute popup menu cleanly positioned below the anchor widget.
+        Execute popup menu cleanly positioned below the anchor widget with screen bounds protection.
 
         Args:
             widget (QWidget): Target anchor button or widget.
@@ -764,16 +764,46 @@ class ScarPopupMenu(QtWidgets.QMenu):
             return self.exec_(QtGui.QCursor.pos())
 
         self.adjustSize()
-        menu_width = max(self.sizeHint().width(), 170)
+        size_hint = self.sizeHint()
+        menu_width = max(size_hint.width(), 190)
+        menu_height = max(size_hint.height(), 40)
         widget_rect = widget.rect()
+
         global_bottom_right = widget.mapToGlobal(QtCore.QPoint(widget_rect.width(), widget_rect.height() + offset_y))
         global_bottom_left = widget.mapToGlobal(QtCore.QPoint(0, widget_rect.height() + offset_y))
+        widget_global_top_left = widget.mapToGlobal(QtCore.QPoint(0, 0))
 
         if align == "right":
-            pos = QtCore.QPoint(global_bottom_right.x() - menu_width, global_bottom_right.y())
+            target_x = global_bottom_right.x() - menu_width
         else:
-            pos = global_bottom_left
+            target_x = global_bottom_left.x()
 
+        target_y = global_bottom_right.y()
+
+        # Multi-monitor / Screen Boundary Protection
+        app = QtWidgets.QApplication.instance()
+        if app:
+            screen_rect = None
+            if hasattr(app, "screenAt"):
+                screen = app.screenAt(global_bottom_right)
+                if screen:
+                    screen_rect = screen.availableGeometry()
+            if not screen_rect and hasattr(QtWidgets, "QDesktopWidget"):
+                desktop = QtWidgets.QApplication.desktop()
+                if desktop:
+                    screen_rect = desktop.availableGeometry(widget)
+
+            if screen_rect:
+                # If opening below would overflow screen bottom, open cleanly above
+                if (target_y + menu_height) > screen_rect.bottom():
+                    target_y = max(screen_rect.top() + 4, widget_global_top_left.y() - menu_height - offset_y)
+                # Keep within horizontal screen bounds
+                if target_x < screen_rect.left() + 4:
+                    target_x = screen_rect.left() + 4
+                elif (target_x + menu_width) > (screen_rect.right() - 4):
+                    target_x = screen_rect.right() - menu_width - 4
+
+        pos = QtCore.QPoint(int(target_x), int(target_y))
         return self.exec_(pos)
 
 

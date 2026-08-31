@@ -164,8 +164,8 @@ class AnimIODialog(BaseToolDialog):
         self.rescan_btn = create_button("Rescan Scene", role="secondary", parent=self)
         self.rescan_btn.setToolTip("Scan active Maya scene for rigs and cameras (Hotkey: F5)")
 
-        self.settings_btn = create_button("Settings…", role="secondary", parent=self)
-        self.settings_btn.setToolTip("Configure Alembic & FBX parameters")
+        self.settings_btn = create_button("⚙ Settings ▾", role="secondary", parent=self)
+        self.settings_btn.setToolTip("Configure Alembic & FBX export parameters")
 
         top_bar.addWidget(self.count_badge)
         top_bar.addStretch(1)
@@ -245,12 +245,21 @@ class AnimIODialog(BaseToolDialog):
 
     def _open_settings_menu(self):
         """Show the standardized ScarPopupMenu with Alembic Settings, FBX Settings, and Defaults."""
+        if getattr(self, "_settings_menu_open", False):
+            return
+
+        self._settings_menu_open = True
         menu = create_popup_menu(parent=self)
 
-        act_alembic = menu.addAction("Alembic Settings…")
-        act_fbx = menu.addAction("FBX Settings…")
+        act_alembic = menu.addAction("⚙  Alembic Settings...")
+        act_fbx = menu.addAction("⚙  FBX Settings...")
         menu.addSeparator()
-        act_reset = menu.addAction("Reset to Default")
+        act_reset = menu.addAction("↻  Reset to Default")
+
+        def _on_about_to_hide():
+            QtCore.QTimer.singleShot(150, lambda: setattr(self, "_settings_menu_open", False))
+
+        menu.aboutToHide.connect(_on_about_to_hide)
 
         action = menu.exec_below_widget(self.settings_btn, offset_y=5, align="right")
 

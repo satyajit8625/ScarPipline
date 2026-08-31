@@ -68,7 +68,7 @@ QSS = r'''
 QDialog, QWidget#ScarToolsPage {
     background: #242424;
     color: #D8D8D8;
-    font-family: "Segoe UI", "Arial";
+    font-family: "Roboto", "Segoe UI", "Arial", sans-serif;
     font-size: 12px;
 }
 QLabel { color: #D0D0D0; }
@@ -167,7 +167,7 @@ QLineEdit {
     border: 1px solid #484848;
     border-radius: 5px;
     padding: 6px 10px;
-    font-family: "Segoe UI", "Arial", sans-serif;
+    font-family: "Roboto", "Segoe UI", "Arial", sans-serif;
     font-size: 13px;
     font-weight: 600;
     min-height: 22px;
@@ -197,7 +197,7 @@ QComboBox {
     border-radius: 5px;
     padding: 5px 9px;
     color: #FFFFFF;
-    font-family: "Segoe UI", "Arial", sans-serif;
+    font-family: "Roboto", "Segoe UI", "Arial", sans-serif;
     font-size: 12px;
     font-weight: 500;
     min-height: 20px;
@@ -235,7 +235,7 @@ QSpinBox, QDoubleSpinBox {
     border: 1px solid #484848;
     border-radius: 5px;
     padding: 5px 8px;
-    font-family: "Segoe UI", "Arial", sans-serif;
+    font-family: "Roboto", "Segoe UI", "Arial", sans-serif;
     font-size: 12px;
     font-weight: 500;
     min-height: 20px;
