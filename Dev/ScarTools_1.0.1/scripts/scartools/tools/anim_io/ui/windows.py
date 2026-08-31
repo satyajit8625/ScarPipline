@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""DCC Window for Animation Export & Import Suite conforming strictly to UI-01 - UI-07."""
+"""DCC Window for Animation Export & Import Suite matching Skin Tools & Shader Tools architecture."""
 
 from __future__ import absolute_import, division, print_function
 
@@ -10,14 +10,18 @@ from scartools.ui.qt import QtCore, QtWidgets, QtGui, apply_window_icon, maya_ma
 from scartools.ui.window import BaseToolDialog, register_window
 from scartools.ui import (
     FORM_LABEL_WIDTH,
+    FORM_ACTION_WIDTH,
     INLINE_SPACING,
     FIELD_HEIGHT,
+    TABLE_STATUS_WIDTH,
     PRIMARY_BUTTON_WIDTH,
     configure_window,
     configure_root_layout,
     configure_field,
     create_brand_header,
+    create_operation_group,
     create_section_panel,
+    create_data_table,
     create_action_footer,
     create_button,
     apply_theme,
@@ -29,7 +33,6 @@ from scartools.ui.controls import (
 )
 from scartools.ui.widgets import (
     PathPickerWidget,
-    create_path_picker,
 )
 
 from ..controller import AnimIOController
@@ -37,19 +40,22 @@ from ..operations import discover_scene_assets, load_shot_manifest
 
 
 class AnimIODialog(BaseToolDialog):
-    """Main UI Dialog for ScarTools Animation Export & Import Suite."""
+    """Main Studio UI Dialog for ScarTools Animation Export & Import Suite."""
 
+    OBJECT_NAME = "ScarToolsAnimIODialog"
     TOOL_ID = "scartools_anim_io"
-    WINDOW_TITLE = "ScarTools — Animation I/O Suite"
+    WINDOW_TITLE = "Animation I/O Suite"
 
     def __init__(self, parent=None):
         super(AnimIODialog, self).__init__(
             parent=parent if parent is not None else maya_main_window(),
             tool_id=self.TOOL_ID,
         )
-        self.controller = AnimIOController()
+        self.setObjectName(self.OBJECT_NAME)
         self.setWindowTitle(self.WINDOW_TITLE)
-        configure_window(self, (680, 620), (820, 750))
+        self.controller = AnimIOController()
+        self.setAttribute(QtCore.Qt.WA_DeleteOnClose, True)
+        configure_window(self, (760, 640), (840, 750))
         apply_window_icon(self)
 
         self._build_ui()
@@ -61,38 +67,45 @@ class AnimIODialog(BaseToolDialog):
         root = QtWidgets.QVBoxLayout(self)
         configure_root_layout(root)
 
-        # 1. Shared Brand Header [UI-02]
+        # 1. Brand Header
         header, self.header_subtitle = create_brand_header(
             "ANIMATION I/O SUITE",
-            "Shot packaging, Alembic & FBX cache extraction, and scene assembly",
+            "Shot animation packaging, Alembic and FBX cache extraction, and scene assembly",
             parent=self,
         )
         root.addWidget(header)
 
-        # 2. Centralized Segmented Mode Selector [UI-05]
-        self.mode_control = create_segmented_control(
-            ["Export Shot", "Import & Assemble"],
-            current=0,
-            accent="pipeline",
-            parent=self,
+        # 2. Operation Mode Group (Matching Skin Tools & Shader Tools)
+        operation_group, self.operation_combo, self.operation_help = (
+            create_operation_group(
+                modes=["Export Shot", "Import & Assemble"],
+                help_text="Choose an operation, configure shot parameters, then click the action button.",
+                parent=self,
+            )
         )
-        root.addWidget(self.mode_control)
+        root.addWidget(operation_group)
 
-        # 3. Stacked Content Area
+        # 3. Stacked Operation Pages
         self.stack = QtWidgets.QStackedWidget(self)
         root.addWidget(self.stack, 1)
 
-        # --- TAB 1: EXPORT PAGE ---
+        # ==============================================================
+        # TAB 1: EXPORT PAGE
+        # ==============================================================
         export_widget = QtWidgets.QWidget(self)
         export_layout = QtWidgets.QVBoxLayout(export_widget)
         export_layout.setContentsMargins(0, 0, 0, 0)
-        export_layout.setSpacing(8)
+        export_layout.setSpacing(10)
 
-        # A. Target Destination Panel [UI-03]
+        # A. Target Destination & Shot Context
         dest_panel, dest_layout, _ = create_section_panel(
-            "Target Destination & Shot", accent="pipeline", parent=self
+            "Target Destination & Shot Context", accent="pipeline", parent=self
         )
-        self.path_picker = PathPickerWidget(mode="directory", placeholder="Select export directory...", parent=self)
+        self.path_picker = PathPickerWidget(
+            mode="directory",
+            placeholder="Select target export folder...",
+            parent=self,
+        )
         dest_layout.addWidget(self.path_picker)
 
         shot_row = QtWidgets.QHBoxLayout()
@@ -105,20 +118,33 @@ class AnimIODialog(BaseToolDialog):
         configure_field(self.shot_name_input)
         shot_row.addWidget(shot_lbl)
         shot_row.addWidget(self.shot_name_input, 1)
+
+        cam_lbl = QtWidgets.QLabel("Camera:", self)
+        cam_lbl.setFixedWidth(55)
+        self.cam_combo = QtWidgets.QComboBox(self)
+        configure_field(self.cam_combo)
+        self.cam_format_combo = QtWidgets.QComboBox(self)
+        self.cam_format_combo.addItems(["FBX (.fbx)", "Alembic (.abc)"])
+        configure_field(self.cam_format_combo, minimum_width=110)
+        shot_row.addWidget(cam_lbl)
+        shot_row.addWidget(self.cam_combo, 1)
+        shot_row.addWidget(self.cam_format_combo)
+
         dest_layout.addLayout(shot_row)
         export_layout.addWidget(dest_panel)
 
-        # B. Frame Range & Handles Panel [UI-03, UI-04]
+        # B. Frame Range & Timing
         range_panel, range_layout, _ = create_section_panel(
-            "Frame Range & Handles", accent="pipeline", parent=self
+            "Frame Range & Timing", accent="pipeline", parent=self
         )
+        range_row = QtWidgets.QHBoxLayout()
+        range_row.setSpacing(INLINE_SPACING)
+
         self.range_mode = create_segmented_control(
             ["Timeline", "Custom"], current=0, accent="pipeline", parent=self
         )
-        range_layout.addWidget(self.range_mode)
+        range_row.addWidget(self.range_mode)
 
-        spin_row = QtWidgets.QHBoxLayout()
-        spin_row.setSpacing(INLINE_SPACING)
         start_f = 1001
         end_f = 1100
         try:
@@ -128,96 +154,80 @@ class AnimIODialog(BaseToolDialog):
         except Exception:
             pass
 
-        start_lbl = QtWidgets.QLabel("Start Frame:", self)
-        start_lbl.setFixedWidth(75)
+        start_lbl = QtWidgets.QLabel("Start:", self)
         self.start_spin = QtWidgets.QSpinBox(self)
         self.start_spin.setRange(-999999, 999999)
         self.start_spin.setValue(start_f)
         configure_field(self.start_spin)
-        spin_row.addWidget(start_lbl)
-        spin_row.addWidget(self.start_spin, 1)
+        range_row.addWidget(start_lbl)
+        range_row.addWidget(self.start_spin)
 
-        end_lbl = QtWidgets.QLabel("End Frame:", self)
-        end_lbl.setFixedWidth(70)
+        end_lbl = QtWidgets.QLabel("End:", self)
         self.end_spin = QtWidgets.QSpinBox(self)
         self.end_spin.setRange(-999999, 999999)
         self.end_spin.setValue(end_f)
         configure_field(self.end_spin)
-        spin_row.addWidget(end_lbl)
-        spin_row.addWidget(self.end_spin, 1)
+        range_row.addWidget(end_lbl)
+        range_row.addWidget(self.end_spin)
 
         handles_lbl = QtWidgets.QLabel("Handles (±):", self)
-        handles_lbl.setFixedWidth(75)
         self.handles_spin = QtWidgets.QSpinBox(self)
         self.handles_spin.setRange(0, 100)
         self.handles_spin.setValue(5)
         configure_field(self.handles_spin)
-        spin_row.addWidget(handles_lbl)
-        spin_row.addWidget(self.handles_spin, 1)
-        range_layout.addLayout(spin_row)
+        range_row.addWidget(handles_lbl)
+        range_row.addWidget(self.handles_spin)
+
+        range_layout.addLayout(range_row)
         export_layout.addWidget(range_panel)
 
-        # C. Camera Selection Panel [UI-03, UI-04]
-        cam_panel, cam_layout, _ = create_section_panel(
-            "Shot Camera", accent="pipeline", parent=self
-        )
-        cam_row = QtWidgets.QHBoxLayout()
-        cam_row.setSpacing(INLINE_SPACING)
-        cam_lbl = QtWidgets.QLabel("Camera:", self)
-        cam_lbl.setFixedWidth(FORM_LABEL_WIDTH)
-        self.cam_combo = QtWidgets.QComboBox(self)
-        configure_field(self.cam_combo)
-        self.cam_format_combo = QtWidgets.QComboBox(self)
-        self.cam_format_combo.addItems(["FBX (.fbx)", "Alembic (.abc)"])
-        configure_field(self.cam_format_combo, minimum_width=120)
-        cam_row.addWidget(cam_lbl)
-        cam_row.addWidget(self.cam_combo, 1)
-        cam_row.addWidget(self.cam_format_combo)
-        cam_layout.addLayout(cam_row)
-        export_layout.addWidget(cam_panel)
-
-        # D. Characters & Props Panel [UI-03, UI-05]
+        # C. Characters & Props Data Table (Matching Skin Tools data table)
         asset_panel, asset_layout, _ = create_section_panel(
-            "Characters & Props", accent="pipeline", parent=self
+            "Characters & Props to Export", accent="data", parent=self
         )
-        fmt_row = QtWidgets.QHBoxLayout()
-        fmt_row.setSpacing(INLINE_SPACING)
-        fmt_lbl = QtWidgets.QLabel("Format:", self)
-        fmt_lbl.setFixedWidth(FORM_LABEL_WIDTH)
+        top_bar = QtWidgets.QHBoxLayout()
+        self.count_badge = QtWidgets.QLabel("0 assets detected")
+        self.count_badge.setObjectName("CountBadge")
+        top_bar.addWidget(self.count_badge)
+        top_bar.addStretch(1)
+
+        fmt_lbl = QtWidgets.QLabel("Cache Format:", self)
         self.geo_format_combo = QtWidgets.QComboBox(self)
         self.geo_format_combo.addItems(["Alembic (.abc)", "FBX (.fbx)", "Both (.abc + .fbx)"])
-        configure_field(self.geo_format_combo)
-        fmt_row.addWidget(fmt_lbl)
-        fmt_row.addWidget(self.geo_format_combo, 1)
-        asset_layout.addLayout(fmt_row)
+        configure_field(self.geo_format_combo, minimum_width=140)
+        top_bar.addWidget(fmt_lbl)
+        top_bar.addWidget(self.geo_format_combo)
 
-        self.asset_list = QtWidgets.QListWidget(self)
-        self.asset_list.setObjectName("MeshTable")
-        self.asset_list.setSelectionMode(QtWidgets.QAbstractItemView.ExtendedSelection)
-        self.asset_list.setMaximumHeight(130)
-        asset_layout.addWidget(self.asset_list)
-
-        btn_row = QtWidgets.QHBoxLayout()
-        btn_row.setSpacing(INLINE_SPACING)
         self.refresh_btn = create_button("Refresh Selection", role="secondary", parent=self)
         self.select_all_btn = create_button("Select All", role="secondary", parent=self)
-        btn_row.addWidget(self.refresh_btn)
-        btn_row.addWidget(self.select_all_btn)
-        asset_layout.addLayout(btn_row)
+        top_bar.addWidget(self.refresh_btn)
+        top_bar.addWidget(self.select_all_btn)
+        asset_layout.addLayout(top_bar)
 
-        # Velocity toggle [UI-05]
+        self.asset_table = create_data_table(
+            ["Asset Name", "Type", "Source Hierarchy", "Status"],
+            stretch_columns=(0, 2),
+            fixed_columns={1: 90, 3: TABLE_STATUS_WIDTH},
+            extended_selection=True,
+            minimum_height=150,
+            parent=self,
+        )
+        asset_layout.addWidget(self.asset_table, 1)
+
+        # Velocity toggle
         vel_row = QtWidgets.QHBoxLayout()
-        vel_row.setSpacing(INLINE_SPACING)
         vel_lbl = QtWidgets.QLabel("Alembic Motion Blur Velocity Vectors", self)
         self.vel_toggle = create_toggle_switch(text="", checked=True, accent="pipeline", parent=self)
         vel_row.addWidget(vel_lbl, 1)
         vel_row.addWidget(self.vel_toggle)
         asset_layout.addLayout(vel_row)
-        export_layout.addWidget(asset_panel)
 
+        export_layout.addWidget(asset_panel, 1)
         self.stack.addWidget(export_widget)
 
-        # --- TAB 2: IMPORT / ASSEMBLE PAGE ---
+        # ==============================================================
+        # TAB 2: IMPORT / ASSEMBLE PAGE
+        # ==============================================================
         import_widget = QtWidgets.QWidget(self)
         import_layout = QtWidgets.QVBoxLayout(import_widget)
         import_layout.setContentsMargins(0, 0, 0, 0)
@@ -226,7 +236,11 @@ class AnimIODialog(BaseToolDialog):
         in_panel, in_layout, _ = create_section_panel(
             "Load Shot Package", accent="pipeline", parent=self
         )
-        self.import_path_picker = PathPickerWidget(mode="directory", placeholder="Select shot package directory...", parent=self)
+        self.import_path_picker = PathPickerWidget(
+            mode="directory",
+            placeholder="Select shot package directory containing shot_manifest.json...",
+            parent=self,
+        )
         in_layout.addWidget(self.import_path_picker)
         import_layout.addWidget(in_panel)
 
@@ -235,21 +249,21 @@ class AnimIODialog(BaseToolDialog):
         )
         self.manifest_summary = QtWidgets.QTextEdit(self)
         self.manifest_summary.setReadOnly(True)
-        self.manifest_summary.setPlaceholderText("Select a shot directory containing shot_manifest.json...")
-        self.manifest_summary.setMaximumHeight(150)
+        self.manifest_summary.setPlaceholderText("Select a shot package to preview camera, frame range, and asset lists...")
+        self.manifest_summary.setMinimumHeight(140)
         info_layout.addWidget(self.manifest_summary)
         import_layout.addWidget(info_panel)
 
         opts_panel, opts_layout, _ = create_section_panel(
-            "Assembly Options", accent="pipeline", parent=self
+            "Downstream Assembly Options", accent="pipeline", parent=self
         )
-        self.chk_time = QtWidgets.QCheckBox("Set Timeline Frame Range & FPS", self)
+        self.chk_time = QtWidgets.QCheckBox("Set Timeline Frame Range & Playback FPS", self)
         self.chk_time.setChecked(True)
-        self.chk_cam = QtWidgets.QCheckBox("Import Shot Camera (Lock Transforms)", self)
+        self.chk_cam = QtWidgets.QCheckBox("Import & Reference Shot Camera (Lock Transforms)", self)
         self.chk_cam.setChecked(True)
-        self.chk_chars = QtWidgets.QCheckBox("Import Character Geometry Caches", self)
+        self.chk_chars = QtWidgets.QCheckBox("Import Character Point Caches", self)
         self.chk_chars.setChecked(True)
-        self.chk_props = QtWidgets.QCheckBox("Import Prop Geometry Caches", self)
+        self.chk_props = QtWidgets.QCheckBox("Import Prop Point Caches & Transforms", self)
         self.chk_props.setChecked(True)
         opts_layout.addWidget(self.chk_time)
         opts_layout.addWidget(self.chk_cam)
@@ -260,7 +274,7 @@ class AnimIODialog(BaseToolDialog):
 
         self.stack.addWidget(import_widget)
 
-        # 4. Standard Action Footer & Status Dot [UI-06]
+        # 4. Standard Action Footer (Matching Skin Tools & Shader Tools)
         (
             action_footer,
             self.message_label,
@@ -279,10 +293,10 @@ class AnimIODialog(BaseToolDialog):
         root.addWidget(action_footer)
 
     def _connect(self):
-        self.mode_control.currentIndexChanged.connect(self._on_mode_changed)
+        self.operation_combo.currentIndexChanged.connect(self._on_operation_changed)
         self.range_mode.currentIndexChanged.connect(self._on_range_mode_changed)
         self.refresh_btn.clicked.connect(self.refresh_scene_data)
-        self.select_all_btn.clicked.connect(self._select_all_assets)
+        self.select_all_btn.clicked.connect(self._select_all_table_rows)
         self.import_path_picker.pathChanged.connect(self._on_import_path_changed)
         self.apply_button.clicked.connect(self._on_action_clicked)
 
@@ -298,14 +312,16 @@ class AnimIODialog(BaseToolDialog):
         self.message_label.setProperty("state", state)
         repolish(self.message_label)
 
-    def _on_mode_changed(self, index):
+    def _on_operation_changed(self, index):
         self.stack.setCurrentIndex(index)
         if index == 0:
             self.apply_button.setText("EXPORT SHOT PACKAGE")
+            self.operation_help.setText("Extract camera and geometry caches into a versioned shot directory.")
             self._set_message("Ready to package shot.", "neutral")
             self._set_status("Ready", "idle")
         else:
             self.apply_button.setText("ASSEMBLE SHOT SCENE")
+            self.operation_help.setText("Import and assemble camera, frame range, and caches from shot_manifest.json.")
             self._set_message("Select a shot package to assemble.", "neutral")
             self._set_status("Ready", "idle")
 
@@ -330,30 +346,63 @@ class AnimIODialog(BaseToolDialog):
                 short = c.split("|")[-1]
                 self.cam_combo.addItem(short, c)
         else:
-            self.cam_combo.addItem("None (No custom camera in scene)", None)
+            self.cam_combo.addItem("None (No custom camera)", None)
 
-        # Characters & Props
-        self.asset_list.clear()
+        # Characters & Props Table
         chars = data.get("characters", [])
         props = data.get("props", [])
+        total = len(chars) + len(props)
+        self.count_badge.setText("{} assets detected".format(total))
 
+        self.asset_table.setRowCount(0)
+        row = 0
         for c in chars:
             short = c.split("|")[-1]
-            item = QtWidgets.QListWidgetItem("[CHAR] " + short)
-            item.setData(QtCore.Qt.UserRole, ("character", c))
-            item.setCheckState(QtCore.Qt.Checked)
-            self.asset_list.addItem(item)
+            self.asset_table.insertRow(row)
+
+            item_name = QtWidgets.QTableWidgetItem(short)
+            item_name.setData(QtCore.Qt.UserRole, ("character", c))
+            item_name.setCheckState(QtCore.Qt.Checked)
+
+            item_type = QtWidgets.QTableWidgetItem("Character")
+            item_type.setTextAlignment(QtCore.Qt.AlignCenter)
+
+            item_path = QtWidgets.QTableWidgetItem(c)
+            item_status = QtWidgets.QTableWidgetItem("Ready")
+            item_status.setTextAlignment(QtCore.Qt.AlignCenter)
+
+            self.asset_table.setItem(row, 0, item_name)
+            self.asset_table.setItem(row, 1, item_type)
+            self.asset_table.setItem(row, 2, item_path)
+            self.asset_table.setItem(row, 3, item_status)
+            row += 1
 
         for p in props:
             short = p.split("|")[-1]
-            item = QtWidgets.QListWidgetItem("[PROP] " + short)
-            item.setData(QtCore.Qt.UserRole, ("prop", p))
-            item.setCheckState(QtCore.Qt.Checked)
-            self.asset_list.addItem(item)
+            self.asset_table.insertRow(row)
 
-    def _select_all_assets(self):
-        for i in range(self.asset_list.count()):
-            self.asset_list.item(i).setCheckState(QtCore.Qt.Checked)
+            item_name = QtWidgets.QTableWidgetItem(short)
+            item_name.setData(QtCore.Qt.UserRole, ("prop", p))
+            item_name.setCheckState(QtCore.Qt.Checked)
+
+            item_type = QtWidgets.QTableWidgetItem("Prop")
+            item_type.setTextAlignment(QtCore.Qt.AlignCenter)
+
+            item_path = QtWidgets.QTableWidgetItem(p)
+            item_status = QtWidgets.QTableWidgetItem("Ready")
+            item_status.setTextAlignment(QtCore.Qt.AlignCenter)
+
+            self.asset_table.setItem(row, 0, item_name)
+            self.asset_table.setItem(row, 1, item_type)
+            self.asset_table.setItem(row, 2, item_path)
+            self.asset_table.setItem(row, 3, item_status)
+            row += 1
+
+    def _select_all_table_rows(self):
+        for i in range(self.asset_table.rowCount()):
+            item = self.asset_table.item(i, 0)
+            if item:
+                item.setCheckState(QtCore.Qt.Checked)
 
     def _on_import_path_changed(self, path):
         """Read manifest and populate summary."""
@@ -373,19 +422,21 @@ class AnimIODialog(BaseToolDialog):
         date = manifest.get("metadata", {}).get("timestamp", "")
 
         html = """
-        <b>Shot:</b> {}<br>
-        <b>Frame Range:</b> {} to {} (FPS: {})<br>
-        <b>Camera:</b> {}<br>
-        <b>Characters:</b> {} assets<br>
-        <b>Props:</b> {} assets<br>
-        <b>Export Date:</b> {}
+        <table style='width:100%; border-collapse: collapse; font-family: Segoe UI, sans-serif; font-size: 12px;'>
+            <tr><td style='color:#AFAFAF; width:120px;'><b>Shot Name:</b></td><td style='color:#FFFFFF;'><b>{}</b></td></tr>
+            <tr><td style='color:#AFAFAF;'><b>Frame Range:</b></td><td style='color:#FFFFFF;'>{} to {} (FPS: {})</td></tr>
+            <tr><td style='color:#AFAFAF;'><b>Active Camera:</b></td><td style='color:#FFFFFF;'>{}</td></tr>
+            <tr><td style='color:#AFAFAF;'><b>Characters:</b></td><td style='color:#FFFFFF;'>{} asset(s)</td></tr>
+            <tr><td style='color:#AFAFAF;'><b>Props:</b></td><td style='color:#FFFFFF;'>{} asset(s)</td></tr>
+            <tr><td style='color:#AFAFAF;'><b>Export Date:</b></td><td style='color:#FFFFFF;'>{}</td></tr>
+        </table>
         """.format(shot_name, fr.get("start"), fr.get("end"), fps, cam, chars, props, date)
         self.manifest_summary.setHtml(html)
         self._set_message("Manifest loaded for shot '{}'.".format(shot_name), "neutral")
         self._set_status("Manifest Loaded", "idle")
 
     def _on_action_clicked(self):
-        mode = self.mode_control.current_index()
+        mode = self.operation_combo.currentIndex()
         if mode == 0:
             self._do_export()
         else:
@@ -394,7 +445,7 @@ class AnimIODialog(BaseToolDialog):
     def _do_export(self):
         out_dir = self.path_picker.path()
         if not out_dir or not os.path.isdir(out_dir):
-            self._set_message("Please specify a valid output directory.", "warning")
+            self._set_message("Please specify a valid export directory.", "warning")
             self._set_status("Invalid Directory", "warning")
             return
 
@@ -411,12 +462,12 @@ class AnimIODialog(BaseToolDialog):
         geo_idx = self.geo_format_combo.currentIndex()
         geo_fmts = ("abc",) if geo_idx == 0 else (("fbx",) if geo_idx == 1 else ("abc", "fbx"))
 
-        # Selected assets
+        # Selected assets from table
         chars = []
         props = []
-        for i in range(self.asset_list.count()):
-            item = self.asset_list.item(i)
-            if item.checkState() == QtCore.Qt.Checked:
+        for i in range(self.asset_table.rowCount()):
+            item = self.asset_table.item(i, 0)
+            if item and item.checkState() == QtCore.Qt.Checked:
                 atype, anode = item.data(QtCore.Qt.UserRole)
                 if atype == "character":
                     chars.append(anode)
