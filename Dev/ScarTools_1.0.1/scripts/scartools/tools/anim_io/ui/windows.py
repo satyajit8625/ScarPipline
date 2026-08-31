@@ -91,7 +91,7 @@ class AnimIODialog(BaseToolDialog):
         self.setWindowTitle(self.WINDOW_TITLE)
         self.controller = AnimIOController()
         self.setAttribute(QtCore.Qt.WA_DeleteOnClose, True)
-        configure_window(self, (720, 520), (840, 620))
+        configure_window(self, (680, 480), (800, 580))
         apply_window_icon(self)
 
         self._resolved_shot_name = "untitled_shot"
@@ -192,9 +192,9 @@ class AnimIODialog(BaseToolDialog):
         asset_layout.addLayout(top_bar)
 
         self.asset_table = create_data_table(
-            ["Asset Name", "Source Hierarchy", "Status"],
-            stretch_columns=(0, 1),
-            fixed_columns={2: TABLE_STATUS_WIDTH},
+            ["Asset Name", "Status"],
+            stretch_columns=(0,),
+            fixed_columns={1: TABLE_STATUS_WIDTH},
             extended_selection=True,
             minimum_height=180,
             parent=self,
@@ -380,15 +380,14 @@ class AnimIODialog(BaseToolDialog):
             item_cam_name = QtWidgets.QTableWidgetItem(short_cam)
             item_cam_name.setData(QtCore.Qt.UserRole, ("camera", cam_node))
             item_cam_name.setCheckState(QtCore.Qt.Checked)
+            item_cam_name.setToolTip("Camera DAG Path: {}".format(cam_node))
 
-            item_cam_path = QtWidgets.QTableWidgetItem(cam_node)
             item_cam_status = QtWidgets.QTableWidgetItem("Ready")
             item_cam_status.setTextAlignment(QtCore.Qt.AlignCenter)
             item_cam_status.setForeground(QtGui.QColor(COLOR_STATUS_SUCCESS))
 
             self.asset_table.setItem(row, 0, item_cam_name)
-            self.asset_table.setItem(row, 1, item_cam_path)
-            self.asset_table.setItem(row, 2, item_cam_status)
+            self.asset_table.setItem(row, 1, item_cam_status)
             row += 1
 
         # 2. Scene Asset Rows
@@ -399,15 +398,14 @@ class AnimIODialog(BaseToolDialog):
             item_name = QtWidgets.QTableWidgetItem(short)
             item_name.setData(QtCore.Qt.UserRole, ("asset", a))
             item_name.setCheckState(QtCore.Qt.Checked)
+            item_name.setToolTip("Scene Hierarchy: {}".format(a))
 
-            item_path = QtWidgets.QTableWidgetItem(a)
             item_status = QtWidgets.QTableWidgetItem("Ready")
             item_status.setTextAlignment(QtCore.Qt.AlignCenter)
             item_status.setForeground(QtGui.QColor(COLOR_STATUS_SUCCESS))
 
             self.asset_table.setItem(row, 0, item_name)
-            self.asset_table.setItem(row, 1, item_path)
-            self.asset_table.setItem(row, 2, item_status)
+            self.asset_table.setItem(row, 1, item_status)
             row += 1
 
     def _fix_shot_camera(self):
