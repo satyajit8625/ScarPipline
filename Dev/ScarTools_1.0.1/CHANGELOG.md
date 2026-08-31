@@ -2,6 +2,13 @@
 
 ## 1.0.1 — Active Cloud Allowlist & Zero-Latency CDN Synchronization
 
+- **Anim Export Tool & Centralized Extraction Engine**:
+  - Dedicated zero-complexity 1-page shot animation caching tool exporting to studio standard `Alembic/` and `FBX/` folders alongside `Maya/` files.
+  - 100% automated scene parsing: auto-detects shot name (`PRT_SH_010`), active shot camera (`PRT_SH_010_CAM`), timeline range, and characters/props hierarchy.
+  - 1-Click Camera Sanity Fix: auto-detects missing or non-standard cameras with 1-click standardization button.
+  - Centralized Modal Progress: integrates `scartools.ui.OperationProgressPopup` and `scartools.framework.OperationCallbacks` for live `%` and asset caching progress.
+  - Post-Export 1-Click Open: integrated `open_in_file_manager` button opens destination shot root in Windows Explorer.
+  - Editable Asset Table: double-clicking the Type column seamlessly switches assets between Character and Prop caches.
 - **Active Cloud Allowlist Licensing Architecture**:
   - Upgraded registry model to a true Active Allowlist: the master registry (`studio_licenses_registry.json`) holds only authorized active seats.
   - Removing a user or seat from the registry automatically triggers the Zero-Fill Remote File Wipe upon the next online check.

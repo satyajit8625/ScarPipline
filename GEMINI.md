@@ -161,3 +161,9 @@ Whenever the user instructs **"check security"**, the agent must perform a rigor
 ### `[FW-06]` Standardized Studio Event Bus (`logging.py`)
 * All diagnostic and operation feedback must route through `emit_log(message, level="info"|"warning"|"error"|"success", source="ToolName")` to stream live to the studio Global Log Viewer and rotate in `~/.scartools/logs/`.
 
+### `[FW-07]` Mandatory Centralized-First Component Architecture & Propose Protocol
+* **Centralized-First Audit**: Always search and reuse existing components from `scartools.ui` (tokens, widgets, dialogs, progress) and `scartools.framework` (operations, lifecycle, paths, validation) before writing any code.
+* **Zero Ad-Hoc / One-Off Hacks**: Never create isolated custom UI components, local stylesheets, or private duplicate algorithms inside individual tool modules.
+* **Propose-First Protocol**: If a needed component is missing from the central system, the assistant MUST stop and present the proposed component design and API to the user first. Once approved, the component must be registered directly in `scartools.ui` or `scartools.framework` so all studio tools consume it consistently.
+
+

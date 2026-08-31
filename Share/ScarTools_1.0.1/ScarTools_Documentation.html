@@ -703,13 +703,14 @@ Shot_010/
                         </tbody>
                     </table>
 
-                    <h2>1-Click Export Workflow</h2>
+                    <h2>1-Click Zero-Complexity Export Workflow</h2>
                     <ol>
                         <li>Open <strong>Anim Export</strong> from the ScarTools shelf or menu.</li>
-                        <li>The tool automatically inspects the active Maya scene (e.g. <code>PRT_SH_010_ANM_V001.ma</code>) and auto-populates the <strong>Shot Name</strong> (<code>PRT_SH_010</code>) and <strong>Shot Root Path</strong>.</li>
-                        <li>Select your <strong>Frame Range</strong> (Timeline or Custom) and set <strong>Simulation Handles</strong> (e.g. ±5 frames for FX).</li>
-                        <li>Select the active <strong>Shot Camera</strong> and choose format (<code>FBX (.fbx)</code> or <code>Alembic (.abc)</code>).</li>
-                        <li>Check the characters and props in the data table, then click <strong>EXPORT SHOT CACHES</strong>. All caches are automatically saved into <code>Alembic/</code> and <code>FBX/</code> subfolders.</li>
+                        <li>The tool automatically inspects the active scene (e.g. <code>PRT_SH_010_ANM_V001.ma</code>) and auto-resolves the <strong>Shot Name</strong> (<code>PRT_SH_010</code>), <strong>Shot Camera</strong> (<code>PRT_SH_010_CAM</code>), <strong>Timeline Playback Range</strong>, and <strong>Target Shot Root</strong>.</li>
+                        <li>If the standardized camera is missing or non-standard, a 1-click <code>Fix Camera</code> helper button automatically appears to standardize the camera in 1 step.</li>
+                        <li>Detected characters and props are automatically checked in the table. Double-click the <code>Type</code> column to toggle between Character and Prop if needed.</li>
+                        <li>Click <strong>EXPORT SHOT CACHES</strong>. The centralized <code>OperationProgressPopup</code> displays real-time caching progress across all assets.</li>
+                        <li>Upon completion, click <strong>Open Folder</strong> to instantly view the exported files in Windows Explorer.</li>
                     </ol>
                 </div>
 
