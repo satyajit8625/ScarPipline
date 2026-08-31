@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 """
 Dedicated Studio Settings Architecture for Anim Export (Alembic & FBX Parameters).
-Provides validated pipeline presets, locked studio standards, and collapsible advanced options.
+Provides validated pipeline presets, department color hierarchy, locked studio standards,
+and collapsible advanced options.
 """
 
 from __future__ import absolute_import, division, print_function
@@ -153,7 +154,7 @@ def confirm_and_reset_settings(parent=None):
 
 
 # ==============================================================================
-# 🎬 Dedicated Alembic Settings Dialog
+# 🎬 Dedicated Alembic Settings Dialog (Multi-Department Hierarchy)
 # ==============================================================================
 
 class AlembicSettingsDialog(BaseToolDialog):
@@ -182,7 +183,7 @@ class AlembicSettingsDialog(BaseToolDialog):
         root = QtWidgets.QVBoxLayout(self)
         configure_root_layout(root)
 
-        # 1. Brand Header
+        # 1. Standard Brand Header [UI-02]
         header, _ = create_brand_header(
             "ALEMBIC SETTINGS",
             "Geometry cache export settings",
@@ -203,15 +204,15 @@ class AlembicSettingsDialog(BaseToolDialog):
         preset_bar.addStretch(1)
         root.addLayout(preset_bar)
 
-        # 3. Cache Panel
-        cache_panel, cache_layout, _ = create_section_panel("CACHE", accent="pipeline", parent=self)
+        # 3. Cache Panel [accent="pipeline", #4E937B]
+        cache_panel, cache_layout, _ = create_section_panel("CACHE & TIMING", accent="pipeline", parent=self)
         cache_layout.setSpacing(8)
 
         row_fmt = QtWidgets.QHBoxLayout()
         lbl_fmt = QtWidgets.QLabel("Data Format:", self)
         lbl_fmt.setObjectName("SettingsMutedLabel")
-        val_fmt = QtWidgets.QLabel("Ogawa 🔒", self)
-        val_fmt.setObjectName("SettingsFieldLabel")
+        val_fmt = QtWidgets.QLabel("Ogawa [Pipeline Standard 🔒]", self)
+        val_fmt.setStyleSheet("color: #72D6AA; font-weight: 600; font-size: 11px;")
         val_fmt.setToolTip("Ogawa is the high-performance pipeline standard for Alembic caching")
         row_fmt.addWidget(lbl_fmt)
         row_fmt.addWidget(val_fmt)
@@ -227,7 +228,7 @@ class AlembicSettingsDialog(BaseToolDialog):
         cache_layout.addLayout(row_step)
 
         row_handles = QtWidgets.QHBoxLayout()
-        lbl_handles = QtWidgets.QLabel("Frame Handles (Pre/Post-Roll):", self)
+        lbl_handles = QtWidgets.QLabel("Simulation Handles:", self)
         lbl_handles.setObjectName("SettingsMutedLabel")
         self.combo_handles = QtWidgets.QComboBox(self)
         self.combo_handles.addItems(["0 Frames (Exact Shot)", "2 Frames", "5 Frames", "8 Frames", "10 Frames"])
@@ -238,24 +239,33 @@ class AlembicSettingsDialog(BaseToolDialog):
         cache_layout.addLayout(row_handles)
         root.addWidget(cache_panel)
 
-        # 4. Geometry Panel
-        geo_panel, geo_layout, _ = create_section_panel("GEOMETRY", accent="pipeline", parent=self)
+        # 4. Geometry Panel [accent="modeling", #5F7FA8]
+        geo_panel, geo_layout, _ = create_section_panel("GEOMETRY & SHADING", accent="modeling", parent=self)
         geo_layout.setSpacing(8)
 
         grid_geo = QtWidgets.QGridLayout()
         grid_geo.setHorizontalSpacing(18)
         grid_geo.setVerticalSpacing(8)
 
-        lbl_uv = QtWidgets.QLabel("UV Sets (-uvWrite)", self)
-        self.sw_uv = create_toggle_switch(text="", checked=True, accent="pipeline", parent=self)
-        lbl_norm = QtWidgets.QLabel("Normals (-writeNormals)", self)
-        self.sw_norm = create_toggle_switch(text="", checked=True, accent="pipeline", parent=self)
-        lbl_vis = QtWidgets.QLabel("Visibility (-writeVisibility)", self)
-        self.sw_vis = create_toggle_switch(text="", checked=True, accent="pipeline", parent=self)
-        lbl_face = QtWidgets.QLabel("Face Sets (-writeFaceSets)", self)
-        self.sw_face = create_toggle_switch(text="", checked=True, accent="pipeline", parent=self)
-        lbl_col = QtWidgets.QLabel("Color Sets (-writeColorSets)", self)
-        self.sw_col = create_toggle_switch(text="", checked=False, accent="pipeline", parent=self)
+        lbl_uv = QtWidgets.QLabel("UV Sets", self)
+        lbl_uv.setToolTip("Export UV sets into Alembic (-uvWrite)")
+        self.sw_uv = create_toggle_switch(text="", checked=True, accent="modeling", parent=self)
+
+        lbl_norm = QtWidgets.QLabel("Vertex Normals", self)
+        lbl_norm.setToolTip("Preserve smooth shading & custom vertex normals (-writeNormals)")
+        self.sw_norm = create_toggle_switch(text="", checked=True, accent="modeling", parent=self)
+
+        lbl_vis = QtWidgets.QLabel("Visibility Keys", self)
+        lbl_vis.setToolTip("Export animation visibility channels (-writeVisibility)")
+        self.sw_vis = create_toggle_switch(text="", checked=True, accent="modeling", parent=self)
+
+        lbl_face = QtWidgets.QLabel("Face Sets (Materials)", self)
+        lbl_face.setToolTip("Preserve per-face material assignments (-writeFaceSets)")
+        self.sw_face = create_toggle_switch(text="", checked=True, accent="modeling", parent=self)
+
+        lbl_col = QtWidgets.QLabel("Color Sets (Vertex Color)", self)
+        lbl_col.setToolTip("Export vertex color streams (-writeColorSets)")
+        self.sw_col = create_toggle_switch(text="", checked=False, accent="modeling", parent=self)
 
         grid_geo.addWidget(lbl_uv, 0, 0)
         grid_geo.addWidget(self.sw_uv, 0, 1)
@@ -273,15 +283,18 @@ class AlembicSettingsDialog(BaseToolDialog):
         geo_layout.addLayout(grid_geo)
         root.addWidget(geo_panel)
 
-        # 5. Transforms & Naming Panel
-        tf_panel, tf_layout, _ = create_section_panel("TRANSFORMS & NAMING", accent="pipeline", parent=self)
+        # 5. Transforms & Naming Panel [accent="rig", #766A8E]
+        tf_panel, tf_layout, _ = create_section_panel("TRANSFORMS & NAMING", accent="rig", parent=self)
         tf_layout.setSpacing(8)
 
         row_tf = QtWidgets.QHBoxLayout()
-        lbl_ws = QtWidgets.QLabel("World Space (-worldSpace)", self)
-        self.sw_ws = create_toggle_switch(text="", checked=True, accent="pipeline", parent=self)
-        lbl_strip = QtWidgets.QLabel("Strip Namespaces (-stripNamespaces)", self)
-        self.sw_strip = create_toggle_switch(text="", checked=True, accent="pipeline", parent=self)
+        lbl_ws = QtWidgets.QLabel("World Space Matrix", self)
+        lbl_ws.setToolTip("Bake world space transforms for cinematic cache exchange (-worldSpace)")
+        self.sw_ws = create_toggle_switch(text="", checked=True, accent="rig", parent=self)
+
+        lbl_strip = QtWidgets.QLabel("Strip Namespaces", self)
+        lbl_strip.setToolTip("Clean namespace prefixes for downstream DCCs (-stripNamespaces)")
+        self.sw_strip = create_toggle_switch(text="", checked=True, accent="rig", parent=self)
 
         row_tf.addWidget(lbl_ws)
         row_tf.addWidget(self.sw_ws)
@@ -292,34 +305,49 @@ class AlembicSettingsDialog(BaseToolDialog):
         tf_layout.addLayout(row_tf)
         root.addWidget(tf_panel)
 
-        # 6. Collapsible Advanced Options
-        self.adv_btn = QtWidgets.QPushButton("▸ Advanced Options", self)
+        # 6. Collapsible Advanced Options Panel
+        adv_card = QtWidgets.QFrame(self)
+        adv_card.setObjectName("ActionCard")
+        adv_card_layout = QtWidgets.QVBoxLayout(adv_card)
+        adv_card_layout.setContentsMargins(10, 6, 10, 6)
+        adv_card_layout.setSpacing(6)
+
+        self.adv_btn = QtWidgets.QPushButton("▸  Advanced Options (Rarely Modified)", self)
         self.adv_btn.setObjectName("SettingsFieldLabel")
         self.adv_btn.setFlat(True)
-        self.adv_btn.setStyleSheet("text-align: left; padding: 4px 0; color: #8A94A6;")
+        self.adv_btn.setStyleSheet("text-align: left; padding: 2px 0; color: #8A94A6; font-weight: 500;")
         self.adv_btn.setCursor(QtCore.Qt.PointingHandCursor)
-        root.addWidget(self.adv_btn)
+        adv_card_layout.addWidget(self.adv_btn)
 
         self.adv_frame = QtWidgets.QFrame(self)
         self.adv_frame.setVisible(False)
-        adv_layout = QtWidgets.QVBoxLayout(self.adv_frame)
-        adv_layout.setContentsMargins(10, 4, 10, 4)
-        adv_layout.setSpacing(6)
+        adv_sub_layout = QtWidgets.QVBoxLayout(self.adv_frame)
+        adv_sub_layout.setContentsMargins(0, 4, 0, 0)
+        adv_sub_layout.setSpacing(6)
 
         grid_adv = QtWidgets.QGridLayout()
         grid_adv.setHorizontalSpacing(18)
         grid_adv.setVerticalSpacing(6)
 
-        lbl_vel = QtWidgets.QLabel("Motion Blur Velocity Vectors (-writeVelocities)", self)
+        lbl_vel = QtWidgets.QLabel("Motion Blur Velocities", self)
+        lbl_vel.setToolTip("Calculate and write velocity vectors for sub-frame motion blur (-writeVelocities)")
         self.sw_vel = create_toggle_switch(text="", checked=True, accent="pipeline", parent=self)
-        lbl_rend = QtWidgets.QLabel("Renderable Only (-renderableOnly)", self)
+
+        lbl_rend = QtWidgets.QLabel("Renderable Only", self)
+        lbl_rend.setToolTip("Skip hidden utility rigs and locators (-renderableOnly)")
         self.sw_rend = create_toggle_switch(text="", checked=True, accent="pipeline", parent=self)
-        lbl_crease = QtWidgets.QLabel("Write Creases (-writeCreases)", self)
-        self.sw_crease = create_toggle_switch(text="", checked=True, accent="pipeline", parent=self)
+
+        lbl_crease = QtWidgets.QLabel("Subd Creases", self)
+        lbl_crease.setToolTip("Preserve edge/vertex crease weights (-writeCreases)")
+        self.sw_crease = create_toggle_switch(text="", checked=True, accent="modeling", parent=self)
+
         lbl_whole = QtWidgets.QLabel("Whole Frame Geometry", self)
-        self.sw_whole = create_toggle_switch(text="", checked=False, accent="pipeline", parent=self)
-        lbl_euler = QtWidgets.QLabel("Euler Filter (-eulerFilter)", self)
-        self.sw_euler = create_toggle_switch(text="", checked=False, accent="pipeline", parent=self)
+        lbl_whole.setToolTip("Export whole frame geometry topology")
+        self.sw_whole = create_toggle_switch(text="", checked=False, accent="modeling", parent=self)
+
+        lbl_euler = QtWidgets.QLabel("Euler Filter", self)
+        lbl_euler.setToolTip("Apply gimbal-lock angle filter (-eulerFilter)")
+        self.sw_euler = create_toggle_switch(text="", checked=False, accent="rig", parent=self)
 
         grid_adv.addWidget(lbl_vel, 0, 0)
         grid_adv.addWidget(self.sw_vel, 0, 1)
@@ -334,10 +362,11 @@ class AlembicSettingsDialog(BaseToolDialog):
         grid_adv.addWidget(lbl_euler, 2, 0)
         grid_adv.addWidget(self.sw_euler, 2, 1)
 
-        adv_layout.addLayout(grid_adv)
-        root.addWidget(self.adv_frame)
+        adv_sub_layout.addLayout(grid_adv)
+        adv_card_layout.addWidget(self.adv_frame)
+        root.addWidget(adv_card)
 
-        # 7. Action Footer
+        # 7. Action Footer [UI-06]
         footer_frame = QtWidgets.QFrame(self)
         footer_frame.setObjectName("ActionFooter")
         footer_layout = QtWidgets.QHBoxLayout(footer_frame)
@@ -363,7 +392,7 @@ class AlembicSettingsDialog(BaseToolDialog):
     def _toggle_advanced(self):
         is_open = self.adv_frame.isVisible()
         self.adv_frame.setVisible(not is_open)
-        self.adv_btn.setText("▾ Advanced Options" if not is_open else "▸ Advanced Options")
+        self.adv_btn.setText("▾  Advanced Options (Rarely Modified)" if not is_open else "▸  Advanced Options (Rarely Modified)")
 
     def _load_values(self, data):
         step_val = float(data.get("step", 1.0))
@@ -423,7 +452,7 @@ class AlembicSettingsDialog(BaseToolDialog):
 
 
 # ==============================================================================
-# 🎮 Dedicated FBX Settings Dialog
+# 🎮 Dedicated FBX Settings Dialog (Multi-Department Hierarchy)
 # ==============================================================================
 
 class FBXSettingsDialog(BaseToolDialog):
@@ -452,7 +481,7 @@ class FBXSettingsDialog(BaseToolDialog):
         root = QtWidgets.QVBoxLayout(self)
         configure_root_layout(root)
 
-        # 1. Brand Header
+        # 1. Standard Brand Header [UI-02]
         header, _ = create_brand_header(
             "FBX SETTINGS",
             "Animation and scene export settings",
@@ -473,24 +502,33 @@ class FBXSettingsDialog(BaseToolDialog):
         preset_bar.addStretch(1)
         root.addLayout(preset_bar)
 
-        # 3. Animation & Deformation Panel
-        anim_panel, anim_layout, _ = create_section_panel("ANIMATION & DEFORMATION", accent="data", parent=self)
+        # 3. Animation & Deformation Panel [accent="rig", #766A8E]
+        anim_panel, anim_layout, _ = create_section_panel("ANIMATION & DEFORMATION", accent="rig", parent=self)
         anim_layout.setSpacing(8)
 
         grid_anim = QtWidgets.QGridLayout()
         grid_anim.setHorizontalSpacing(18)
         grid_anim.setVerticalSpacing(8)
 
-        lbl_anim = QtWidgets.QLabel("Animation", self)
-        self.sw_anim = create_toggle_switch(text="", checked=True, accent="data", parent=self)
+        lbl_anim = QtWidgets.QLabel("Animation Takes", self)
+        lbl_anim.setToolTip("Export keyframe animation takes")
+        self.sw_anim = create_toggle_switch(text="", checked=True, accent="rig", parent=self)
+
         lbl_bake = QtWidgets.QLabel("Bake Animation", self)
-        self.sw_bake = create_toggle_switch(text="", checked=True, accent="data", parent=self)
-        lbl_resample = QtWidgets.QLabel("Resample Animation", self)
-        self.sw_resample = create_toggle_switch(text="", checked=True, accent="data", parent=self)
-        lbl_skin = QtWidgets.QLabel("Skin", self)
-        self.sw_skin = create_toggle_switch(text="", checked=True, accent="data", parent=self)
+        lbl_bake.setToolTip("Bake complex animation & constraints down to keys")
+        self.sw_bake = create_toggle_switch(text="", checked=True, accent="rig", parent=self)
+
+        lbl_resample = QtWidgets.QLabel("Resample Curves", self)
+        lbl_resample.setToolTip("Resample animation curves per frame")
+        self.sw_resample = create_toggle_switch(text="", checked=True, accent="rig", parent=self)
+
+        lbl_skin = QtWidgets.QLabel("Skin Weights", self)
+        lbl_skin.setToolTip("Export smooth skin cluster deforming influences")
+        self.sw_skin = create_toggle_switch(text="", checked=True, accent="rig", parent=self)
+
         lbl_blend = QtWidgets.QLabel("Blend Shapes", self)
-        self.sw_blend = create_toggle_switch(text="", checked=True, accent="data", parent=self)
+        lbl_blend.setToolTip("Export blendshape target channels")
+        self.sw_blend = create_toggle_switch(text="", checked=True, accent="rig", parent=self)
 
         grid_anim.addWidget(lbl_anim, 0, 0)
         grid_anim.addWidget(self.sw_anim, 0, 1)
@@ -508,8 +546,8 @@ class FBXSettingsDialog(BaseToolDialog):
         anim_layout.addLayout(grid_anim)
         root.addWidget(anim_panel)
 
-        # 4. Geometry & Scene Data Panel
-        geo_panel, geo_layout, _ = create_section_panel("GEOMETRY & SCENE DATA", accent="data", parent=self)
+        # 4. Geometry & Scene Data Panel [accent="modeling", #5F7FA8]
+        geo_panel, geo_layout, _ = create_section_panel("GEOMETRY & SCENE DATA", accent="modeling", parent=self)
         geo_layout.setSpacing(8)
 
         grid_geo = QtWidgets.QGridLayout()
@@ -517,15 +555,24 @@ class FBXSettingsDialog(BaseToolDialog):
         grid_geo.setVerticalSpacing(8)
 
         lbl_smooth = QtWidgets.QLabel("Smoothing Groups", self)
-        self.sw_smooth = create_toggle_switch(text="", checked=True, accent="data", parent=self)
+        lbl_smooth.setToolTip("Export polygon smoothing groups")
+        self.sw_smooth = create_toggle_switch(text="", checked=True, accent="modeling", parent=self)
+
         lbl_tangents = QtWidgets.QLabel("Tangents / Binormals", self)
-        self.sw_tangents = create_toggle_switch(text="", checked=True, accent="data", parent=self)
-        lbl_tri = QtWidgets.QLabel("Triangulate", self)
-        self.sw_tri = create_toggle_switch(text="", checked=False, accent="data", parent=self)
+        lbl_tangents.setToolTip("Compute and export normal map tangent vectors")
+        self.sw_tangents = create_toggle_switch(text="", checked=True, accent="modeling", parent=self)
+
+        lbl_tri = QtWidgets.QLabel("Triangulate Polygons", self)
+        lbl_tri.setToolTip("Force triangulation of non-planar polygons")
+        self.sw_tri = create_toggle_switch(text="", checked=False, accent="modeling", parent=self)
+
         lbl_cam = QtWidgets.QLabel("Cameras", self)
-        self.sw_cam = create_toggle_switch(text="", checked=True, accent="data", parent=self)
+        lbl_cam.setToolTip("Include shot cameras in FBX take")
+        self.sw_cam = create_toggle_switch(text="", checked=True, accent="pipeline", parent=self)
+
         lbl_light = QtWidgets.QLabel("Lights", self)
-        self.sw_light = create_toggle_switch(text="", checked=False, accent="data", parent=self)
+        lbl_light.setToolTip("Include Maya scene lights")
+        self.sw_light = create_toggle_switch(text="", checked=False, accent="modeling", parent=self)
 
         grid_geo.addWidget(lbl_smooth, 0, 0)
         grid_geo.addWidget(self.sw_smooth, 0, 1)
@@ -543,8 +590,8 @@ class FBXSettingsDialog(BaseToolDialog):
         geo_layout.addLayout(grid_geo)
         root.addWidget(geo_panel)
 
-        # 5. Pipeline Locked Defaults
-        pipe_panel, pipe_layout, _ = create_section_panel("PIPELINE LOCKED DEFAULTS", accent="neutral", parent=self)
+        # 5. Pipeline Locked Defaults [accent="data", #667A70]
+        pipe_panel, pipe_layout, _ = create_section_panel("PIPELINE LOCKED STANDARDS", accent="data", parent=self)
         pipe_layout.setSpacing(6)
 
         grid_pipe = QtWidgets.QGridLayout()
@@ -553,23 +600,23 @@ class FBXSettingsDialog(BaseToolDialog):
 
         lbl_p_fmt = QtWidgets.QLabel("File Format:", self)
         lbl_p_fmt.setObjectName("SettingsMutedLabel")
-        val_p_fmt = QtWidgets.QLabel("Binary 🔒", self)
-        val_p_fmt.setObjectName("SettingsFieldLabel")
+        val_p_fmt = QtWidgets.QLabel("Binary [Standard 🔒]", self)
+        val_p_fmt.setStyleSheet("color: #72D6AA; font-weight: 600; font-size: 11px;")
 
         lbl_p_axis = QtWidgets.QLabel("Up Axis:", self)
         lbl_p_axis.setObjectName("SettingsMutedLabel")
-        val_p_axis = QtWidgets.QLabel("Y-Up (Maya / Film) 🔒", self)
-        val_p_axis.setObjectName("SettingsFieldLabel")
+        val_p_axis = QtWidgets.QLabel("Y-Up (Maya / Film) [🔒]", self)
+        val_p_axis.setStyleSheet("color: #72D6AA; font-weight: 600; font-size: 11px;")
 
         lbl_p_unit = QtWidgets.QLabel("Units:", self)
         lbl_p_unit.setObjectName("SettingsMutedLabel")
-        val_p_unit = QtWidgets.QLabel("Centimeters 🔒", self)
-        val_p_unit.setObjectName("SettingsFieldLabel")
+        val_p_unit = QtWidgets.QLabel("Centimeters [🔒]", self)
+        val_p_unit.setStyleSheet("color: #72D6AA; font-weight: 600; font-size: 11px;")
 
         lbl_p_media = QtWidgets.QLabel("Embed Media:", self)
         lbl_p_media.setObjectName("SettingsMutedLabel")
-        val_p_media = QtWidgets.QLabel("OFF 🔒", self)
-        val_p_media.setObjectName("SettingsFieldLabel")
+        val_p_media = QtWidgets.QLabel("OFF [Clean 🔒]", self)
+        val_p_media.setStyleSheet("color: #72D6AA; font-weight: 600; font-size: 11px;")
 
         grid_pipe.addWidget(lbl_p_fmt, 0, 0)
         grid_pipe.addWidget(val_p_fmt, 0, 1)
@@ -584,30 +631,41 @@ class FBXSettingsDialog(BaseToolDialog):
         pipe_layout.addLayout(grid_pipe)
         root.addWidget(pipe_panel)
 
-        # 6. Collapsible Advanced Options
-        self.adv_btn = QtWidgets.QPushButton("▸ Advanced Options", self)
+        # 6. Collapsible Advanced Options Panel
+        adv_card = QtWidgets.QFrame(self)
+        adv_card.setObjectName("ActionCard")
+        adv_card_layout = QtWidgets.QVBoxLayout(adv_card)
+        adv_card_layout.setContentsMargins(10, 6, 10, 6)
+        adv_card_layout.setSpacing(6)
+
+        self.adv_btn = QtWidgets.QPushButton("▸  Advanced Options (Rarely Modified)", self)
         self.adv_btn.setObjectName("SettingsFieldLabel")
         self.adv_btn.setFlat(True)
-        self.adv_btn.setStyleSheet("text-align: left; padding: 4px 0; color: #8A94A6;")
+        self.adv_btn.setStyleSheet("text-align: left; padding: 2px 0; color: #8A94A6; font-weight: 500;")
         self.adv_btn.setCursor(QtCore.Qt.PointingHandCursor)
-        root.addWidget(self.adv_btn)
+        adv_card_layout.addWidget(self.adv_btn)
 
         self.adv_frame = QtWidgets.QFrame(self)
         self.adv_frame.setVisible(False)
-        adv_layout = QtWidgets.QVBoxLayout(self.adv_frame)
-        adv_layout.setContentsMargins(10, 4, 10, 4)
-        adv_layout.setSpacing(6)
+        adv_sub_layout = QtWidgets.QVBoxLayout(self.adv_frame)
+        adv_sub_layout.setContentsMargins(0, 4, 0, 0)
+        adv_sub_layout.setSpacing(6)
 
         grid_adv = QtWidgets.QGridLayout()
         grid_adv.setHorizontalSpacing(18)
         grid_adv.setVerticalSpacing(6)
 
         lbl_euler = QtWidgets.QLabel("Euler Filter", self)
-        self.sw_euler = create_toggle_switch(text="", checked=False, accent="data", parent=self)
+        lbl_euler.setToolTip("Apply rotation curve gimbal filter")
+        self.sw_euler = create_toggle_switch(text="", checked=False, accent="rig", parent=self)
+
         lbl_ckr = QtWidgets.QLabel("Constant Key Reducer", self)
-        self.sw_ckr = create_toggle_switch(text="", checked=False, accent="data", parent=self)
+        lbl_ckr.setToolTip("Prune redundant constant keyframes")
+        self.sw_ckr = create_toggle_switch(text="", checked=False, accent="rig", parent=self)
+
         lbl_pres = QtWidgets.QLabel("Preserve Instances", self)
-        self.sw_pres = create_toggle_switch(text="", checked=False, accent="data", parent=self)
+        lbl_pres.setToolTip("Preserve geometry instancing")
+        self.sw_pres = create_toggle_switch(text="", checked=False, accent="modeling", parent=self)
 
         grid_adv.addWidget(lbl_euler, 0, 0)
         grid_adv.addWidget(self.sw_euler, 0, 1)
@@ -616,10 +674,11 @@ class FBXSettingsDialog(BaseToolDialog):
         grid_adv.addWidget(lbl_pres, 1, 0)
         grid_adv.addWidget(self.sw_pres, 1, 1)
 
-        adv_layout.addLayout(grid_adv)
-        root.addWidget(self.adv_frame)
+        adv_sub_layout.addLayout(grid_adv)
+        adv_card_layout.addWidget(self.adv_frame)
+        root.addWidget(adv_card)
 
-        # 7. Action Footer
+        # 7. Action Footer [UI-06]
         footer_frame = QtWidgets.QFrame(self)
         footer_frame.setObjectName("ActionFooter")
         footer_layout = QtWidgets.QHBoxLayout(footer_frame)
@@ -645,7 +704,7 @@ class FBXSettingsDialog(BaseToolDialog):
     def _toggle_advanced(self):
         is_open = self.adv_frame.isVisible()
         self.adv_frame.setVisible(not is_open)
-        self.adv_btn.setText("▾ Advanced Options" if not is_open else "▸ Advanced Options")
+        self.adv_btn.setText("▾  Advanced Options (Rarely Modified)" if not is_open else "▸  Advanced Options (Rarely Modified)")
 
     def _load_values(self, data):
         self.sw_anim.set_checked(data.get("animation", True))

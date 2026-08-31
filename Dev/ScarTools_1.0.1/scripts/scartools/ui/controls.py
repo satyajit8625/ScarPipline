@@ -94,6 +94,7 @@ class SegmentedControl(QtWidgets.QWidget):
             "rig": ("#766A8E", "#887AA7"),
             "modeling": ("#5F7FA8", "#6D91BD"),
             "texturing": ("#A67C45", "#BA8D52"),
+            "data": ("#667A70", "#778C81"),
         }
         bg_active, bg_active_hover = accent_colors.get(self._accent, accent_colors["primary"])
 
@@ -240,6 +241,7 @@ class ToggleSwitch(QtWidgets.QWidget):
             "rig": QtGui.QColor("#766A8E"),
             "modeling": QtGui.QColor("#5F7FA8"),
             "texturing": QtGui.QColor("#A67C45"),
+            "data": QtGui.QColor("#667A70"),
         }
         track_active_color = accent_colors.get(self._accent, accent_colors["primary"])
         track_inactive_color = QtGui.QColor("#2E323A")

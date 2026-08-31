@@ -122,14 +122,22 @@ QFrame#ActionCard[accent="cluster"] { border-top: 2px solid #4E937B; }
 QFrame#SectionPanel {
     background: #292929; border: 1px solid #3A3A3A; border-radius: 6px;
 }
-QFrame#SectionPanel[accent="operation"],
-QFrame#SectionPanel[accent="rig"] { border-top: 2px solid #5F7FA8; }
+QFrame#SectionPanel[accent="pipeline"],
+QFrame#SectionPanel[accent="cache"] { border-top: 2px solid #4E937B; }
+QFrame#SectionPanel[accent="modeling"],
+QFrame#SectionPanel[accent="geometry"] { border-top: 2px solid #5F7FA8; }
+QFrame#SectionPanel[accent="rig"],
+QFrame#SectionPanel[accent="rigging"],
+QFrame#SectionPanel[accent="mirror"],
+QFrame#SectionPanel[accent="transforms"] { border-top: 2px solid #766A8E; }
+QFrame#SectionPanel[accent="texturing"],
+QFrame#SectionPanel[accent="lookdev"],
+QFrame#SectionPanel[accent="cleanup"] { border-top: 2px solid #A67C45; }
 QFrame#SectionPanel[accent="data"],
 QFrame#SectionPanel[accent="validation"] { border-top: 2px solid #667A70; }
-QFrame#SectionPanel[accent="mirror"] { border-top: 2px solid #766A8E; }
+QFrame#SectionPanel[accent="operation"],
+QFrame#SectionPanel[accent="primary"] { border-top: 2px solid #4F78B8; }
 QFrame#SectionPanel[accent="neutral"] { border-top: 2px solid #505050; }
-QFrame#SectionPanel[accent="pipeline"] { border-top: 2px solid #4E937B; }
-QFrame#SectionPanel[accent="texturing"] { border-top: 2px solid #A67C45; }
 QLabel#SectionTitle {
     color: #D2D2D2; font-size: 11px; font-weight: 600; padding: 0;
 }

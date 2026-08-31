@@ -83,7 +83,7 @@ class ShaderToolsWindow(BaseToolDialog):
         root.addWidget(operation_group)
 
         mesh_group, mesh_layout, _mesh_title = create_section_panel(
-            "Meshes", accent="data", parent=self
+            "Meshes", accent="texturing", parent=self
         )
         actions = QtWidgets.QHBoxLayout()
         self.count_label = QtWidgets.QLabel("0 meshes selected")
