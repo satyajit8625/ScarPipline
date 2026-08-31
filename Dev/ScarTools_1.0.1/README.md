@@ -44,9 +44,10 @@ All tools reuse modular, standardized UI controls from `scartools.ui`:
 * **`CurveEditorWidget`**: 2D Bézier curve graph for custom falloff curves.
 * **`PathPickerWidget`**: File/directory path picker with native drag-and-drop.
 * **`PaletteGrid`**: 16-color studio preset swatch selector.
-* **`TokenTagInput`**: Dynamic chip tag container with auto-complete suggestions.
 * **`StepWizardWidget`**: Visual 4-stage pipeline progress indicator.
 * **`PresetBar` / `PresetManager`**: Persistent JSON user preset management (`~/.scartools/presets/`).
+* **`In-App Updater` (`scartools.framework.updater`)**: Background network share update detector with 1-Click in-Maya hot-reloading.
+* **`Native Security Bridge` (`scartools.licensing`)**: Native C++ binary protection bridge (`scartools_core.pyd`) with asymmetric cryptographic verification.
 * **Multi-Theme Engine**: 4 Switchable Themes (`Dark Studio`, `Cyber Obsidian`, `Slate Blue`, `Maya Match`).
 
 ---

@@ -158,14 +158,34 @@ class AboutDialog(BaseToolDialog):
 
         lic_layout.addLayout(lic_grid)
         root.addWidget(lic_panel)
+        # 3. Studio Update Banner (if newer version available)
+        from ..framework.updater import check_for_updates, apply_hot_update
+        update_info = check_for_updates()
+        if update_info.get("has_update"):
+            banner = QtWidgets.QFrame(self)
+            banner.setObjectName("ActionCard")
+            banner.setStyleSheet("border-top: 2px solid #72D6AA; background: #202622;")
+            b_layout = QtWidgets.QHBoxLayout(banner)
+            b_layout.setContentsMargins(12, 8, 12, 8)
+            b_lbl = QtWidgets.QLabel("⚡ ScarTools v{} is available on Share/".format(update_info.get("latest_version")), banner)
+            b_lbl.setStyleSheet("color: #72D6AA; font-weight: 600; font-size: 11px;")
+            self.btn_update = create_button("1-Click Update", role="primary", fixed_width=110, parent=banner)
+            self.btn_update.clicked.connect(self._do_hot_update)
+            b_layout.addWidget(b_lbl)
+            b_layout.addStretch(1)
+            b_layout.addWidget(self.btn_update)
+            root.addWidget(banner)
+
         root.addStretch(1)
 
         footer = QtWidgets.QHBoxLayout()
+        self.btn_check_update = create_button("Check Updates", role="secondary", parent=self)
         self.diag_button = create_button("View Diagnostics", role="secondary", parent=self)
         self.lic_button = create_button("Manage License...", role="secondary", parent=self)
         self.close_button = create_button(
             "Close", role="secondary", fixed_width=CLOSE_BUTTON_WIDTH, parent=self
         )
+        footer.addWidget(self.btn_check_update)
         footer.addWidget(self.diag_button)
         footer.addWidget(self.lic_button)
         footer.addStretch(1)
@@ -175,6 +195,38 @@ class AboutDialog(BaseToolDialog):
         self.close_button.clicked.connect(self.close)
         self.diag_button.clicked.connect(self._show_diagnostics)
         self.lic_button.clicked.connect(self._show_licensing)
+        self.btn_check_update.clicked.connect(self._check_updates_manual)
+
+    def _check_updates_manual(self):
+        from ..framework.updater import check_for_updates
+        info = check_for_updates(force=True)
+        if info.get("has_update"):
+            QtWidgets.QMessageBox.information(
+                self,
+                "Update Available",
+                "⚡ ScarTools v{} is available on Share/!\n\nClick '1-Click Update' to hot-reload.".format(info.get("latest_version"))
+            )
+        else:
+            QtWidgets.QMessageBox.information(
+                self,
+                "Up to Date",
+                "✓ ScarTools v{} is currently the latest version.".format(info.get("current_version"))
+            )
+
+    def _do_hot_update(self):
+        from ..framework.updater import apply_hot_update
+        try:
+            res = apply_hot_update()
+            QtWidgets.QMessageBox.information(
+                self,
+                "Update Complete",
+                "✓ ScarTools updated successfully to v{}!\n({} modules reloaded).".format(
+                    res.get("version"), res.get("modules_reloaded")
+                )
+            )
+            self.close()
+        except Exception as e:
+            QtWidgets.QMessageBox.critical(self, "Update Failed", "Could not apply update:\n{}".format(e))
 
     def _show_licensing(self):
         from .license_dialog import show_license_dialog

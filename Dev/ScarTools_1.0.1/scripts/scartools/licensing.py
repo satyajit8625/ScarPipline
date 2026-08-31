@@ -138,8 +138,23 @@ def get_license_file_path():
     return os.path.join(home_dir, LICENSE_FILENAME)
 
 
+# Native C++ binary protection bridge (_scartools_core.pyd)
+_NATIVE_CRYPTO_LOADED = False
+try:
+    import scartools_core  # type: ignore
+    _NATIVE_CRYPTO_LOADED = True
+except ImportError:
+    pass
+
+
 def _compute_signature(user_id, hwid, expiry_timestamp):
     """Compute cryptographic signature for user, hardware ID, and expiry."""
+    if _NATIVE_CRYPTO_LOADED:
+        try:
+            return scartools_core.compute_signature(str(user_id), str(hwid), int(expiry_timestamp))
+        except Exception:
+            pass
+
     data = "{}:{}:{}".format(
         user_id.strip().lower(),
         hwid.strip().upper(),

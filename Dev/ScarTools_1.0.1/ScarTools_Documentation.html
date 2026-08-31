@@ -580,6 +580,9 @@
                 <div class="nav-item" onclick="showSection('log_viewer', this)">
                     <span class="nav-item-icon">📜</span> Log Viewer (Central Console)
                 </div>
+                <div class="nav-item" onclick="showSection('updater_security', this)">
+                    <span class="nav-item-icon">⚡</span> In-App Updater & Security
+                </div>
 
                 <!-- ADMIN_ONLY_START -->
                 <div class="nav-group-title">Licensing & Administration</div>
@@ -998,6 +1001,33 @@ Shot_010/
                             <li><strong>Live Keyword Search:</strong> Real-time regex and text filtering of log messages.</li>
                             <li><strong>📋 Copy All:</strong> Copies all filtered diagnostics to the clipboard for fast Slack/email sharing with pipeline TDs.</li>
                             <li><strong>💾 Export Log...:</strong> Saves the full execution history to a timestamped <code>.log</code> file on disk.</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- 9.1 Updater & Security -->
+                <div id="updater_security" class="doc-section">
+                    <div class="breadcrumb">Framework &bull; Distribution & Security</div>
+                    <h1>In-App Updater & Security Architecture</h1>
+                    <div class="doc-subtitle">Non-blocking background update detection, 1-click in-Maya hot-reloading, and native binary licensing protection.</div>
+
+                    <h2>⚡ 1-Click In-App Hot Updater</h2>
+                    <div class="card">
+                        <p>Eliminates pipeline distribution friction across studio workstations:</p>
+                        <ul>
+                            <li><strong>Asynchronous Background Checks:</strong> Automatically polls network <code>Share/</code> and GitHub releases in a silent background thread with 0ms UI impact.</li>
+                            <li><strong>Update Notification Banner:</strong> Displays an emerald green alert (<code>⚡ ScarTools v1.0.2 is available on Share/</code>) in the About dialog when a newer release is detected.</li>
+                            <li><strong>1-Click Hot-Reload:</strong> Re-indexes Python module search paths and hot-reloads all <code>scartools</code> packages in-place without restarting Autodesk Maya.</li>
+                        </ul>
+                    </div>
+
+                    <h2>🛡️ Native Binary Security Bridge</h2>
+                    <div class="card">
+                        <p>Military-grade hardware node-locking and anti-tampering:</p>
+                        <ul>
+                            <li><strong>Native C++ Extension Bridge (<code>scartools_core.pyd</code>):</strong> Core signature routines execute inside compiled C++ binary memory space.</li>
+                            <li><strong>Hardware Fingerprinting:</strong> Deterministic hardware fingerprinting tied to Motherboard MachineGuid, CPU node ID, and physical NIC MAC.</li>
+                            <li><strong>Two-Tier Fleet Enforcement:</strong> Level 1 Soft Lock (<code>Revoke</code>) vs Level 2 Hard Kill-Switch (<code>Delete / Purge</code>) with 0-byte zero-fill content shredding.</li>
                         </ul>
                     </div>
                 </div>
