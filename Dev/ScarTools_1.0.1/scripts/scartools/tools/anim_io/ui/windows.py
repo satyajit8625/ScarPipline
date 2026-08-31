@@ -211,16 +211,39 @@ class AnimIODialog(BaseToolDialog):
         root.addWidget(action_footer)
 
     def _connect(self):
-        self.settings_btn.clicked.connect(self._open_settings_dialog)
+        self.settings_btn.clicked.connect(self._open_settings_menu)
         self.refresh_btn.clicked.connect(self.refresh_scene_data)
         self.asset_table.cellDoubleClicked.connect(self._on_table_double_clicked)
         self.asset_table.cellClicked.connect(self._on_cell_clicked)
         self.open_folder_btn.clicked.connect(self._open_shot_folder)
         self.apply_button.clicked.connect(self._do_export)
 
-    def _open_settings_dialog(self):
-        """Open the dedicated Alembic & FBX settings dialog."""
-        show_settings_dialog(parent=self)
+    def _open_settings_menu(self):
+        """Show the Hamburger dropdown menu with options for Alembic, FBX, and Defaults."""
+        menu = QtWidgets.QMenu(self)
+        menu.setObjectName("HamburgerMenu")
+
+        act_alembic = menu.addAction("🎬 Alembic Settings...")
+        act_fbx = menu.addAction("🎮 FBX Settings...")
+        menu.addSeparator()
+        act_all = menu.addAction("⚙️ All Export Settings...")
+        menu.addSeparator()
+        act_reset = menu.addAction("↺ Reset to Default")
+
+        pos = self.settings_btn.mapToGlobal(QtCore.QPoint(0, self.settings_btn.height() + 2))
+        action = menu.exec_(pos)
+
+        if action == act_alembic:
+            show_settings_dialog(parent=self, focus_section="alembic")
+        elif action == act_fbx:
+            show_settings_dialog(parent=self, focus_section="fbx")
+        elif action == act_all:
+            show_settings_dialog(parent=self)
+        elif action == act_reset:
+            from .settings_dialog import reset_anim_export_settings
+            reset_anim_export_settings()
+            self._set_message("All Alembic & FBX export settings restored to studio defaults.", "neutral")
+            self._set_status("Settings Reset", "idle")
 
     def _on_cell_clicked(self, row, col):
         """Clicking the Export column cell toggles the checkbox cleanly."""

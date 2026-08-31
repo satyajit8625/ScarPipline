@@ -76,7 +76,7 @@ class AnimExportSettingsDialog(BaseToolDialog):
     TOOL_ID = "scartools_anim_io_settings"
     WINDOW_TITLE = "Anim Export Settings"
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, focus_section=None):
         super(AnimExportSettingsDialog, self).__init__(
             parent=parent if parent is not None else maya_main_window(),
             tool_id=self.TOOL_ID,
@@ -84,11 +84,17 @@ class AnimExportSettingsDialog(BaseToolDialog):
         self.setObjectName(self.OBJECT_NAME)
         self.setWindowTitle(self.WINDOW_TITLE)
         self.setAttribute(QtCore.Qt.WA_DeleteOnClose, True)
-        configure_window(self, (560, 490), (640, 580))
+        configure_window(self, (560, 470), (640, 550))
 
         self._current_settings = get_anim_export_settings()
         self._build_ui()
         self._load_values(self._current_settings)
+
+        if focus_section == "fbx":
+            self.tabs.setCurrentIndex(1)
+        elif focus_section == "alembic":
+            self.tabs.setCurrentIndex(0)
+
         apply_theme(self)
 
     def _build_ui(self):
@@ -103,15 +109,20 @@ class AnimExportSettingsDialog(BaseToolDialog):
         )
         root.addWidget(header)
 
-        # 2. Alembic Cache Settings Panel
-        abc_panel, abc_layout, _ = create_section_panel(
-            "Alembic Cache Options", accent="pipeline", parent=self
-        )
+        # 2. Main Tabs
+        self.tabs = QtWidgets.QTabWidget(self)
+        self.tabs.setObjectName("MainTabs")
+
+        # Tab 1: Alembic Cache Settings
+        tab_abc = QtWidgets.QWidget()
+        abc_layout = QtWidgets.QVBoxLayout(tab_abc)
+        abc_layout.setContentsMargins(12, 14, 12, 12)
+        abc_layout.setSpacing(14)
 
         # Velocities
         vel_row = QtWidgets.QHBoxLayout()
         vel_lbl = QtWidgets.QLabel("Motion Blur Velocity Vectors (-writeVelocities)", self)
-        vel_lbl.setStyleSheet("color: {};".format(COLOR_TEXT_PRIMARY))
+        vel_lbl.setStyleSheet("color: {}; font-weight: 500;".format(COLOR_TEXT_PRIMARY))
         self.sw_abc_velocities = create_toggle_switch(text="", checked=True, accent="pipeline", parent=self)
         vel_row.addWidget(vel_lbl, 1)
         vel_row.addWidget(self.sw_abc_velocities)
@@ -148,7 +159,7 @@ class AnimExportSettingsDialog(BaseToolDialog):
         # Mesh Attributes Checkboxes
         toggles_grid = QtWidgets.QGridLayout()
         toggles_grid.setHorizontalSpacing(16)
-        toggles_grid.setVerticalSpacing(6)
+        toggles_grid.setVerticalSpacing(8)
 
         lbl_uv = QtWidgets.QLabel("Write UV Sets (-uvWrite)", self)
         self.sw_abc_uv = create_toggle_switch(text="", checked=True, accent="pipeline", parent=self)
@@ -165,17 +176,19 @@ class AnimExportSettingsDialog(BaseToolDialog):
         toggles_grid.addWidget(self.sw_abc_rend, 1, 1)
 
         abc_layout.addLayout(toggles_grid)
-        root.addWidget(abc_panel)
+        abc_layout.addStretch(1)
+        self.tabs.addTab(tab_abc, "🎬 Alembic Settings")
 
-        # 3. FBX Export Settings Panel
-        fbx_panel, fbx_layout, _ = create_section_panel(
-            "FBX Export Options", accent="data", parent=self
-        )
+        # Tab 2: FBX Export Settings
+        tab_fbx = QtWidgets.QWidget()
+        fbx_layout = QtWidgets.QVBoxLayout(tab_fbx)
+        fbx_layout.setContentsMargins(12, 14, 12, 12)
+        fbx_layout.setSpacing(14)
 
         # Up-Axis
         axis_row = QtWidgets.QHBoxLayout()
         axis_lbl = QtWidgets.QLabel("Coordinate Up-Axis:", self)
-        axis_lbl.setStyleSheet("color: {};".format(COLOR_TEXT_MUTED))
+        axis_lbl.setStyleSheet("color: {}; font-weight: 500;".format(COLOR_TEXT_PRIMARY))
         self.seg_fbx_axis = create_segmented_control(
             ["Y-Up (Maya / Film)", "Z-Up (Unreal Engine)"],
             current=0,
@@ -189,13 +202,13 @@ class AnimExportSettingsDialog(BaseToolDialog):
         # FBX Version & Mesh Flags
         fbx_grid = QtWidgets.QGridLayout()
         fbx_grid.setHorizontalSpacing(16)
-        fbx_grid.setVerticalSpacing(6)
+        fbx_grid.setVerticalSpacing(10)
 
         lbl_ver = QtWidgets.QLabel("FBX Version:", self)
         lbl_ver.setStyleSheet("color: {};".format(COLOR_TEXT_MUTED))
         self.combo_fbx_ver = QtWidgets.QComboBox(self)
         self.combo_fbx_ver.addItems(["FBX 2020", "FBX 2018", "FBX 2016"])
-        configure_field(self.combo_fbx_ver, minimum_width=120)
+        configure_field(self.combo_fbx_ver, minimum_width=130)
 
         lbl_smooth = QtWidgets.QLabel("Smoothing Groups", self)
         self.sw_fbx_smooth = create_toggle_switch(text="", checked=True, accent="data", parent=self)
@@ -210,9 +223,12 @@ class AnimExportSettingsDialog(BaseToolDialog):
         fbx_grid.addWidget(self.sw_fbx_tri, 1, 3)
 
         fbx_layout.addLayout(fbx_grid)
-        root.addWidget(fbx_panel)
+        fbx_layout.addStretch(1)
+        self.tabs.addTab(tab_fbx, "🎮 FBX Settings")
 
-        # 4. Action Buttons Footer
+        root.addWidget(self.tabs, 1)
+
+        # 3. Action Buttons Footer
         footer_layout = QtWidgets.QHBoxLayout()
         footer_layout.setContentsMargins(0, 8, 0, 0)
         footer_layout.setSpacing(10)
@@ -299,7 +315,7 @@ class AnimExportSettingsDialog(BaseToolDialog):
 _ACTIVE_SETTINGS_DIALOG = None
 
 
-def show_settings_dialog(parent=None):
+def show_settings_dialog(parent=None, focus_section=None):
     """Singleton launcher for Anim Export Settings dialog."""
     global _ACTIVE_SETTINGS_DIALOG
     if _ACTIVE_SETTINGS_DIALOG is not None:
@@ -308,7 +324,7 @@ def show_settings_dialog(parent=None):
             _ACTIVE_SETTINGS_DIALOG.deleteLater()
         except Exception:
             pass
-    _ACTIVE_SETTINGS_DIALOG = AnimExportSettingsDialog(parent=parent)
+    _ACTIVE_SETTINGS_DIALOG = AnimExportSettingsDialog(parent=parent, focus_section=focus_section)
     register_window("scartools_anim_io_settings", _ACTIVE_SETTINGS_DIALOG)
     _ACTIVE_SETTINGS_DIALOG.show()
     return _ACTIVE_SETTINGS_DIALOG
