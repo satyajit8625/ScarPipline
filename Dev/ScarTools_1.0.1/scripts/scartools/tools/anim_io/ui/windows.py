@@ -98,11 +98,13 @@ class AnimIODialog(BaseToolDialog):
         self._resolved_shot_root = ""
         self._resolved_camera = None
         self._progress_popup = None
+        self._script_job_ids = []
 
         self._build_ui()
         self._connect()
         apply_theme(self)
         self.refresh_scene_data()
+        self._register_scene_callbacks()
 
     def _build_ui(self):
         root = QtWidgets.QVBoxLayout(self)
@@ -137,7 +139,7 @@ class AnimIODialog(BaseToolDialog):
         self.val_cam = QtWidgets.QLabel("Detecting...", self)
         self.val_cam.setStyleSheet("color: {}; font-weight: bold; font-size: 13px;".format(COLOR_PRIMARY_BLUE))
         self.fix_cam_btn = create_button("Fix Camera", role="secondary", parent=self)
-        self.fix_cam_btn.setFixedHeight(22)
+        self.fix_cam_btn.setFixedHeight(24)
         self.fix_cam_btn.setVisible(False)
         self.fix_cam_btn.setToolTip("Rename selected camera or create the standardized shot camera.")
         cam_box.addWidget(self.val_cam)
@@ -242,6 +244,36 @@ class AnimIODialog(BaseToolDialog):
         self.open_folder_btn.clicked.connect(self._open_shot_folder)
         self.apply_button.clicked.connect(self._do_export)
 
+    def _register_scene_callbacks(self):
+        """Register Maya scene scriptJobs for automatic real-time UI updates on scene open, new, save, and timing changes."""
+        self._unregister_scene_callbacks()
+        if hasattr(cmds, "scriptJob") and not cmds.about(batch=True):
+            for ev in ("SceneOpened", "NewSceneOpened", "SceneSaved", "playbackRangeChanged"):
+                try:
+                    jid = cmds.scriptJob(event=[ev, self.refresh_scene_data], runOnce=False)
+                    self._script_job_ids.append(jid)
+                except Exception:
+                    pass
+
+    def _unregister_scene_callbacks(self):
+        """Cleanly remove all registered scriptJobs upon dialog close."""
+        for jid in getattr(self, "_script_job_ids", []):
+            try:
+                if hasattr(cmds, "scriptJob") and cmds.scriptJob(exists=jid):
+                    cmds.scriptJob(kill=jid, force=True)
+            except Exception:
+                pass
+        self._script_job_ids = []
+
+    def closeEvent(self, event):
+        self._unregister_scene_callbacks()
+        super(AnimIODialog, self).closeEvent(event)
+
+    def changeEvent(self, event):
+        if event.type() == QtCore.QEvent.ActivationChange and self.isActiveWindow():
+            self.refresh_scene_data()
+        super(AnimIODialog, self).changeEvent(event)
+
     def _set_status(self, text, state="idle"):
         self.status_label.setText(str(text))
         self.status_label.setProperty("state", state)
@@ -260,9 +292,10 @@ class AnimIODialog(BaseToolDialog):
 
         self._resolved_shot_name = identity.get("shot_name") or "untitled_shot"
         self._resolved_shot_root = identity.get("export_dir") or ""
+        is_unsaved = (self._resolved_shot_name.lower() in ("untitled_shot", "untitled_scene", "untitled"))
 
         # Find camera with sanity check
-        target_cam_name = self._resolved_shot_name + "_CAM"
+        target_cam_name = self._resolved_shot_name + "_CAM" if not is_unsaved else "Shot_CAM"
         cam_node = find_active_shot_camera(self._resolved_shot_name)
         self._resolved_camera = cam_node
 
@@ -283,18 +316,30 @@ class AnimIODialog(BaseToolDialog):
             self.fix_cam_btn.setVisible(True)
             self.fix_cam_btn.setText("Create " + target_cam_name)
 
-        self.val_shot.setText(self._resolved_shot_name)
+        if is_unsaved:
+            self.val_shot.setText(self._resolved_shot_name + " (Unsaved Scene)")
+            self.val_shot.setStyleSheet("color: {}; font-weight: bold; font-size: 13px;".format(COLOR_STATUS_WARNING))
+        else:
+            self.val_shot.setText(self._resolved_shot_name)
+            self.val_shot.setStyleSheet("color: {}; font-weight: bold; font-size: 13px;".format(COLOR_TEXT_PRIMARY))
+
         self.val_path.setText(self._resolved_shot_root or "Active Maya Project / Current Scene Directory")
 
-        # Timeline range
+        # Timeline range - robust start/end bounds check
         start_f = 1001
         end_f = 1100
         try:
             if hasattr(cmds, "playbackOptions"):
-                start_f = int(cmds.playbackOptions(q=True, minTime=True) or 1001)
-                end_f = int(cmds.playbackOptions(q=True, maxTime=True) or 1100)
+                min_t = cmds.playbackOptions(q=True, minTime=True)
+                max_t = cmds.playbackOptions(q=True, maxTime=True)
+                if min_t is not None and max_t is not None:
+                    start_f = int(min_t)
+                    end_f = int(max_t)
+                    if start_f > end_f:
+                        start_f, end_f = end_f, start_f
         except Exception:
             pass
+
         total_frames = max(0, end_f - start_f + 1)
         self.val_range.setText("Frames {} to {} ({} frames)".format(start_f, end_f, total_frames))
 
@@ -307,6 +352,8 @@ class AnimIODialog(BaseToolDialog):
                     proj, self._resolved_shot_name, dept, ver
                 )
             )
+        else:
+            self.header_subtitle.setText("Automatic Alembic (.abc) and FBX (.fbx) shot cache extraction")
 
         data = discover_scene_assets()
 
@@ -410,7 +457,7 @@ class AnimIODialog(BaseToolDialog):
                 self._resolved_shot_root = out_dir
 
         if not out_dir or not os.path.isdir(out_dir):
-            self._set_message("Could not resolve valid shot directory from active Maya file.", "warning")
+            self._set_message("Could not resolve valid shot directory from active Maya file. Please save the scene.", "warning")
             self._set_status("Invalid Shot Root", "warning")
             return
 
@@ -421,8 +468,13 @@ class AnimIODialog(BaseToolDialog):
         end_f = 1100
         try:
             if hasattr(cmds, "playbackOptions"):
-                start_f = int(cmds.playbackOptions(q=True, minTime=True) or 1001)
-                end_f = int(cmds.playbackOptions(q=True, maxTime=True) or 1100)
+                min_t = cmds.playbackOptions(q=True, minTime=True)
+                max_t = cmds.playbackOptions(q=True, maxTime=True)
+                if min_t is not None and max_t is not None:
+                    start_f = int(min_t)
+                    end_f = int(max_t)
+                    if start_f > end_f:
+                        start_f, end_f = end_f, start_f
         except Exception:
             pass
 
