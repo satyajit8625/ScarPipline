@@ -226,8 +226,6 @@ class AnimIODialog(BaseToolDialog):
         act_alembic = menu.addAction("🎬 Alembic Settings...")
         act_fbx = menu.addAction("🎮 FBX Settings...")
         menu.addSeparator()
-        act_all = menu.addAction("⚙️ All Export Settings...")
-        menu.addSeparator()
         act_reset = menu.addAction("↺ Reset to Default")
 
         pos = self.settings_btn.mapToGlobal(QtCore.QPoint(0, self.settings_btn.height() + 2))
@@ -237,8 +235,6 @@ class AnimIODialog(BaseToolDialog):
             show_settings_dialog(parent=self, focus_section="alembic")
         elif action == act_fbx:
             show_settings_dialog(parent=self, focus_section="fbx")
-        elif action == act_all:
-            show_settings_dialog(parent=self)
         elif action == act_reset:
             from .settings_dialog import reset_anim_export_settings
             reset_anim_export_settings()
