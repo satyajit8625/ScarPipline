@@ -12,7 +12,10 @@ SCRIPTS = ROOT / "scripts"
 if str(SCRIPTS) not in sys.path:
     sys.path.insert(0, str(SCRIPTS))
 
-from tests.test_release import install_maya_stubs
+try:
+    from test_release import install_maya_stubs
+except ImportError:
+    from tests.test_release import install_maya_stubs
 install_maya_stubs()
 
 from scartools.tools.skin.operations import (
