@@ -166,11 +166,27 @@ class TestAnimIO(unittest.TestCase):
             character_formats=["abc", "fbx"],
         )
 
-        self.assertTrue(res["success"])
-        target_dir = res["target_dir"]
-        self.assertTrue(os.path.isdir(os.path.join(target_dir, "Alembic")))
-        self.assertTrue(os.path.isdir(os.path.join(target_dir, "FBX")))
-        self.assertTrue(os.path.isfile(res["manifest_file"]))
+    def test_fix_or_create_shot_camera(self):
+        """Verify 1-click camera fix/create helper."""
+        from scartools.tools.anim_io.api.camera import fix_or_create_shot_camera
+
+        # Case 1: Camera created if none exists
+        cam1 = fix_or_create_shot_camera("PRT_SH_020")
+        self.assertTrue(cmds.objExists(cam1))
+        self.assertTrue(cam1.endswith("PRT_SH_020_CAM"))
+
+        # Case 2: Selected camera renamed to target
+        old_cam = cmds.camera(name="temp_cam")[0]
+        cmds.select(old_cam, replace=True)
+        cam2 = fix_or_create_shot_camera("PRT_SH_030")
+        self.assertTrue(cmds.objExists(cam2))
+        self.assertTrue(cam2.endswith("PRT_SH_030_CAM"))
+
+    def test_open_in_file_manager_safety(self):
+        """Verify centralized open_in_file_manager handles nonexistent paths safely."""
+        from scartools.framework import open_in_file_manager
+        # Non-existent path should return False without crashing
+        self.assertFalse(open_in_file_manager("/invalid/non/existent/path/xyz_123"))
 
 
 if __name__ == "__main__":

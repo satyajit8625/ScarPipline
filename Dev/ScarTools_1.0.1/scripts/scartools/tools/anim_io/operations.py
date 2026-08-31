@@ -30,6 +30,7 @@ def export_shot_package(
     write_velocities=True,
     uv_write=True,
     notes="",
+    callbacks=None,
 ):
     """Export shot package with atomic undo safety and license validation."""
     require_license("ScarTools_AnimExport")
@@ -52,6 +53,7 @@ def export_shot_package(
         write_velocities=write_velocities,
         uv_write=uv_write,
         notes=notes,
+        callbacks=callbacks,
     )
     emit_log("Shot package exported successfully to '{}'.".format(result["target_dir"]), level="SUCCESS", source="anim_io")
     return result

@@ -20,7 +20,7 @@ from .validation import (
     inspect_mesh_topology,
     select_mesh_topology_issues,
 )
-from .paths import icons_root, package_root, scripts_root, resolve_icon
+from .paths import icons_root, package_root, scripts_root, resolve_icon, open_in_file_manager
 from .snapshots import (
     SnapshotError,
     asset_directory,
@@ -108,4 +108,5 @@ __all__ = [
     "split_version_string",
     "format_version",
     "parse_shot_scene_identity",
+    "open_in_file_manager",
 ]

@@ -83,6 +83,59 @@ def find_active_shot_camera(preferred_shot_name=None):
     return cams[0]
 
 
+def fix_or_create_shot_camera(preferred_shot_name=None):
+    """
+    Ensure a standardized shot camera exists (e.g. PRT_SH_010_CAM).
+    If a camera is selected, rename it. If a shot camera exists with variant name, standardize it.
+    If no camera exists, create a new one.
+    Returns long DAG path of the camera.
+    """
+    target_name = (str(preferred_shot_name or "Shot").strip()) + "_CAM"
+
+    # 1. If camera already exists with exact target name
+    matches = cmds.ls(target_name, long=True) or []
+    if matches:
+        return matches[0]
+
+    # 2. If a camera is currently selected in Maya
+    sel = cmds.ls(selection=True, long=True) or []
+    for s in sel:
+        try:
+            if not cmds.objExists(s):
+                continue
+            shapes = cmds.listRelatives(s, shapes=True, type="camera", fullPath=True) or []
+            if shapes:
+                renamed = cmds.rename(s, target_name)
+                return cmds.ls(renamed, long=True)[0]
+            elif cmds.nodeType(s) == "camera":
+                parents = cmds.listRelatives(s, parent=True, fullPath=True) or []
+                if parents:
+                    renamed = cmds.rename(parents[0], target_name)
+                    return cmds.ls(renamed, long=True)[0]
+        except Exception:
+            continue
+
+    # 3. If any camera in scene contains the shot name
+    if preferred_shot_name:
+        pref = preferred_shot_name.lower()
+        cams = discover_shot_cameras(preferred_shot_name=preferred_shot_name)
+        matching_cams = [c for c in cams if pref in c.lower()]
+        if matching_cams:
+            renamed = cmds.rename(matching_cams[0], target_name)
+            return cmds.ls(renamed, long=True)[0]
+
+    # 4. Create new shot camera
+    cam_tuple = cmds.camera()
+    renamed_tf = cmds.rename(cam_tuple[0], target_name)
+    shapes = cmds.listRelatives(renamed_tf, shapes=True, type="camera", fullPath=True) or []
+    if shapes:
+        try:
+            cmds.rename(shapes[0], target_name + "Shape")
+        except Exception:
+            pass
+    return cmds.ls(renamed_tf, long=True)[0]
+
+
 def bake_camera_world_space(camera_transform, start_frame, end_frame):
     """
     Create a clean, baked world-space duplicate of the camera transform.

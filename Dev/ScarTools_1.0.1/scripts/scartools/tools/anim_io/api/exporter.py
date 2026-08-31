@@ -7,8 +7,9 @@ import os
 import maya.cmds as cmds
 import maya.mel as mel
 
-from .camera import export_camera, discover_shot_cameras, find_active_shot_camera
+from .camera import export_camera, discover_shot_cameras, find_active_shot_camera, fix_or_create_shot_camera
 from .manifest_builder import build_shot_manifest, save_shot_manifest
+from scartools.framework.operations import OperationCallbacks
 
 
 def discover_scene_assets():
@@ -207,6 +208,7 @@ def export_shot_package(
     write_velocities=True,
     uv_write=True,
     notes="",
+    callbacks=None,
 ):
     """
     Master pipeline entry point: exports shot camera, characters, props into Alembic/ and FBX/ folders,
@@ -214,6 +216,9 @@ def export_shot_package(
     """
     if not output_dir or not output_dir.strip():
         raise ValueError("Target output directory is required.")
+
+    if callbacks:
+        callbacks.progress(5, "Preparing output directory structure...")
 
     # Target shot folder with double-nesting prevention
     norm_out = os.path.normpath(output_dir.strip())
@@ -247,6 +252,9 @@ def export_shot_package(
         os.makedirs(cam_out_dir, exist_ok=True)
         cam_out_path = os.path.join(cam_out_dir, cam_file)
 
+        if callbacks:
+            callbacks.progress(15, "Baking camera '{}'...".format(cam_clean))
+
         export_camera(resolved_cam, cam_out_path, eval_start, eval_end, export_format=camera_format, step=step)
         camera_record = {
             "source_node": resolved_cam,
@@ -256,9 +264,15 @@ def export_shot_package(
 
     # 2. Export Characters
     char_records = []
-    for c_node in (character_nodes or []):
-        if not cmds.objExists(c_node):
-            continue
+    chars_to_export = [c for c in (character_nodes or []) if cmds.objExists(c)]
+    total_chars = len(chars_to_export)
+
+    for i, c_node in enumerate(chars_to_export):
+        c_clean = c_node.split("|")[-1]
+        if callbacks:
+            pct = 20 + int(45 * (i + 1) / max(1, total_chars))
+            callbacks.progress(pct, "Exporting character '{}' ({}/{})...".format(c_clean, i + 1, total_chars))
+
         exp_files = export_character_cache(
             root_node=c_node,
             output_dir=target_dir,
@@ -279,9 +293,15 @@ def export_shot_package(
 
     # 3. Export Props
     prop_records = []
-    for p_node in (prop_nodes or []):
-        if not cmds.objExists(p_node):
-            continue
+    props_to_export = [p for p in (prop_nodes or []) if cmds.objExists(p)]
+    total_props = len(props_to_export)
+
+    for i, p_node in enumerate(props_to_export):
+        p_clean = p_node.split("|")[-1]
+        if callbacks:
+            pct = 65 + int(25 * (i + 1) / max(1, total_props))
+            callbacks.progress(pct, "Exporting prop '{}' ({}/{})...".format(p_clean, i + 1, total_props))
+
         exp_files = export_prop_cache(
             root_node=p_node,
             output_dir=target_dir,
@@ -301,6 +321,9 @@ def export_shot_package(
             })
 
     # 4. Build & Save Manifest
+    if callbacks:
+        callbacks.progress(95, "Saving shot package manifest...")
+
     manifest_dict = build_shot_manifest(
         shot_name=shot_name,
         start_frame=start_frame,
@@ -314,6 +337,9 @@ def export_shot_package(
         notes=notes,
     )
     manifest_file = save_shot_manifest(manifest_dict, target_dir)
+
+    if callbacks:
+        callbacks.progress(100, "Shot export complete!")
 
     return {
         "success": True,

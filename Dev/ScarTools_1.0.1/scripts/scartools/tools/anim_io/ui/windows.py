@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""DCC Window for Anim Export tool strictly conforming to UI-01 - UI-07."""
+"""DCC Window for Anim Export tool strictly conforming to UI-01 - UI-07 and centralized framework."""
 
 from __future__ import absolute_import, division, print_function
 
@@ -32,8 +32,12 @@ from scartools.ui.controls import (
 
 from ..controller import AnimIOController
 from ..operations import discover_scene_assets
-from ..api.camera import find_active_shot_camera
-from scartools.framework.naming import parse_shot_scene_identity
+from ..api.camera import find_active_shot_camera, fix_or_create_shot_camera
+from scartools.framework import (
+    open_in_file_manager,
+    parse_shot_scene_identity,
+    OperationCallbacks,
+)
 
 
 def _get_scene_fps():
@@ -78,7 +82,7 @@ class AnimIODialog(BaseToolDialog):
         self.setWindowTitle(self.WINDOW_TITLE)
         self.controller = AnimIOController()
         self.setAttribute(QtCore.Qt.WA_DeleteOnClose, True)
-        configure_window(self, (720, 520), (840, 620))
+        configure_window(self, (740, 540), (860, 640))
         apply_window_icon(self)
 
         self._resolved_shot_name = "untitled_shot"
@@ -102,7 +106,7 @@ class AnimIODialog(BaseToolDialog):
         )
         root.addWidget(header)
 
-        # 2. Shot & Pipeline Information (Read-Only Auto-Detection Card) [UI-03]
+        # 2. Shot & Pipeline Information (Read-Only Auto-Detection Card with Camera Fix Helper) [UI-03]
         info_panel, info_layout, _ = create_section_panel(
             "Shot Pipeline Context", accent="pipeline", parent=self
         )
@@ -117,8 +121,18 @@ class AnimIODialog(BaseToolDialog):
 
         lbl_cam_title = QtWidgets.QLabel("Shot Camera:", self)
         lbl_cam_title.setStyleSheet("color: #888888; font-weight: bold;")
+
+        cam_box = QtWidgets.QHBoxLayout()
+        cam_box.setSpacing(8)
         self.val_cam = QtWidgets.QLabel("Detecting...", self)
         self.val_cam.setStyleSheet("color: #4F94CD; font-weight: bold; font-size: 13px;")
+        self.fix_cam_btn = create_button("Fix Camera", role="secondary", parent=self)
+        self.fix_cam_btn.setFixedHeight(22)
+        self.fix_cam_btn.setVisible(False)
+        self.fix_cam_btn.setToolTip("Rename selected camera or create the standardized shot camera.")
+        cam_box.addWidget(self.val_cam)
+        cam_box.addWidget(self.fix_cam_btn)
+        cam_box.addStretch(1)
 
         lbl_range_title = QtWidgets.QLabel("Timeline Range:", self)
         lbl_range_title.setStyleSheet("color: #888888; font-weight: bold;")
@@ -134,7 +148,7 @@ class AnimIODialog(BaseToolDialog):
         info_grid.addWidget(lbl_shot_title, 0, 0)
         info_grid.addWidget(self.val_shot, 0, 1)
         info_grid.addWidget(lbl_cam_title, 0, 2)
-        info_grid.addWidget(self.val_cam, 0, 3)
+        info_grid.addLayout(cam_box, 0, 3)
         info_grid.addWidget(lbl_range_title, 1, 0)
         info_grid.addWidget(self.val_range, 1, 1, 1, 3)
         info_grid.addWidget(lbl_path_title, 2, 0)
@@ -143,7 +157,7 @@ class AnimIODialog(BaseToolDialog):
         info_layout.addLayout(info_grid)
         root.addWidget(info_panel)
 
-        # 3. Characters & Props Data Table [UI-03, UI-05]
+        # 3. Characters & Props Data Table with Editable Type [UI-03, UI-05]
         asset_panel, asset_layout, _ = create_section_panel(
             "Characters & Props to Export", accent="data", parent=self
         )
@@ -168,11 +182,12 @@ class AnimIODialog(BaseToolDialog):
         self.asset_table = create_data_table(
             ["Asset Name", "Type", "Source Hierarchy", "Status"],
             stretch_columns=(0, 2),
-            fixed_columns={1: 90, 3: TABLE_STATUS_WIDTH},
+            fixed_columns={1: 100, 3: TABLE_STATUS_WIDTH},
             extended_selection=True,
             minimum_height=170,
             parent=self,
         )
+        self.asset_table.setToolTip("Tip: Double-click any 'Type' cell to toggle between Character and Prop.")
         asset_layout.addWidget(self.asset_table, 1)
 
         # Velocity toggle
@@ -193,7 +208,7 @@ class AnimIODialog(BaseToolDialog):
             self.status_dot,
             self.status_label,
             self.view_log_button,
-            _status_layout,
+            status_layout,
         ) = create_action_footer(
             "EXPORT SHOT CACHES",
             message="Ready to export shot caches.",
@@ -201,10 +216,20 @@ class AnimIODialog(BaseToolDialog):
             include_log=False,
         )
         self.apply_button.setMinimumWidth(PRIMARY_BUTTON_WIDTH)
+
+        # Open Shot Folder Button (Initially hidden until export completes)
+        self.open_folder_btn = create_button("Open Folder", role="secondary", parent=self)
+        self.open_folder_btn.setVisible(False)
+        self.open_folder_btn.setToolTip("Open destination shot root in Windows Explorer.")
+        status_layout.insertWidget(0, self.open_folder_btn)
+
         root.addWidget(action_footer)
 
     def _connect(self):
         self.refresh_btn.clicked.connect(self.refresh_scene_data)
+        self.fix_cam_btn.clicked.connect(self._fix_shot_camera)
+        self.asset_table.cellDoubleClicked.connect(self._on_table_double_clicked)
+        self.open_folder_btn.clicked.connect(self._open_shot_folder)
         self.apply_button.clicked.connect(self._do_export)
 
     def _set_status(self, text, state="idle"):
@@ -226,13 +251,29 @@ class AnimIODialog(BaseToolDialog):
         self._resolved_shot_name = identity.get("shot_name") or "untitled_shot"
         self._resolved_shot_root = identity.get("export_dir") or ""
 
-        # Find camera
+        # Find camera with sanity check
+        target_cam_name = self._resolved_shot_name + "_CAM"
         cam_node = find_active_shot_camera(self._resolved_shot_name)
         self._resolved_camera = cam_node
 
-        cam_display = cam_node.split("|")[-1] if cam_node else "None (No shot camera found)"
+        if cam_node:
+            short_cam = cam_node.split("|")[-1]
+            if short_cam.lower() == target_cam_name.lower():
+                self.val_cam.setText(target_cam_name)
+                self.val_cam.setStyleSheet("color: #4F94CD; font-weight: bold; font-size: 13px;")
+                self.fix_cam_btn.setVisible(False)
+            else:
+                self.val_cam.setText(short_cam + " (Rename needed)")
+                self.val_cam.setStyleSheet("color: #D9822B; font-weight: bold; font-size: 12px;")
+                self.fix_cam_btn.setVisible(True)
+                self.fix_cam_btn.setText("Fix to " + target_cam_name)
+        else:
+            self.val_cam.setText("Missing ('{}')".format(target_cam_name))
+            self.val_cam.setStyleSheet("color: #DB5461; font-weight: bold; font-size: 12px;")
+            self.fix_cam_btn.setVisible(True)
+            self.fix_cam_btn.setText("Create " + target_cam_name)
+
         self.val_shot.setText(self._resolved_shot_name)
-        self.val_cam.setText(cam_display)
         self.val_path.setText(self._resolved_shot_root or "Active Maya Project / Current Scene Directory")
 
         # Timeline range
@@ -309,6 +350,46 @@ class AnimIODialog(BaseToolDialog):
             self.asset_table.setItem(row, 3, item_status)
             row += 1
 
+    def _fix_shot_camera(self):
+        """1-Click Camera Fix Helper: rename selected camera or create standardized shot camera."""
+        try:
+            fixed_cam = fix_or_create_shot_camera(self._resolved_shot_name)
+            self.refresh_scene_data()
+            self._set_message("Shot camera '{}' configured successfully.".format(fixed_cam.split("|")[-1]), "neutral")
+            self._set_status("Camera Fixed", "idle")
+        except Exception as e:
+            self._set_message("Camera fix error: {}".format(e), "warning")
+
+    def _on_table_double_clicked(self, row, col):
+        """Toggle Type between Character and Prop on cell double click."""
+        if col != 1:
+            return
+        type_item = self.asset_table.item(row, 1)
+        name_item = self.asset_table.item(row, 0)
+        if not type_item or not name_item:
+            return
+
+        cur_data = name_item.data(QtCore.Qt.UserRole)
+        node = cur_data[1] if isinstance(cur_data, (tuple, list)) else name_item.text()
+
+        if type_item.text() == "Character":
+            type_item.setText("Prop")
+            name_item.setData(QtCore.Qt.UserRole, ("prop", node))
+            self._set_message("Switched '{}' to Prop cache.".format(name_item.text()), "neutral")
+        else:
+            type_item.setText("Character")
+            name_item.setData(QtCore.Qt.UserRole, ("character", node))
+            self._set_message("Switched '{}' to Character cache.".format(name_item.text()), "neutral")
+
+    def _open_shot_folder(self):
+        """Open the resolved shot root directory in native OS file manager."""
+        if self._resolved_shot_root:
+            opened = open_in_file_manager(self._resolved_shot_root)
+            if opened:
+                self._set_message("Opened: {}".format(self._resolved_shot_root), "neutral")
+            else:
+                self._set_message("Could not open path: {}".format(self._resolved_shot_root), "warning")
+
     def _do_export(self):
         out_dir = self._resolved_shot_root
         if not out_dir or not os.path.isdir(out_dir):
@@ -358,6 +439,34 @@ class AnimIODialog(BaseToolDialog):
 
         vel = self.vel_toggle.is_checked()
 
+        # Progress reporting
+        use_progress = hasattr(cmds, "progressWindow") and not cmds.about(batch=True)
+        if use_progress:
+            try:
+                cmds.progressWindow(
+                    title="Anim Export",
+                    progress=0,
+                    status="Starting shot export...",
+                    isInterruptable=True,
+                )
+            except Exception:
+                use_progress = False
+
+        def _on_progress(pct, msg):
+            if use_progress:
+                try:
+                    cmds.progressWindow(edit=True, progress=pct, status=str(msg))
+                except Exception:
+                    pass
+            self._set_status("Exporting ({}%)".format(pct), "running")
+            self._set_message(msg, "neutral")
+            QtWidgets.QApplication.processEvents()
+
+        callbacks = OperationCallbacks(
+            progress_callback=_on_progress,
+            cancelled_callback=lambda: (cmds.progressWindow(query=True, isCancelled=True) if use_progress else False),
+        )
+
         try:
             self._set_message("Exporting shot caches into Alembic/ and FBX/...", "neutral")
             self._set_status("Exporting...", "running")
@@ -379,12 +488,20 @@ class AnimIODialog(BaseToolDialog):
                 handles=0,
                 step=1.0,
                 write_velocities=vel,
+                callbacks=callbacks,
             )
             self._set_message("Exported shot caches successfully to '{}'!".format(res["target_dir"]), "neutral")
             self._set_status("Export Success", "idle")
+            self.open_folder_btn.setVisible(True)
         except Exception as e:
             self._set_message("Export failed: {}".format(e), "warning")
             self._set_status("Export Failed", "error")
+        finally:
+            if use_progress:
+                try:
+                    cmds.progressWindow(endProgress=True)
+                except Exception:
+                    pass
 
 
 _ACTIVE_DIALOG = None
