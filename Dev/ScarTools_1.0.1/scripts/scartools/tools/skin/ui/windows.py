@@ -166,23 +166,17 @@ class SkinImportExportPage(BaseToolDialog):
             "Meshes", accent="data", parent=self
         )
 
-        top_row = QtWidgets.QHBoxLayout()
-
         self.mesh_count_label = QtWidgets.QLabel(
             "0 meshes selected"
         )
         self.mesh_count_label.setObjectName("CountBadge")
 
-        top_row.addWidget(self.mesh_count_label)
-        top_row.addStretch()
-
         self.refresh_button = create_button("Refresh Selection")
         self.clear_meshes_button = create_button("Clear")
 
-        top_row.addWidget(self.refresh_button)
-        top_row.addWidget(self.clear_meshes_button)
-
-        mesh_layout.addLayout(top_row)
+        mesh_group.add_header_action(self.mesh_count_label)
+        mesh_group.add_header_action(self.refresh_button)
+        mesh_group.add_header_action(self.clear_meshes_button)
 
         # Mesh table ---------------------------------------------------
         # Deliberately simple 3-column layout:
@@ -2346,6 +2340,10 @@ class SkinToolsWindow(BaseToolDialog):
             "SkinCluster weight export and import",
             parent=self,
         )
+        self.overflow_btn = create_button("⋮", role="secondary", fixed_width=32, parent=self)
+        self.overflow_btn.setObjectName("HeaderOverflowButton")
+        self.overflow_btn.setToolTip("More Options")
+        header.layout().addWidget(self.overflow_btn, 0, QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
         root.addWidget(header)
 
         # Top navigation -----------------------------------------------

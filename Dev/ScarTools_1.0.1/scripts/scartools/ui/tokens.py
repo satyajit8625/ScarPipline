@@ -102,28 +102,50 @@ COLOR_TAG_BORDER = "#4C566A"
 # -----------------------------------------------------------------------------
 # 3. Layout & Dimension Metrics
 # -----------------------------------------------------------------------------
-WINDOW_MARGIN = 14
+# Standard Spacing Scale
+SPACE_XS = 4       # Tight icon/text gap, badge internal padding
+SPACE_S = 6        # Compact internal spacing, grid vertical spacing
+SPACE_M = 8        # Standard control spacing, horizontal item spacing
+SPACE_L = 12       # Component padding, section panel margins
+SPACE_XL = 16      # Section-to-section gap
+SPACE_XXL = 20     # Major panel / workflow group spacing
+
+# Root Window Dimensions
+WINDOW_MARGIN = 10
 WINDOW_SPACING = 10
+
+# Section & Group Dimensions
 GROUP_MARGIN_X = 12
-GROUP_MARGIN_TOP = 14
-GROUP_MARGIN_BOTTOM = 12
+GROUP_MARGIN_TOP = 10
+GROUP_MARGIN_BOTTOM = 10
 GROUP_SPACING = 8
-CARD_SPACING = 12
+CARD_SPACING = 10
 NAV_CONTENT_GAP = 10
-FIELD_HEIGHT = 30
+
+# Standardized Control Heights
+CONTROL_HEIGHT = 28
+FIELD_HEIGHT = 28
+BUTTON_HEIGHT = 30
 SECONDARY_BUTTON_HEIGHT = 30
+COMPACT_BUTTON_HEIGHT = 26
+PRIMARY_BUTTON_HEIGHT = 38
+HEADER_HEIGHT = 54
+TAB_HEIGHT = 28
+TABLE_ROW_HEIGHT = 26
+TABLE_HEADER_HEIGHT = 28
+
+# Width Constants
 SECONDARY_BUTTON_MIN_WIDTH = 70
-PRIMARY_BUTTON_HEIGHT = 42
 PRIMARY_BUTTON_WIDTH = 220
-FORM_ACTION_WIDTH = 155
+FORM_ACTION_WIDTH = 150
 LOG_BUTTON_WIDTH = 84
 CLOSE_BUTTON_WIDTH = 70
 TABLE_MIN_HEIGHT = 240
 TABLE_STATUS_WIDTH = 105
 FORM_LABEL_WIDTH = 65
-INLINE_SPACING = 12
+INLINE_SPACING = 10
 STATUS_DOT_WIDTH = 20
-ACTION_FOOTER_MIN_HEIGHT = 92
+ACTION_FOOTER_MIN_HEIGHT = 56
 
 __all__ = [name for name in globals() if name.isupper()]
 

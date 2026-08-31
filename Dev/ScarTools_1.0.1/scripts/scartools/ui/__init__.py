@@ -121,12 +121,16 @@ def configure_button(button, primary=False, fixed_width=None, role=None):
     """Apply the suite-wide role, height, and optional width to a button."""
     role = str(role or ("primary" if primary else "secondary"))
     button.setProperty("role", role)
-    button.setFixedHeight(
-        PRIMARY_BUTTON_HEIGHT if role == "primary" else SECONDARY_BUTTON_HEIGHT
-    )
+    if role == "primary":
+        button.setFixedHeight(PRIMARY_BUTTON_HEIGHT)
+    elif role == "compact":
+        button.setFixedHeight(COMPACT_BUTTON_HEIGHT)
+    else:
+        button.setFixedHeight(BUTTON_HEIGHT)
+
     if fixed_width:
         button.setFixedWidth(int(fixed_width))
-    elif role != "primary":
+    elif role not in ("primary", "compact", "tertiary"):
         button.setMinimumWidth(SECONDARY_BUTTON_MIN_WIDTH)
     return button
 
@@ -184,7 +188,7 @@ def configure_group_layout(layout):
 
 def configure_field(widget, minimum_width=None):
     """Normalize line-edit and combo-box heights across the suite."""
-    widget.setMinimumHeight(FIELD_HEIGHT)
+    widget.setFixedHeight(CONTROL_HEIGHT)
     if minimum_width is not None:
         widget.setMinimumWidth(int(minimum_width))
     return widget
@@ -201,7 +205,8 @@ def configure_table(table, minimum_height=TABLE_MIN_HEIGHT):
     table.setWordWrap(False)
     table.setFocusPolicy(QtCore.Qt.StrongFocus)
     table.verticalHeader().setVisible(False)
-    table.verticalHeader().setDefaultSectionSize(34)
+    table.verticalHeader().setDefaultSectionSize(TABLE_ROW_HEIGHT)
+    table.horizontalHeader().setFixedHeight(TABLE_HEADER_HEIGHT)
     table.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAsNeeded)
     table.setVerticalScrollMode(QtWidgets.QAbstractItemView.ScrollPerPixel)
     header = table.horizontalHeader()
@@ -272,15 +277,21 @@ def create_section_panel(title, accent="neutral", layout_kind="vertical", parent
     shell = QtWidgets.QVBoxLayout(panel)
     shell.setContentsMargins(
         GROUP_MARGIN_X,
-        10,
+        GROUP_MARGIN_TOP,
         GROUP_MARGIN_X,
         GROUP_MARGIN_BOTTOM,
     )
     shell.setSpacing(GROUP_SPACING)
 
+    title_row = QtWidgets.QHBoxLayout()
+    title_row.setContentsMargins(0, 0, 0, 0)
+    title_row.setSpacing(GROUP_SPACING)
+
     title_label = QtWidgets.QLabel(str(title))
     title_label.setObjectName("SectionTitle")
-    shell.addWidget(title_label)
+    title_row.addWidget(title_label)
+    title_row.addStretch(1)
+    shell.addLayout(title_row)
 
     kinds = {
         "vertical": QtWidgets.QVBoxLayout,
@@ -295,6 +306,13 @@ def create_section_panel(title, accent="neutral", layout_kind="vertical", parent
     content.setContentsMargins(0, 0, 0, 0)
     content.setSpacing(GROUP_SPACING)
     shell.addLayout(content)
+
+    def add_header_action(widget):
+        title_row.addWidget(widget)
+        return widget
+
+    panel.add_header_action = add_header_action
+    panel.title_row = title_row
     return panel, content, title_label
 
 

@@ -21,6 +21,7 @@ from scartools.ui import (
     create_action_footer,
     create_brand_header,
     create_button,
+    create_popup_menu,
     create_data_table,
     create_section_panel,
     repolish,
@@ -97,6 +98,10 @@ class ModelSanitizerWindow(BaseToolDialog):
             "Preflight QA, topology, transforms, suffixes, and layer sanitization",
             parent=self,
         )
+        self.overflow_btn = create_button("⋮", role="secondary", fixed_width=32, parent=self)
+        self.overflow_btn.setObjectName("HeaderOverflowButton")
+        self.overflow_btn.setToolTip("More Options")
+        header.layout().addWidget(self.overflow_btn, 0, QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
         root.addWidget(header)
 
         # Preflight QA Checks Panel (Centralized Suite Section Panel)
@@ -104,7 +109,6 @@ class ModelSanitizerWindow(BaseToolDialog):
             "Preflight Checks", accent="validation", parent=self
         )
 
-        top_bar = QtWidgets.QHBoxLayout()
         self.summary_badge = QtWidgets.QLabel("Not checked")
         self.summary_badge.setObjectName("CountBadge")
         self.check_button = create_button(
@@ -112,10 +116,8 @@ class ModelSanitizerWindow(BaseToolDialog):
         )
         self.check_button.setToolTip("Scan active Maya scene geometry and nodes against all 26 QA rules.")
 
-        top_bar.addWidget(self.summary_badge)
-        top_bar.addStretch(1)
-        top_bar.addWidget(self.check_button)
-        checks_layout.addLayout(top_bar)
+        checks_panel.add_header_action(self.summary_badge)
+        checks_panel.add_header_action(self.check_button)
 
         # Data Table (All 26 QA Checks)
         self.table = create_data_table(
@@ -372,13 +374,10 @@ class ModelSanitizerWindow(BaseToolDialog):
         if not check_key:
             return
 
-        check = self._last_report["checks"].get(check_key, {}) if self._last_report else {}
-        passed = check.get("passed", True)
-
-        menu = QtWidgets.QMenu(self)
+        menu = create_popup_menu(parent=self)
 
         if not passed:
-            select_action = menu.addAction("👁   Select in Viewport")
+            select_action = menu.addAction("◇   Select in Viewport")
             select_action.setToolTip("Highlight all offending components/objects in Maya 3D viewport")
         else:
             select_action = menu.addAction("✓   Check Passed")

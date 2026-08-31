@@ -68,6 +68,10 @@ class CharacterFinalizerWindow(BaseToolDialog):
             "Preflight, build, repair, and validate a character rig",
             parent=self,
         )
+        self.overflow_btn = create_button("⋮", role="secondary", fixed_width=32, parent=self)
+        self.overflow_btn.setObjectName("HeaderOverflowButton")
+        self.overflow_btn.setToolTip("More Options")
+        header.layout().addWidget(self.overflow_btn, 0, QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
         root.addWidget(header)
 
         context_group, context_layout, _context_title = create_section_panel(
@@ -103,16 +107,13 @@ class CharacterFinalizerWindow(BaseToolDialog):
             "Preflight", accent="validation", parent=self
         )
 
-        preflight_actions = QtWidgets.QHBoxLayout()
         self.summary_badge = QtWidgets.QLabel("Not checked")
         self.summary_badge.setObjectName("CountBadge")
         self.preflight_button = create_button(
             "Run Preflight", fixed_width=FORM_ACTION_WIDTH
         )
-        preflight_actions.addWidget(self.summary_badge)
-        preflight_actions.addStretch(1)
-        preflight_actions.addWidget(self.preflight_button)
-        preflight_layout.addLayout(preflight_actions)
+        preflight_group.add_header_action(self.summary_badge)
+        preflight_group.add_header_action(self.preflight_button)
 
         self.preflight_table = create_data_table(
             ["Check", "Status", "Details"],
