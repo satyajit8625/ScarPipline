@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""ScarTools Animation Export & Import Tool Suite (`anim_io`)."""
+"""ScarTools Anim Export Tool (`anim_io`)."""
 
 from __future__ import absolute_import, division, print_function
 
@@ -13,7 +13,7 @@ from .operations import (
 
 
 def show():
-    """Launch the Anim I/O Suite dialog."""
+    """Launch the Anim Export tool window."""
     from .ui.windows import show_window
     return show_window()
 

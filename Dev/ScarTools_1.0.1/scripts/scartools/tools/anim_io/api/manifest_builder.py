@@ -42,7 +42,7 @@ def build_shot_manifest(
         "metadata": {
             "exported_by": str(exported_by or os.environ.get("USERNAME", "studio_animator")),
             "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
-            "generator": "ScarTools Anim I/O Suite",
+            "generator": "ScarTools Anim Export",
             "notes": str(notes or ""),
         },
     }

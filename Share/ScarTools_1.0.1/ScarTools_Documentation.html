@@ -569,7 +569,7 @@
                     <span class="nav-item-icon">🗺️</span> Generate UDIM (1-Click)
                 </div>
                 <div class="nav-item" onclick="showSection('anim_io', this)">
-                    <span class="nav-item-icon">🎬</span> Anim I/O Suite (Export/Import)
+                    <span class="nav-item-icon">🎬</span> Anim Export (Alembic & FBX Cache)
                 </div>
                 <div class="nav-item" onclick="showSection('character_finalizer', this)">
                     <span class="nav-item-icon">🎭</span> Character Finalizer
@@ -651,15 +651,23 @@
                 </div>
 
                 
-                <!-- Anim I/O Suite -->
+                <!-- Anim Export -->
                 <div id="anim_io" class="doc-section">
                     <div class="breadcrumb">Department Tools &bull; Animation</div>
-                    <h1>Anim I/O Suite</h1>
-                    <div class="doc-subtitle">Automated shot animation packaging, Alembic & FBX cache extraction, and 1-click downstream scene assembly.</div>
+                    <h1>Anim Export</h1>
+                    <div class="doc-subtitle">Automated shot animation cache extraction into studio pipeline directories (Alembic/ and FBX/).</div>
 
                     <div class="callout callout-info">
-                        <div class="callout-title">💡 Why Anim I/O?</div>
-                        <p>Eliminates human error when passing animated assets to downstream departments (Lighting, FX, Comp, and Unreal Engine). Automatically bakes world-space cameras, extracts deforming character and prop geometry caches with vertex velocity vectors, and writes a standardized <code>shot_manifest.json</code> ID card for 1-click scene reconstruction.</p>
+                        <div class="callout-title">💡 Dedicated Animation Cache Export</div>
+                        <p>Eliminates manual file browsing and human error when exporting animated shots. Automatically bakes world-space cameras, extracts deforming character and prop geometry caches with vertex velocity vectors, and organizes output directly into studio <code>Alembic/</code> and <code>FBX/</code> folders alongside <code>Maya/</code> scene files.</p>
+                    </div>
+
+                    <h2>Standardized Studio Directory Structure</h2>
+                    <div class="code-block">
+Shot_010/
+├── Maya/       # Maya working scene files (e.g. PRT_SH_010_ANM_V001.ma)
+├── Alembic/    # Alembic point & geometry caches (.abc) with velocity vectors
+└── FBX/        # FBX character, prop, and camera animation takes (.fbx)
                     </div>
 
                     <h2>Core Supported Formats</h2>
@@ -667,52 +675,41 @@
                         <thead>
                             <tr>
                                 <th>Category</th>
-                                <th>Formats</th>
+                                <th>Destination Folder</th>
                                 <th>Key Capabilities & Features</th>
                             </tr>
                         </thead>
                         <tbody>
                             <tr>
                                 <td><strong>Shot Camera</strong></td>
-                                <td><span class="badge badge-purple">FBX</span> <span class="badge badge-teal">Alembic</span></td>
+                                <td><code>FBX/</code> or <code>Alembic/</code></td>
                                 <td>Bakes world-space constraints, focal length animation, filmback/aperture, clip planes, and camera shake curves.</td>
                             </tr>
                             <tr>
                                 <td><strong>Characters & Creatures</strong></td>
-                                <td><span class="badge badge-teal">Alembic (.abc)</span> <span class="badge badge-purple">FBX (.fbx)</span></td>
+                                <td><code>Alembic/</code> & <code>FBX/</code></td>
                                 <td>Bakes vertex deformation, normals, UVs, and motion blur velocity vectors (<code>-writeVelocities</code>) for Arnold, V-Ray, and Houdini FX.</td>
                             </tr>
                             <tr>
                                 <td><strong>Props & Environment</strong></td>
-                                <td><span class="badge badge-teal">Alembic (.abc)</span> <span class="badge badge-purple">FBX (.fbx)</span></td>
+                                <td><code>Alembic/</code> & <code>FBX/</code></td>
                                 <td>Extracts hierarchical transforms and mesh geometry caches for set dressing and interactable props.</td>
                             </tr>
                             <tr>
                                 <td><strong>Shot Package Manifest</strong></td>
-                                <td><span class="badge badge-amber">JSON</span></td>
-                                <td>Auto-generates <code>shot_manifest.json</code> capturing exact frame ranges, simulation handles, FPS, active camera, and asset paths.</td>
+                                <td><code>shot_manifest.json</code></td>
+                                <td>Auto-generates <code>shot_manifest.json</code> capturing exact frame ranges, simulation handles, FPS, active camera, and relative asset paths.</td>
                             </tr>
                         </tbody>
                     </table>
 
-                    <h2>Export & Import Workflow</h2>
+                    <h2>1-Click Export Workflow</h2>
                     <ol>
-                        <li><strong>Exporting a Shot Package:</strong>
-                            <ul>
-                                <li>Open <strong>Anim I/O Suite</strong> from the ScarTools shelf or menu.</li>
-                                <li>Choose your <strong>Target Destination</strong> directory and specify the <strong>Shot Name</strong> (e.g. <code>SQ01_SH010</code>).</li>
-                                <li>Select your <strong>Frame Range</strong> (Timeline or Custom) and set <strong>Simulation Handles</strong> (e.g. ±5 frames for FX).</li>
-                                <li>Select the active <strong>Shot Camera</strong> and choose format (<code>FBX</code> or <code>Alembic</code>).</li>
-                                <li>Check the characters and props to export, then click <strong>📦 EXPORT SHOT PACKAGE</strong>.</li>
-                            </ul>
-                        </li>
-                        <li><strong>1-Click Downstream Shot Assembly:</strong>
-                            <ul>
-                                <li>Switch to the <strong>📥 Import & Assemble</strong> tab.</li>
-                                <li>Browse to the exported shot folder containing <code>shot_manifest.json</code>.</li>
-                                <li>Click <strong>📥 ASSEMBLE SHOT SCENE</strong> — Maya automatically sets the timeline range and FPS, imports and locks the camera, and references all character/prop caches!</li>
-                            </ul>
-                        </li>
+                        <li>Open <strong>Anim Export</strong> from the ScarTools shelf or menu.</li>
+                        <li>The tool automatically inspects the active Maya scene (e.g. <code>PRT_SH_010_ANM_V001.ma</code>) and auto-populates the <strong>Shot Name</strong> (<code>PRT_SH_010</code>) and <strong>Shot Root Path</strong>.</li>
+                        <li>Select your <strong>Frame Range</strong> (Timeline or Custom) and set <strong>Simulation Handles</strong> (e.g. ±5 frames for FX).</li>
+                        <li>Select the active <strong>Shot Camera</strong> and choose format (<code>FBX (.fbx)</code> or <code>Alembic (.abc)</code>).</li>
+                        <li>Check the characters and props in the data table, then click <strong>EXPORT SHOT CACHES</strong>. All caches are automatically saved into <code>Alembic/</code> and <code>FBX/</code> subfolders.</li>
                     </ol>
                 </div>
 

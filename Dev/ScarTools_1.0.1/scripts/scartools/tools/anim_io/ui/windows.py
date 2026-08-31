@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""DCC Window for Animation Export Suite strictly conforming to UI-01 - UI-07."""
+"""DCC Window for Anim Export tool strictly conforming to UI-01 - UI-07."""
 
 from __future__ import absolute_import, division, print_function
 
@@ -39,11 +39,11 @@ from ..operations import discover_scene_assets
 
 
 class AnimIODialog(BaseToolDialog):
-    """Dedicated Studio UI Dialog for Animation Export Suite."""
+    """Dedicated Studio UI Dialog for Anim Export Tool."""
 
     OBJECT_NAME = "ScarToolsAnimIODialog"
     TOOL_ID = "scartools_anim_io"
-    WINDOW_TITLE = "Animation Export Suite"
+    WINDOW_TITLE = "Anim Export"
 
     def __init__(self, parent=None):
         super(AnimIODialog, self).__init__(
@@ -68,7 +68,7 @@ class AnimIODialog(BaseToolDialog):
 
         # 1. Brand Header [UI-02]
         header, self.header_subtitle = create_brand_header(
-            "ANIMATION EXPORT",
+            "ANIM EXPORT",
             "Extract shot Alembic (.abc) and FBX (.fbx) caches to pipeline directories",
             parent=self,
         )
