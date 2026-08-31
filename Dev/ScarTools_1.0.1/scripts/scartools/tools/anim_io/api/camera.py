@@ -100,61 +100,107 @@ def find_active_shot_camera(preferred_shot_name=None):
     return cams[0]
 
 
-def fix_or_create_shot_camera(preferred_shot_name=None):
+def fix_or_create_shot_camera(preferred_shot_name=None, source_camera_node=None):
     """
     Ensure a standardized shot camera exists (e.g. PRT_SH_010_CAM).
-    If a camera exists or is selected, rename it directly.
+    If source_camera_node is specified or a camera exists in scene, rename it directly.
     If no camera exists, create a new one.
-    Returns long DAG path of the camera.
+    Returns long DAG path of the standardized camera.
     """
     target_name = (str(preferred_shot_name or "Shot").strip()) + "_CAM"
 
-    # 1. If camera already exists with exact target name
-    matches = cmds.ls(target_name, long=True) or []
-    if matches:
-        return matches[0]
-
-    # 2. If a camera is currently selected in Maya
-    sel = cmds.ls(selection=True, long=True) or []
-    for s in sel:
+    # 1. Resolve target camera transform to rename
+    cam_to_rename = None
+    if source_camera_node:
         try:
-            if not cmds.objExists(s):
-                continue
-            shapes = cmds.listRelatives(s, shapes=True, type="camera", fullPath=True) or []
-            if shapes:
-                renamed = cmds.rename(s, target_name)
-                _rename_shape(renamed, target_name)
-                return cmds.ls(renamed, long=True)[0]
-            elif cmds.nodeType(s) == "camera":
-                parents = cmds.listRelatives(s, parent=True, fullPath=True) or []
-                if parents:
-                    renamed = cmds.rename(parents[0], target_name)
-                    _rename_shape(renamed, target_name)
-                    return cmds.ls(renamed, long=True)[0]
+            if cmds.objExists(source_camera_node):
+                if cmds.nodeType(source_camera_node) == "camera":
+                    parents = cmds.listRelatives(source_camera_node, parent=True, fullPath=True) or []
+                    if parents:
+                        cam_to_rename = parents[0]
+                else:
+                    cam_to_rename = source_camera_node
         except Exception:
-            continue
+            pass
 
-    # 3. If any camera in scene exists, find the best match and rename it
-    cams = discover_shot_cameras(preferred_shot_name=preferred_shot_name)
-    if cams:
-        best_cam = None
-        if preferred_shot_name:
-            pref = preferred_shot_name.lower()
-            tokens = [p.lower() for p in preferred_shot_name.split("_") if len(p) >= 2]
-            tokens.append(pref)
+    if not cam_to_rename:
+        # Check active Maya selection
+        try:
+            sel = cmds.ls(selection=True, long=True) or []
+            for s in sel:
+                try:
+                    if not cmds.objExists(s):
+                        continue
+                    shapes = cmds.listRelatives(s, shapes=True, type="camera", fullPath=True) or []
+                    if shapes:
+                        cam_to_rename = s
+                        break
+                    elif cmds.nodeType(s) == "camera":
+                        parents = cmds.listRelatives(s, parent=True, fullPath=True) or []
+                        if parents:
+                            cam_to_rename = parents[0]
+                            break
+                except Exception:
+                    continue
+        except Exception:
+            pass
+
+    if not cam_to_rename:
+        # Discover from scene
+        cams = discover_shot_cameras(preferred_shot_name=preferred_shot_name)
+        if cams:
+            # Check if any camera already has exact target name
             for c in cams:
-                short = c.split("|")[-1].lower()
-                if any(tok in short for tok in tokens):
-                    best_cam = c
-                    break
-        if not best_cam:
-            best_cam = cams[0]
+                try:
+                    if cmds.objExists(c) and c.split("|")[-1].lower() == target_name.lower():
+                        return c
+                except Exception:
+                    continue
+            # Find best match by token
+            best = None
+            if preferred_shot_name:
+                tokens = [p.lower() for p in preferred_shot_name.split("_") if len(p) >= 2]
+                for c in cams:
+                    try:
+                        if not cmds.objExists(c):
+                            continue
+                        short = c.split("|")[-1].lower()
+                        if any(tok in short for tok in tokens) or "cam" in short:
+                            best = c
+                            break
+                    except Exception:
+                        continue
+            for c in ([best] if best else []) + cams:
+                try:
+                    if c and cmds.objExists(c):
+                        cam_to_rename = c
+                        break
+                except Exception:
+                    continue
 
-        renamed = cmds.rename(best_cam, target_name)
-        _rename_shape(renamed, target_name)
-        return cmds.ls(renamed, long=True)[0]
+    # 2. Rename existing camera
+    if cam_to_rename:
+        try:
+            if cmds.objExists(cam_to_rename):
+                short = cam_to_rename.split("|")[-1]
+                if short.lower() == target_name.lower():
+                    return cmds.ls(cam_to_rename, long=True)[0]
+                
+                # Check if node is referenced
+                is_ref = False
+                try:
+                    is_ref = cmds.referenceQuery(cam_to_rename, isNodeReferenced=True)
+                except Exception:
+                    is_ref = False
 
-    # 4. Create new shot camera
+                if not is_ref:
+                    renamed_tf = cmds.rename(cam_to_rename, target_name)
+                    _rename_shape(renamed_tf, target_name)
+                    return cmds.ls(renamed_tf, long=True)[0]
+        except Exception:
+            pass
+
+    # 3. Create new shot camera only if no scene camera could be renamed
     cam_tuple = cmds.camera()
     renamed_tf = cmds.rename(cam_tuple[0], target_name)
     _rename_shape(renamed_tf, target_name)
@@ -162,11 +208,14 @@ def fix_or_create_shot_camera(preferred_shot_name=None):
 
 
 def _rename_shape(transform_node, target_base_name):
-    """Helper to rename camera shape cleanly."""
+    """Helper to rename camera shape cleanly without colliding."""
     try:
         shapes = cmds.listRelatives(transform_node, shapes=True, type="camera", fullPath=True) or []
         if shapes:
-            cmds.rename(shapes[0], target_base_name + "Shape")
+            target_shape = target_base_name + "Shape"
+            if shapes[0].split("|")[-1] != target_shape:
+                if not cmds.objExists(target_shape):
+                    cmds.rename(shapes[0], target_shape)
     except Exception:
         pass
 

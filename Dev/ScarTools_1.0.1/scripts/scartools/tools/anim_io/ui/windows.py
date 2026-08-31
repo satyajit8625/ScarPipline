@@ -91,7 +91,7 @@ class AnimIODialog(BaseToolDialog):
         self.setWindowTitle(self.WINDOW_TITLE)
         self.controller = AnimIOController()
         self.setAttribute(QtCore.Qt.WA_DeleteOnClose, True)
-        configure_window(self, (680, 480), (800, 580))
+        configure_window(self, (680, 490), (800, 600))
         apply_window_icon(self)
 
         self._resolved_shot_name = "untitled_shot"
@@ -118,36 +118,37 @@ class AnimIODialog(BaseToolDialog):
         )
         root.addWidget(header)
 
-        # 2. Shot & Pipeline Information (Clean Aligned Context Card) [UI-03]
+        # 2. Shot & Pipeline Information (Structured 3-Row Aligned Card) [UI-03]
         info_panel, info_layout, _ = create_section_panel(
             "Shot Pipeline Context", accent="pipeline", parent=self
         )
         info_grid = QtWidgets.QGridLayout()
-        info_grid.setHorizontalSpacing(16)
+        info_grid.setHorizontalSpacing(14)
         info_grid.setVerticalSpacing(8)
+        info_grid.setColumnMinimumWidth(0, 125)
 
         lbl_shot_title = QtWidgets.QLabel("Active Shot:", self)
-        lbl_shot_title.setStyleSheet("color: {}; font-weight: bold; min-width: 80px;".format(COLOR_TEXT_MUTED))
+        lbl_shot_title.setStyleSheet("color: {}; font-weight: bold;".format(COLOR_TEXT_MUTED))
         self.val_shot = QtWidgets.QLabel("Detecting...", self)
         self.val_shot.setStyleSheet("color: {}; font-weight: bold; font-size: 13px;".format(COLOR_TEXT_PRIMARY))
 
         lbl_range_title = QtWidgets.QLabel("Timeline Range:", self)
-        lbl_range_title.setStyleSheet("color: {}; font-weight: bold; min-width: 100px;".format(COLOR_TEXT_MUTED))
+        lbl_range_title.setStyleSheet("color: {}; font-weight: bold;".format(COLOR_TEXT_MUTED))
         self.val_range = QtWidgets.QLabel("Detecting...", self)
         self.val_range.setStyleSheet("color: {}; font-weight: bold; font-size: 12px;".format(COLOR_ACCENT_PIPELINE))
 
         lbl_path_title = QtWidgets.QLabel("Target Shot Root:", self)
-        lbl_path_title.setStyleSheet("color: {}; font-weight: bold; min-width: 110px;".format(COLOR_TEXT_MUTED))
+        lbl_path_title.setStyleSheet("color: {}; font-weight: bold;".format(COLOR_TEXT_MUTED))
         self.val_path = QtWidgets.QLabel("Detecting...", self)
         self.val_path.setStyleSheet("color: {}; font-family: {}; font-size: 11px;".format(COLOR_TEXT_MUTED, FONT_FAMILY_MONO))
         self.val_path.setWordWrap(True)
 
         info_grid.addWidget(lbl_shot_title, 0, 0)
         info_grid.addWidget(self.val_shot, 0, 1)
-        info_grid.addWidget(lbl_range_title, 0, 2)
-        info_grid.addWidget(self.val_range, 0, 3)
-        info_grid.addWidget(lbl_path_title, 1, 0)
-        info_grid.addWidget(self.val_path, 1, 1, 1, 3)
+        info_grid.addWidget(lbl_range_title, 1, 0)
+        info_grid.addWidget(self.val_range, 1, 1)
+        info_grid.addWidget(lbl_path_title, 2, 0)
+        info_grid.addWidget(self.val_path, 2, 1)
 
         info_layout.addLayout(info_grid)
         root.addWidget(info_panel)
@@ -177,12 +178,12 @@ class AnimIODialog(BaseToolDialog):
         self.asset_table = create_data_table(
             ["Asset Name", "Status"],
             stretch_columns=(0,),
-            fixed_columns={1: 180},
+            fixed_columns={1: 190},
             extended_selection=True,
             minimum_height=180,
             parent=self,
         )
-        self.asset_table.setToolTip("Tip: Double-click a Camera row to standardize its name in Maya.")
+        self.asset_table.setToolTip("Tip: Double-click a Camera row to automatically standardize or create it.")
         asset_layout.addWidget(self.asset_table, 1)
 
         # Velocity toggle
@@ -330,32 +331,36 @@ class AnimIODialog(BaseToolDialog):
                 seen_assets.add(a)
                 clean_assets.append(a)
 
-        has_cam = bool(cam_node and cmds.objExists(cam_node))
-        total = (1 if has_cam else 0) + len(clean_assets)
+        total = (1 if cam_node else 0) + len(clean_assets)
         self.count_badge.setText("{} assets detected".format(total))
 
         self.asset_table.setRowCount(0)
         row = 0
 
-        # 1. Camera Row
-        if has_cam:
+        # 1. Camera Row (Indicates status directly in the list!)
+        if cam_node and cmds.objExists(cam_node):
             short_cam = cam_node.split("|")[-1]
             self.asset_table.insertRow(row)
 
             item_cam_name = QtWidgets.QTableWidgetItem(short_cam)
             item_cam_name.setData(QtCore.Qt.UserRole, ("camera", cam_node))
             item_cam_name.setCheckState(QtCore.Qt.Checked)
-            item_cam_name.setToolTip("Shot Camera (DAG: {}). Double-click to rename to standard '{}'.".format(cam_node, target_cam_name))
 
-            item_cam_status = QtWidgets.QTableWidgetItem("Ready")
+            if short_cam.lower() == target_cam_name.lower():
+                item_cam_status = QtWidgets.QTableWidgetItem("Ready")
+                item_cam_status.setForeground(QtGui.QColor(COLOR_STATUS_SUCCESS))
+                item_cam_name.setToolTip("Shot Camera: {}".format(cam_node))
+            else:
+                item_cam_status = QtWidgets.QTableWidgetItem("Rename Needed -> " + target_cam_name)
+                item_cam_status.setForeground(QtGui.QColor(COLOR_STATUS_WARNING))
+                item_cam_name.setToolTip("Non-standard camera name. Double-click to rename to '{}'.".format(target_cam_name))
+
             item_cam_status.setTextAlignment(QtCore.Qt.AlignCenter)
-            item_cam_status.setForeground(QtGui.QColor(COLOR_STATUS_SUCCESS))
-
             self.asset_table.setItem(row, 0, item_cam_name)
             self.asset_table.setItem(row, 1, item_cam_status)
             row += 1
         elif not is_unsaved:
-            # Missing camera row
+            # Missing standardized camera row
             self.asset_table.insertRow(row)
             item_cam_name = QtWidgets.QTableWidgetItem(target_cam_name)
             item_cam_name.setData(QtCore.Qt.UserRole, ("camera", None))
@@ -395,14 +400,15 @@ class AnimIODialog(BaseToolDialog):
             return
         data = name_item.data(QtCore.Qt.UserRole)
         if isinstance(data, (tuple, list)) and data[0] == "camera":
-            self._fix_shot_camera()
+            src_node = data[1]
+            self._fix_shot_camera(source_camera_node=src_node)
 
-    def _fix_shot_camera(self):
+    def _fix_shot_camera(self, source_camera_node=None):
         """1-Click Camera Fix Helper: rename selected camera or create standardized shot camera."""
         try:
-            fixed_cam = fix_or_create_shot_camera(self._resolved_shot_name)
+            fixed_cam = fix_or_create_shot_camera(self._resolved_shot_name, source_camera_node=source_camera_node)
             self.refresh_scene_data()
-            self._set_message("Shot camera standardized to '{}' successfully.".format(fixed_cam.split("|")[-1]), "neutral")
+            self._set_message("Shot camera '{}' standardized successfully.".format(fixed_cam.split("|")[-1]), "neutral")
             self._set_status("Camera Fixed", "idle")
         except Exception as e:
             self._set_message("Camera fix error: {}".format(e), "warning")
