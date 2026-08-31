@@ -25,6 +25,7 @@ from scartools.ui import (
     create_button,
     apply_theme,
     repolish,
+    OperationProgressPopup,
 )
 from scartools.ui.controls import (
     create_toggle_switch,
@@ -88,6 +89,7 @@ class AnimIODialog(BaseToolDialog):
         self._resolved_shot_name = "untitled_shot"
         self._resolved_shot_root = ""
         self._resolved_camera = None
+        self._progress_popup = None
 
         self._build_ui()
         self._connect()
@@ -438,33 +440,25 @@ class AnimIODialog(BaseToolDialog):
                     props.append(anode)
 
         vel = self.vel_toggle.is_checked()
+        total_items = (1 if cam_node else 0) + len(chars) + len(props)
 
-        # Progress reporting
-        use_progress = hasattr(cmds, "progressWindow") and not cmds.about(batch=True)
-        if use_progress:
-            try:
-                cmds.progressWindow(
-                    title="Anim Export",
-                    progress=0,
-                    status="Starting shot export...",
-                    isInterruptable=True,
-                )
-            except Exception:
-                use_progress = False
+        # Launch Centralized OperationProgressPopup
+        self._progress_popup = OperationProgressPopup(
+            title="Anim Export - Caching Shot",
+            parent=self.window(),
+            unit="assets",
+        )
+        self._progress_popup.start("Exporting Shot Caches", total=total_items)
 
         def _on_progress(pct, msg):
-            if use_progress:
-                try:
-                    cmds.progressWindow(edit=True, progress=pct, status=str(msg))
-                except Exception:
-                    pass
+            if self._progress_popup:
+                self._progress_popup.update_progress(pct, message=str(msg))
             self._set_status("Exporting ({}%)".format(pct), "running")
             self._set_message(msg, "neutral")
             QtWidgets.QApplication.processEvents()
 
         callbacks = OperationCallbacks(
             progress_callback=_on_progress,
-            cancelled_callback=lambda: (cmds.progressWindow(query=True, isCancelled=True) if use_progress else False),
         )
 
         try:
@@ -490,18 +484,21 @@ class AnimIODialog(BaseToolDialog):
                 write_velocities=vel,
                 callbacks=callbacks,
             )
+            if self._progress_popup:
+                popup = self._progress_popup
+                self._progress_popup = None
+                popup.finish("Shot Caches Exported Successfully!", state="success")
+
             self._set_message("Exported shot caches successfully to '{}'!".format(res["target_dir"]), "neutral")
             self._set_status("Export Success", "idle")
             self.open_folder_btn.setVisible(True)
         except Exception as e:
+            if self._progress_popup:
+                popup = self._progress_popup
+                self._progress_popup = None
+                popup.finish("Export Failed", state="error")
             self._set_message("Export failed: {}".format(e), "warning")
             self._set_status("Export Failed", "error")
-        finally:
-            if use_progress:
-                try:
-                    cmds.progressWindow(endProgress=True)
-                except Exception:
-                    pass
 
 
 _ACTIVE_DIALOG = None
