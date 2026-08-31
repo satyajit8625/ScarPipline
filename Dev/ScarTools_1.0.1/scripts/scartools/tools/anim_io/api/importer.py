@@ -43,12 +43,20 @@ def import_shot_camera(package_dir, camera_record, lock_attributes=True):
     if not cam_file:
         return None
 
+    # Resolve camera file with subfolder fallbacks
     cam_path = os.path.join(package_dir, cam_file)
+    if not os.path.isfile(cam_path):
+        base_cam = os.path.basename(cam_file)
+        for sub in ("alembic", "fbx", ""):
+            cand = os.path.join(package_dir, sub, base_cam) if sub else os.path.join(package_dir, base_cam)
+            if os.path.isfile(cand):
+                cam_path = cand
+                break
+
     if not os.path.isfile(cam_path):
         raise RuntimeError("Camera file not found: {}".format(cam_path))
 
     fmt = camera_record.get("format", "fbx").lower()
-    imported_nodes = []
 
     if fmt == "fbx":
         if not cmds.pluginInfo("fbxmaya", query=True, loaded=True):
@@ -83,7 +91,16 @@ def import_asset_cache(package_dir, asset_record):
     if not asset_file:
         return None
 
+    # Resolve asset file with subfolder fallbacks
     asset_path = os.path.join(package_dir, asset_file)
+    if not os.path.isfile(asset_path):
+        base_asset = os.path.basename(asset_file)
+        for sub in ("alembic", "fbx", ""):
+            cand = os.path.join(package_dir, sub, base_asset) if sub else os.path.join(package_dir, base_asset)
+            if os.path.isfile(cand):
+                asset_path = cand
+                break
+
     if not os.path.isfile(asset_path):
         raise RuntimeError("Asset file not found: {}".format(asset_path))
 

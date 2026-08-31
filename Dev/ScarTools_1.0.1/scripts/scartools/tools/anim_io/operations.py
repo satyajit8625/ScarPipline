@@ -33,7 +33,7 @@ def export_shot_package(
     """Export shot package with atomic undo safety and license validation."""
     require_license("ScarTools_AnimExport")
 
-    emit_log("Starting shot package export for '{}'...".format(shot_name), level="INFO", tool="anim_io")
+    emit_log("Starting shot package export for '{}'...".format(shot_name), level="INFO", source="anim_io")
     result = _api_export_shot(
         output_dir=output_dir,
         shot_name=shot_name,
@@ -51,7 +51,7 @@ def export_shot_package(
         uv_write=uv_write,
         notes=notes,
     )
-    emit_log("Shot package exported successfully to '{}'.".format(result["target_dir"]), level="SUCCESS", tool="anim_io")
+    emit_log("Shot package exported successfully to '{}'.".format(result["target_dir"]), level="SUCCESS", source="anim_io")
     return result
 
 
@@ -67,7 +67,7 @@ def import_shot_package(
     require_license("ScarTools_AnimImport")
 
     with SceneTransaction("ScarTools_AssembleShot"):
-        emit_log("Assembling shot scene from '{}'...".format(package_dir_or_manifest), level="INFO", tool="anim_io")
+        emit_log("Assembling shot scene from '{}'...".format(package_dir_or_manifest), level="INFO", source="anim_io")
         result = _api_import_shot(
             package_dir_or_manifest=package_dir_or_manifest,
             import_time_settings=import_time_settings,
@@ -83,6 +83,6 @@ def import_shot_package(
                 result["camera_imported"],
             ),
             level="SUCCESS",
-            tool="anim_io",
+            source="anim_io",
         )
     return result

@@ -48,7 +48,7 @@ class TestFrameworkNaming(unittest.TestCase):
 
     def test_parse_shot_scene_identity(self):
         # Test 5-token studio pattern: PRT_SH_010_ANM_V001.ma
-        path_a = "O:/Projects/PRT/Shots/SH_010/ANM/Maya/PRT_SH_010_ANM_V001.ma"
+        path_a = "//desktop-6hj08se/Cinematic_1/01_SF Trailers/35_Pirates_Trailer/05_Animation/Shot_010/maya/PRT_SH_010_ANM_V001.ma"
         res_a = parse_shot_scene_identity(path_a)
         self.assertEqual(res_a["project"], "PRT")
         self.assertEqual(res_a["sequence"], "SH")
@@ -57,7 +57,9 @@ class TestFrameworkNaming(unittest.TestCase):
         self.assertEqual(res_a["department"], "ANM")
         self.assertEqual(res_a["version_str"], "V001")
         self.assertEqual(res_a["version_num"], 1)
-        self.assertEqual(res_a["export_dir"], "O:/Projects/PRT/Shots/SH_010/ANM/Export/PRT_SH_010")
+        self.assertEqual(res_a["shot_root"], "//desktop-6hj08se/Cinematic_1/01_SF Trailers/35_Pirates_Trailer/05_Animation/Shot_010")
+        self.assertEqual(res_a["alembic_dir"], "//desktop-6hj08se/Cinematic_1/01_SF Trailers/35_Pirates_Trailer/05_Animation/Shot_010/alembic")
+        self.assertEqual(res_a["fbx_dir"], "//desktop-6hj08se/Cinematic_1/01_SF Trailers/35_Pirates_Trailer/05_Animation/Shot_010/fbx")
 
         # Test 4-token pattern: PRT_SH010_ANM_V002.mb
         path_b = "O:/Projects/PRT/Shots/SH010/ANM/scenes/PRT_SH010_ANM_V002.mb"

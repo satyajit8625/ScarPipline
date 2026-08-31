@@ -196,22 +196,31 @@ def parse_shot_scene_identity(scene_path=None):
     else:
         shot_name = stem
 
-    # 4. Resolve default Export Directory
+    # 4. Resolve default Shot Root & Export Directory
     export_dir = ""
+    alembic_dir = ""
+    fbx_dir = ""
     if scene_dir:
         norm_dir = os.path.normpath(scene_dir)
         dir_name = os.path.basename(norm_dir).lower()
         parent_dir = os.path.dirname(norm_dir)
-        if dir_name in ("maya", "scenes", "scene", "work", "wip", "scripts"):
-            export_dir = os.path.join(parent_dir, "Export", shot_name).replace("\\", "/")
+        if dir_name in ("maya", "scenes", "scene", "work", "wip", "wips", "scripts"):
+            shot_root = parent_dir.replace("\\", "/")
         else:
-            export_dir = os.path.join(norm_dir, "Export", shot_name).replace("\\", "/")
+            shot_root = norm_dir.replace("\\", "/")
+
+        export_dir = shot_root
+        alembic_dir = os.path.join(shot_root, "alembic").replace("\\", "/")
+        fbx_dir = os.path.join(shot_root, "fbx").replace("\\", "/")
 
     return {
         "file_name": filename,
         "stem": stem,
         "scene_dir": scene_dir,
+        "shot_root": export_dir,
         "export_dir": export_dir,
+        "alembic_dir": alembic_dir,
+        "fbx_dir": fbx_dir,
         "project": project,
         "sequence": sequence,
         "shot_num": shot_num,

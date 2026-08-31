@@ -147,6 +147,31 @@ class TestAnimIO(unittest.TestCase):
         self.assertEqual(int(cmds.playbackOptions(q=True, minTime=True)), 1050)
         self.assertEqual(int(cmds.playbackOptions(q=True, maxTime=True)), 1120)
 
+    def test_export_shot_package_subfolders(self):
+        """Verify export_shot_package creates alembic/ and fbx/ subfolders."""
+        cam = cmds.camera(name="ShotCam")[0]
+        char_grp = cmds.group(em=True, name="char_runner_GRP")
+        mesh = cmds.polySphere(name="runner_GEO")[0]
+        cmds.parent(mesh, char_grp)
+
+        out_shot = os.path.join(self.test_dir, "Shot_010")
+        res = export_shot_package(
+            output_dir=out_shot,
+            shot_name="Shot_010",
+            start_frame=1001,
+            end_frame=1010,
+            camera_node=cam,
+            camera_format="fbx",
+            character_nodes=[char_grp],
+            character_formats=["abc", "fbx"],
+        )
+
+        self.assertTrue(res["success"])
+        target_dir = res["target_dir"]
+        self.assertTrue(os.path.isdir(os.path.join(target_dir, "alembic")))
+        self.assertTrue(os.path.isdir(os.path.join(target_dir, "fbx")))
+        self.assertTrue(os.path.isfile(res["manifest_file"]))
+
 
 if __name__ == "__main__":
     unittest.main()
