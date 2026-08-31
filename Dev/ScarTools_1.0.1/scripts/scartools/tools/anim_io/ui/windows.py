@@ -111,16 +111,12 @@ class AnimIODialog(BaseToolDialog):
         root = QtWidgets.QVBoxLayout(self)
         configure_root_layout(root)
 
-        # 1. Brand Header with Hamburger Icon [UI-02]
+        # 1. Standard Brand Header [UI-02]
         header, self.header_subtitle = create_brand_header(
             "ANIM EXPORT",
             "Automatic Alembic and FBX shot cache extraction",
             parent=self,
         )
-        self.settings_btn = create_button("⋮", role="secondary", fixed_width=32, parent=self)
-        self.settings_btn.setObjectName("HeaderOverflowButton")
-        self.settings_btn.setToolTip("Export Settings")
-        header.layout().addWidget(self.settings_btn, 0, QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
         root.addWidget(header)
 
         # 2. Shot & Pipeline Information (Centralized 2-Column Split Stat Cards) [UI-03, FW-07]
@@ -172,6 +168,12 @@ class AnimIODialog(BaseToolDialog):
 
         self.refresh_btn = create_button("Refresh Scene", role="secondary", parent=self)
         top_bar.addWidget(self.refresh_btn)
+
+        self.settings_btn = create_button("⋮", role="secondary", fixed_width=32, parent=self)
+        self.settings_btn.setObjectName("TableOverflowButton")
+        self.settings_btn.setToolTip("Export Settings")
+        top_bar.addWidget(self.settings_btn)
+
         asset_layout.addLayout(top_bar)
 
         self.asset_table = create_data_table(
