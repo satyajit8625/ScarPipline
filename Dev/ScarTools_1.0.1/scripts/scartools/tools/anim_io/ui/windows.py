@@ -42,7 +42,12 @@ from scartools.ui import (
 from ..controller import AnimIOController
 from ..operations import discover_scene_assets
 from ..api.camera import find_active_shot_camera, fix_or_create_shot_camera
-from .settings_dialog import show_settings_dialog, get_anim_export_settings
+from .settings_dialog import (
+    show_alembic_settings,
+    show_fbx_settings,
+    confirm_and_reset_settings,
+    get_anim_export_settings,
+)
 from scartools.framework import (
     open_in_file_manager,
     parse_shot_scene_identity,
@@ -223,22 +228,24 @@ class AnimIODialog(BaseToolDialog):
         self.apply_button.clicked.connect(self._do_export)
 
     def _open_settings_menu(self):
-        """Show the standardized ScarPopupMenu with Export Settings and Defaults."""
+        """Show the standardized ScarPopupMenu with Alembic Settings, FBX Settings, and Defaults."""
         menu = create_popup_menu(parent=self)
 
-        act_settings = menu.addAction("⚙  Export Settings…")
+        act_alembic = menu.addAction("◇  Alembic Settings…")
+        act_fbx = menu.addAction("◇  FBX Settings…")
         menu.addSeparator()
         act_reset = menu.addAction("↻  Reset to Default")
 
         action = menu.exec_below_widget(self.settings_btn, offset_y=5, align="right")
 
-        if action == act_settings:
-            show_settings_dialog(parent=self)
+        if action == act_alembic:
+            show_alembic_settings(parent=self)
+        elif action == act_fbx:
+            show_fbx_settings(parent=self)
         elif action == act_reset:
-            from .settings_dialog import reset_anim_export_settings
-            reset_anim_export_settings()
-            self._set_message("All Alembic & FBX export settings restored to studio defaults.", "neutral")
-            self._set_status("Settings Reset", "idle")
+            if confirm_and_reset_settings(parent=self):
+                self._set_message("All Alembic & FBX export settings restored to studio defaults.", "neutral")
+                self._set_status("Settings Reset", "idle")
 
     def _on_cell_clicked(self, row, col):
         """Clicking the Export column cell toggles the checkbox cleanly."""
@@ -515,17 +522,20 @@ class AnimIODialog(BaseToolDialog):
 
         # Read configured Alembic and FBX parameters
         user_cfg = get_anim_export_settings()
-        step = float(user_cfg.get("abc_step", 1.0))
-        handles = int(user_cfg.get("abc_handles", 0))
-        write_vel = bool(user_cfg.get("abc_write_velocities", True))
-        write_uv = bool(user_cfg.get("abc_uv_write", True))
-        write_norm = bool(user_cfg.get("abc_write_normals", True))
-        write_rend = bool(user_cfg.get("abc_renderable_only", True))
-        write_vis = bool(user_cfg.get("abc_write_visibility", True))
-        fbx_axis = str(user_cfg.get("fbx_up_axis", "Y-Up"))
-        fbx_smooth = bool(user_cfg.get("fbx_smoothing_groups", True))
-        fbx_ver = str(user_cfg.get("fbx_version", "FBX 2020"))
-        fbx_tri = bool(user_cfg.get("fbx_triangulate", False))
+        abc_cfg = user_cfg.get("alembic", {})
+        fbx_cfg = user_cfg.get("fbx", {})
+
+        step = float(abc_cfg.get("step", 1.0))
+        handles = int(abc_cfg.get("handles", 0))
+        write_vel = bool(abc_cfg.get("write_velocities", True))
+        write_uv = bool(abc_cfg.get("uvs", True))
+        write_norm = bool(abc_cfg.get("normals", True))
+        write_rend = bool(abc_cfg.get("renderable_only", True))
+        write_vis = bool(abc_cfg.get("visibility", True))
+        fbx_axis = str(fbx_cfg.get("up_axis", "Y-Up"))
+        fbx_smooth = bool(fbx_cfg.get("smoothing_groups", True))
+        fbx_ver = str(fbx_cfg.get("fbx_version", "FBX 2020"))
+        fbx_tri = bool(fbx_cfg.get("triangulate", False))
 
         # Launch Centralized OperationProgressPopup
         self._progress_popup = OperationProgressPopup(

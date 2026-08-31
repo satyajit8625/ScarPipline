@@ -31,37 +31,48 @@ class TestAnimExportSettings(unittest.TestCase):
 
     def test_default_settings(self):
         cfg = get_anim_export_settings()
-        self.assertTrue(cfg.get("abc_write_velocities"))
-        self.assertEqual(cfg.get("abc_step"), 1.0)
-        self.assertEqual(cfg.get("abc_handles"), 0)
-        self.assertEqual(cfg.get("fbx_up_axis"), "Y-Up")
-        self.assertEqual(cfg.get("fbx_version"), "FBX 2020")
-        self.assertTrue(cfg.get("fbx_smoothing_groups"))
+        abc = cfg["alembic"]
+        fbx = cfg["fbx"]
+        self.assertTrue(abc.get("write_velocities"))
+        self.assertEqual(abc.get("step"), 1.0)
+        self.assertEqual(abc.get("handles"), 0)
+        self.assertTrue(abc.get("uvs"))
+        self.assertTrue(abc.get("normals"))
+        self.assertEqual(fbx.get("up_axis"), "Y-Up")
+        self.assertEqual(fbx.get("fbx_version"), "FBX 2020")
+        self.assertTrue(fbx.get("smoothing_groups"))
 
     def test_save_custom_settings(self):
         custom = {
-            "abc_write_velocities": False,
-            "abc_step": 0.5,
-            "abc_handles": 5,
-            "fbx_up_axis": "Z-Up",
-            "fbx_version": "FBX 2018",
-            "fbx_triangulate": True,
+            "alembic": {
+                "write_velocities": False,
+                "step": 0.5,
+                "handles": 5,
+            },
+            "fbx": {
+                "up_axis": "Z-Up",
+                "fbx_version": "FBX 2018",
+                "triangulate": True,
+            },
         }
         save_anim_export_settings(custom)
         loaded = get_anim_export_settings()
-        self.assertFalse(loaded["abc_write_velocities"])
-        self.assertEqual(loaded["abc_step"], 0.5)
-        self.assertEqual(loaded["abc_handles"], 5)
-        self.assertEqual(loaded["fbx_up_axis"], "Z-Up")
-        self.assertEqual(loaded["fbx_version"], "FBX 2018")
-        self.assertTrue(loaded["fbx_triangulate"])
+        self.assertFalse(loaded["alembic"]["write_velocities"])
+        self.assertEqual(loaded["alembic"]["step"], 0.5)
+        self.assertEqual(loaded["alembic"]["handles"], 5)
+        self.assertEqual(loaded["fbx"]["up_axis"], "Z-Up")
+        self.assertEqual(loaded["fbx"]["fbx_version"], "FBX 2018")
+        self.assertTrue(loaded["fbx"]["triangulate"])
 
     def test_reset_settings(self):
-        save_anim_export_settings({"fbx_up_axis": "Z-Up", "abc_step": 0.25})
+        save_anim_export_settings({
+            "fbx": {"up_axis": "Z-Up"},
+            "alembic": {"step": 0.25},
+        })
         reset_anim_export_settings()
         loaded = get_anim_export_settings()
-        self.assertEqual(loaded["fbx_up_axis"], "Y-Up")
-        self.assertEqual(loaded["abc_step"], 1.0)
+        self.assertEqual(loaded["fbx"]["up_axis"], "Y-Up")
+        self.assertEqual(loaded["alembic"]["step"], 1.0)
 
 
 if __name__ == "__main__":
