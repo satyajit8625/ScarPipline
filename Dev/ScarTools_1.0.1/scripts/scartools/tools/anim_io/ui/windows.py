@@ -30,12 +30,11 @@ from scartools.ui.controls import (
     create_segmented_control,
     create_toggle_switch,
 )
-from scartools.ui.widgets import (
-    PathPickerWidget,
-)
 
 from ..controller import AnimIOController
 from ..operations import discover_scene_assets
+from ..api.camera import find_active_shot_camera
+from scartools.framework.naming import parse_shot_scene_identity
 
 
 class AnimIODialog(BaseToolDialog):
@@ -54,8 +53,12 @@ class AnimIODialog(BaseToolDialog):
         self.setWindowTitle(self.WINDOW_TITLE)
         self.controller = AnimIOController()
         self.setAttribute(QtCore.Qt.WA_DeleteOnClose, True)
-        configure_window(self, (760, 620), (840, 720))
+        configure_window(self, (720, 580), (840, 680))
         apply_window_icon(self)
+
+        self._resolved_shot_name = "untitled_shot"
+        self._resolved_shot_root = ""
+        self._resolved_camera = None
 
         self._build_ui()
         self._connect()
@@ -69,46 +72,44 @@ class AnimIODialog(BaseToolDialog):
         # 1. Brand Header [UI-02]
         header, self.header_subtitle = create_brand_header(
             "ANIM EXPORT",
-            "Extract shot Alembic (.abc) and FBX (.fbx) caches to pipeline directories",
+            "Automatic Alembic (.abc) and FBX (.fbx) shot cache extraction",
             parent=self,
         )
         root.addWidget(header)
 
-        # 2. Target Destination & Shot Context [UI-03, UI-04]
-        dest_panel, dest_layout, _ = create_section_panel(
-            "Target Destination & Shot Context", accent="pipeline", parent=self
+        # 2. Shot & Pipeline Information (Read-Only Auto-Detection Card) [UI-03]
+        info_panel, info_layout, _ = create_section_panel(
+            "Shot Pipeline Context", accent="pipeline", parent=self
         )
-        self.path_picker = PathPickerWidget(
-            mode="directory",
-            placeholder="Select shot root directory (containing Alembic, FBX, Maya folders)...",
-            parent=self,
-        )
-        dest_layout.addWidget(self.path_picker)
+        info_grid = QtWidgets.QGridLayout()
+        info_grid.setHorizontalSpacing(16)
+        info_grid.setVerticalSpacing(8)
 
-        shot_row = QtWidgets.QHBoxLayout()
-        shot_row.setSpacing(INLINE_SPACING)
-        shot_lbl = QtWidgets.QLabel("Shot Name:", self)
-        shot_lbl.setFixedWidth(FORM_LABEL_WIDTH)
-        self.shot_name_input = QtWidgets.QLineEdit(self)
-        self.shot_name_input.setPlaceholderText("e.g. SQ01_SH010")
-        self.shot_name_input.setText("SQ01_SH010")
-        configure_field(self.shot_name_input)
-        shot_row.addWidget(shot_lbl)
-        shot_row.addWidget(self.shot_name_input, 1)
+        lbl_shot_title = QtWidgets.QLabel("Active Shot:", self)
+        lbl_shot_title.setStyleSheet("color: #888888; font-weight: bold;")
+        self.val_shot = QtWidgets.QLabel("Detecting...", self)
+        self.val_shot.setStyleSheet("color: #E0E0E0; font-weight: bold; font-size: 13px;")
 
-        cam_lbl = QtWidgets.QLabel("Camera:", self)
-        cam_lbl.setFixedWidth(55)
-        self.cam_combo = QtWidgets.QComboBox(self)
-        configure_field(self.cam_combo)
-        self.cam_format_combo = QtWidgets.QComboBox(self)
-        self.cam_format_combo.addItems(["FBX (.fbx)", "Alembic (.abc)"])
-        configure_field(self.cam_format_combo, minimum_width=110)
-        shot_row.addWidget(cam_lbl)
-        shot_row.addWidget(self.cam_combo, 1)
-        shot_row.addWidget(self.cam_format_combo)
+        lbl_cam_title = QtWidgets.QLabel("Shot Camera:", self)
+        lbl_cam_title.setStyleSheet("color: #888888; font-weight: bold;")
+        self.val_cam = QtWidgets.QLabel("Detecting...", self)
+        self.val_cam.setStyleSheet("color: #4F94CD; font-weight: bold; font-size: 13px;")
 
-        dest_layout.addLayout(shot_row)
-        root.addWidget(dest_panel)
+        lbl_path_title = QtWidgets.QLabel("Target Shot Root:", self)
+        lbl_path_title.setStyleSheet("color: #888888; font-weight: bold;")
+        self.val_path = QtWidgets.QLabel("Detecting...", self)
+        self.val_path.setStyleSheet("color: #A0A0A0; font-family: monospace;")
+        self.val_path.setWordWrap(True)
+
+        info_grid.addWidget(lbl_shot_title, 0, 0)
+        info_grid.addWidget(self.val_shot, 0, 1)
+        info_grid.addWidget(lbl_cam_title, 0, 2)
+        info_grid.addWidget(self.val_cam, 0, 3)
+        info_grid.addWidget(lbl_path_title, 1, 0)
+        info_grid.addWidget(self.val_path, 1, 1, 1, 3)
+
+        info_layout.addLayout(info_grid)
+        root.addWidget(info_panel)
 
         # 3. Frame Range & Timing [UI-03, UI-04]
         range_panel, range_layout, _ = create_section_panel(
@@ -168,14 +169,14 @@ class AnimIODialog(BaseToolDialog):
         top_bar.addWidget(self.count_badge)
         top_bar.addStretch(1)
 
-        fmt_lbl = QtWidgets.QLabel("Cache Format:", self)
+        fmt_lbl = QtWidgets.QLabel("Format:", self)
         self.geo_format_combo = QtWidgets.QComboBox(self)
         self.geo_format_combo.addItems(["Alembic (.abc)", "FBX (.fbx)", "Both (.abc + .fbx)"])
         configure_field(self.geo_format_combo, minimum_width=140)
         top_bar.addWidget(fmt_lbl)
         top_bar.addWidget(self.geo_format_combo)
 
-        self.refresh_btn = create_button("Refresh Selection", role="secondary", parent=self)
+        self.refresh_btn = create_button("Refresh Scene", role="secondary", parent=self)
         self.select_all_btn = create_button("Select All", role="secondary", parent=self)
         top_bar.addWidget(self.refresh_btn)
         top_bar.addWidget(self.select_all_btn)
@@ -212,7 +213,7 @@ class AnimIODialog(BaseToolDialog):
             _status_layout,
         ) = create_action_footer(
             "EXPORT SHOT CACHES",
-            message="Ready to package shot.",
+            message="Ready to export shot caches.",
             parent=self,
             include_log=False,
         )
@@ -248,16 +249,19 @@ class AnimIODialog(BaseToolDialog):
 
     def refresh_scene_data(self):
         """Scan active Maya scene for shot identity, cameras, characters, and props."""
-        from scartools.framework.naming import parse_shot_scene_identity
         identity = parse_shot_scene_identity()
 
-        shot_name = identity.get("shot_name")
-        if shot_name and shot_name != "untitled_scene":
-            self.shot_name_input.setText(shot_name)
+        self._resolved_shot_name = identity.get("shot_name") or "untitled_shot"
+        self._resolved_shot_root = identity.get("export_dir") or ""
 
-        export_dir = identity.get("export_dir")
-        if export_dir and not self.path_picker.path():
-            self.path_picker.set_path(export_dir)
+        # Find camera
+        cam_node = find_active_shot_camera(self._resolved_shot_name)
+        self._resolved_camera = cam_node
+
+        cam_display = cam_node.split("|")[-1] if cam_node else "None (No shot camera found)"
+        self.val_shot.setText(self._resolved_shot_name)
+        self.val_cam.setText(cam_display)
+        self.val_path.setText(self._resolved_shot_root or "Active Maya Project / Current Scene Directory")
 
         proj = identity.get("project")
         dept = identity.get("department") or "ANM"
@@ -265,21 +269,11 @@ class AnimIODialog(BaseToolDialog):
         if proj:
             self.header_subtitle.setText(
                 "Project: {} | Shot: {} | Dept: {} | Scene: {}".format(
-                    proj, shot_name, dept, ver
+                    proj, self._resolved_shot_name, dept, ver
                 )
             )
 
         data = discover_scene_assets()
-
-        # Cameras
-        self.cam_combo.clear()
-        cams = data.get("cameras", [])
-        if cams:
-            for c in cams:
-                short = c.split("|")[-1]
-                self.cam_combo.addItem(short, c)
-        else:
-            self.cam_combo.addItem("None (No custom camera in scene)", None)
 
         # Characters & Props Table
         chars = data.get("characters", [])
@@ -338,20 +332,27 @@ class AnimIODialog(BaseToolDialog):
                 item.setCheckState(QtCore.Qt.Checked)
 
     def _do_export(self):
-        out_dir = self.path_picker.path()
+        out_dir = self._resolved_shot_root
         if not out_dir or not os.path.isdir(out_dir):
-            self._set_message("Please specify a valid shot output directory.", "warning")
-            self._set_status("Invalid Directory", "warning")
+            # Fallback to current scene directory or prompt
+            cur_scene = cmds.file(q=True, sceneName=True)
+            if cur_scene:
+                identity = parse_shot_scene_identity(cur_scene)
+                out_dir = identity.get("export_dir")
+                self._resolved_shot_root = out_dir
+
+        if not out_dir or not os.path.isdir(out_dir):
+            self._set_message("Could not resolve valid shot directory from active Maya file.", "warning")
+            self._set_status("Invalid Shot Root", "warning")
             return
 
-        shot_name = self.shot_name_input.text().strip() or "untitled_shot"
+        shot_name = self._resolved_shot_name or "untitled_shot"
         start_f = self.start_spin.value()
         end_f = self.end_spin.value()
         handles = self.handles_spin.value()
 
         # Camera
-        cam_node = self.cam_combo.currentData()
-        cam_fmt = "fbx" if self.cam_format_combo.currentIndex() == 0 else "abc"
+        cam_node = self._resolved_camera or find_active_shot_camera(shot_name)
 
         # Geo formats
         geo_idx = self.geo_format_combo.currentIndex()
@@ -384,7 +385,7 @@ class AnimIODialog(BaseToolDialog):
                 end_frame=end_f,
                 fps=24.0,
                 camera_node=cam_node,
-                camera_format=cam_fmt,
+                camera_format="fbx",
                 character_nodes=chars,
                 character_formats=geo_fmts,
                 prop_nodes=props,

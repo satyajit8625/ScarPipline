@@ -9,19 +9,78 @@ import maya.cmds as cmds
 DEFAULT_CAMERAS = {"persp", "top", "front", "side"}
 
 
-def discover_shot_cameras():
-    """Return all non-default scene camera transform names."""
+def discover_shot_cameras(preferred_shot_name=None):
+    """
+    Return valid shot camera transform names in the scene,
+    filtering out default viewport cameras and internal rig/face UI cameras.
+    """
     all_cams = cmds.ls(type="camera", long=True) or []
     shot_cams = []
+    ignored_keywords = ("face", "ctrl", "sub", "preview", "turntable", "ui", "thumb", "rig:")
+
     for cam_shape in all_cams:
         parents = cmds.listRelatives(cam_shape, parent=True, fullPath=True)
         if not parents:
             continue
         cam_transform = parents[0]
-        short_name = cam_transform.split("|")[-1].split(":")[-1]
-        if short_name.lower() not in DEFAULT_CAMERAS:
-            shot_cams.append(cam_transform)
-    return sorted(list(set(shot_cams)))
+        short_name = cam_transform.split("|")[-1]
+        short_lower = short_name.lower()
+
+        # Filter out default cameras
+        if short_lower in DEFAULT_CAMERAS or short_lower.split(":")[-1] in DEFAULT_CAMERAS:
+            continue
+
+        # Filter out internal rig / face UI cameras
+        if any(ign in short_lower for ign in ignored_keywords):
+            continue
+
+        shot_cams.append(cam_transform)
+
+    # Sort prioritizing matching shot name / _CAM suffix
+    if preferred_shot_name:
+        pref = preferred_shot_name.lower()
+        shot_cams.sort(key=lambda c: (
+            0 if pref in c.lower() and "cam" in c.lower() else (
+                1 if "cam" in c.lower() else 2
+            )
+        ))
+    else:
+        shot_cams.sort(key=lambda c: (0 if "cam" in c.lower() else 1))
+
+    return shot_cams
+
+
+def find_active_shot_camera(preferred_shot_name=None):
+    """
+    Find the primary shot camera matching standard studio naming (e.g. PRT_SH_010_CAM).
+    Returns long DAG path of the camera or None.
+    """
+    cams = discover_shot_cameras(preferred_shot_name=preferred_shot_name)
+    if not cams:
+        # Fallback check if any camera with CAM in scene exists
+        all_cams = cmds.ls(type="camera", long=True) or []
+        for cam_shape in all_cams:
+            parents = cmds.listRelatives(cam_shape, parent=True, fullPath=True)
+            if parents:
+                t = parents[0]
+                short = t.split("|")[-1].lower()
+                if short not in DEFAULT_CAMERAS:
+                    cams.append(t)
+
+    if not cams:
+        return None
+
+    if preferred_shot_name:
+        pref = preferred_shot_name.lower()
+        for c in cams:
+            short = c.split("|")[-1].lower()
+            if short == pref + "_cam" or short == "cam_" + pref or short == pref:
+                return c
+        for c in cams:
+            if pref in c.lower():
+                return c
+
+    return cams[0]
 
 
 def bake_camera_world_space(camera_transform, start_frame, end_frame):

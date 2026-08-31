@@ -229,8 +229,9 @@ def export_shot_package(
 
     # 1. Export Camera
     camera_record = {}
-    if camera_node and cmds.objExists(camera_node):
-        cam_clean = camera_node.split("|")[-1].replace(":", "_")
+    resolved_cam = camera_node or find_active_shot_camera(shot_name)
+    if resolved_cam and cmds.objExists(resolved_cam):
+        cam_clean = resolved_cam.split("|")[-1].replace(":", "_")
         cam_fmt_lower = str(camera_format).lower()
         if cam_fmt_lower == "fbx":
             cam_sub = "FBX"
@@ -243,9 +244,9 @@ def export_shot_package(
         os.makedirs(cam_out_dir, exist_ok=True)
         cam_out_path = os.path.join(cam_out_dir, cam_file)
 
-        export_camera(camera_node, cam_out_path, eval_start, eval_end, export_format=camera_format)
+        export_camera(resolved_cam, cam_out_path, eval_start, eval_end, export_format=camera_format)
         camera_record = {
-            "source_node": camera_node,
+            "source_node": resolved_cam,
             "file": cam_sub + "/" + cam_file,
             "format": cam_fmt_lower,
         }
