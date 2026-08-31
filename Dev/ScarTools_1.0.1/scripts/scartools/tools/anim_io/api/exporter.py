@@ -81,7 +81,14 @@ def export_character_cache(
     step=1.0,
     write_velocities=True,
     uv_write=True,
+    write_normals=True,
+    renderable_only=True,
+    write_visibility=True,
     world_space=True,
+    fbx_up_axis="Y-Up",
+    fbx_smoothing_groups=True,
+    fbx_version="FBX 2020",
+    fbx_triangulate=False,
 ):
     """
     Export character geometry hierarchy to Alembic (.abc) in Alembic/ and/or FBX (.fbx) in FBX/.
@@ -121,6 +128,12 @@ def export_character_cache(
                 flags.append("-writeUVSets")
             if write_velocities:
                 flags.append("-writeVelocities")
+            if write_normals:
+                flags.append("-writeNormals")
+            if renderable_only:
+                flags.append("-renderableOnly")
+            if write_visibility:
+                flags.append("-writeVisibility")
             flags.append("-stripNamespaces")
             flags.append("-dataFormat ogawa")
 
@@ -147,6 +160,27 @@ def export_character_cache(
                 cmds.select(root_node, replace=True)
                 mel.eval("FBXResetExport")
                 mel.eval("FBXExportInAscii -v false")
+
+                if fbx_smoothing_groups:
+                    mel.eval("FBXExportSmoothingGroups -v true")
+
+                if fbx_triangulate:
+                    mel.eval("FBXExportTriangulate -v true")
+                else:
+                    mel.eval("FBXExportTriangulate -v false")
+
+                if str(fbx_up_axis).strip().lower().startswith("z"):
+                    mel.eval("FBXExportUpAxis z")
+                else:
+                    mel.eval("FBXExportUpAxis y")
+
+                if fbx_version:
+                    v_clean = str(fbx_version).replace("FBX", "").strip()
+                    try:
+                        mel.eval('FBXExportFileVersion -v "FBX{}00"'.format(v_clean))
+                    except Exception:
+                        pass
+
                 mel.eval("FBXExportBakeComplexAnimation -v true")
                 mel.eval("FBXExportBakeComplexStart -v {}".format(start_frame))
                 mel.eval("FBXExportBakeComplexEnd -v {}".format(end_frame))
@@ -175,7 +209,14 @@ def export_prop_cache(
     step=1.0,
     write_velocities=True,
     uv_write=True,
+    write_normals=True,
+    renderable_only=True,
+    write_visibility=True,
     world_space=True,
+    fbx_up_axis="Y-Up",
+    fbx_smoothing_groups=True,
+    fbx_version="FBX 2020",
+    fbx_triangulate=False,
 ):
     """Export prop geometry hierarchy to Alembic (.abc) in Alembic/ and/or FBX (.fbx) in FBX/."""
     return export_character_cache(
@@ -187,7 +228,14 @@ def export_prop_cache(
         step=step,
         write_velocities=write_velocities,
         uv_write=uv_write,
+        write_normals=write_normals,
+        renderable_only=renderable_only,
+        write_visibility=write_visibility,
         world_space=world_space,
+        fbx_up_axis=fbx_up_axis,
+        fbx_smoothing_groups=fbx_smoothing_groups,
+        fbx_version=fbx_version,
+        fbx_triangulate=fbx_triangulate,
     )
 
 
@@ -207,6 +255,13 @@ def export_shot_package(
     step=1.0,
     write_velocities=True,
     uv_write=True,
+    write_normals=True,
+    renderable_only=True,
+    write_visibility=True,
+    fbx_up_axis="Y-Up",
+    fbx_smoothing_groups=True,
+    fbx_version="FBX 2020",
+    fbx_triangulate=False,
     notes="",
     callbacks=None,
 ):
@@ -225,32 +280,28 @@ def export_shot_package(
     shot_clean = str(shot_name or "shot").strip()
     base_name = os.path.basename(norm_out)
 
-    if base_name.lower() in (shot_clean.lower(), shot_clean.split("_")[-1].lower(), "shot_" + shot_clean.lower()):
+    if base_name.lower() == shot_clean.lower():
         target_dir = norm_out
     else:
         target_dir = os.path.normpath(os.path.join(norm_out, shot_clean))
 
     os.makedirs(target_dir, exist_ok=True)
+    os.makedirs(os.path.join(target_dir, "Alembic"), exist_ok=True)
+    os.makedirs(os.path.join(target_dir, "FBX"), exist_ok=True)
 
     eval_start = int(start_frame) - int(handles)
     eval_end = int(end_frame) + int(handles)
 
     # 1. Export Camera
-    camera_record = {}
+    camera_record = None
     resolved_cam = camera_node or find_active_shot_camera(shot_name)
     if resolved_cam and cmds.objExists(resolved_cam):
         cam_clean = resolved_cam.split("|")[-1].replace(":", "_")
         cam_fmt_lower = str(camera_format).lower()
-        if cam_fmt_lower == "fbx":
-            cam_sub = "FBX"
-            cam_file = cam_clean + ".fbx"
-        else:
-            cam_sub = "Alembic"
-            cam_file = cam_clean + ".abc"
-
-        cam_out_dir = os.path.join(target_dir, cam_sub)
-        os.makedirs(cam_out_dir, exist_ok=True)
-        cam_out_path = os.path.join(cam_out_dir, cam_file)
+        cam_sub = "FBX" if cam_fmt_lower == "fbx" else "Alembic"
+        cam_ext = ".fbx" if cam_fmt_lower == "fbx" else ".abc"
+        cam_file = "{}{}".format(cam_clean, cam_ext)
+        cam_out_path = os.path.join(target_dir, cam_sub, cam_file).replace("\\", "/")
 
         if callbacks:
             callbacks.progress(15, "Baking camera '{}'...".format(cam_clean))
@@ -282,6 +333,13 @@ def export_shot_package(
             step=step,
             write_velocities=write_velocities,
             uv_write=uv_write,
+            write_normals=write_normals,
+            renderable_only=renderable_only,
+            write_visibility=write_visibility,
+            fbx_up_axis=fbx_up_axis,
+            fbx_smoothing_groups=fbx_smoothing_groups,
+            fbx_version=fbx_version,
+            fbx_triangulate=fbx_triangulate,
         )
         for fpath in exp_files:
             rel_path = os.path.relpath(fpath, target_dir).replace("\\", "/")
@@ -311,6 +369,13 @@ def export_shot_package(
             step=step,
             write_velocities=write_velocities,
             uv_write=uv_write,
+            write_normals=write_normals,
+            renderable_only=renderable_only,
+            write_visibility=write_visibility,
+            fbx_up_axis=fbx_up_axis,
+            fbx_smoothing_groups=fbx_smoothing_groups,
+            fbx_version=fbx_version,
+            fbx_triangulate=fbx_triangulate,
         )
         for fpath in exp_files:
             rel_path = os.path.relpath(fpath, target_dir).replace("\\", "/")

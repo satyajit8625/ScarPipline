@@ -6,6 +6,7 @@
   - Dedicated zero-complexity 1-page shot animation caching tool exporting to studio standard `Alembic/` and `FBX/` folders alongside `Maya/` files.
   - 100% automated scene parsing: auto-detects shot name (`PRT_SH_020`), active project (`PRT`), timeline range, and active shot camera (`PRT_SH_020_CAM`).
   - Integrated in-place camera standardization: non-standard cameras in the table can be double-clicked to rename directly in-place without duplicate node creation.
+  - Header Hamburger Icon (`☰`) & Dedicated Export Settings Dialog: allows configuring velocity vectors, sub-frame step sampling (1.0 / 0.5 / 0.25), simulation handles (0 / ±5 / ±10), UV/normal flags, coordinate axes (Y-Up / Z-Up), and FBX versions with persistent Maya optionVar storage and 1-click Reset to Defaults.
   - Centralized `create_stat_card` dashboard component with tight label-value spacing and zero custom stylesheets.
   - Real-time Maya scene synchronization: automatic `scriptJob` listeners for scene open, new, save, and timeline changes with clean termination on dialog close.
   - Centralized Modal Progress: integrates `scartools.ui.OperationProgressPopup` and `scartools.framework.OperationCallbacks` for live `%` and asset caching progress.

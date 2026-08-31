@@ -36,13 +36,11 @@ from scartools.ui import (
     COLOR_STATUS_ERROR,
     FONT_FAMILY_MONO,
 )
-from scartools.ui.controls import (
-    create_toggle_switch,
-)
 
 from ..controller import AnimIOController
 from ..operations import discover_scene_assets
 from ..api.camera import find_active_shot_camera, fix_or_create_shot_camera
+from .settings_dialog import show_settings_dialog, get_anim_export_settings
 from scartools.framework import (
     open_in_file_manager,
     parse_shot_scene_identity,
@@ -111,12 +109,16 @@ class AnimIODialog(BaseToolDialog):
         root = QtWidgets.QVBoxLayout(self)
         configure_root_layout(root)
 
-        # 1. Brand Header [UI-02]
+        # 1. Brand Header with Hamburger Icon [UI-02]
         header, self.header_subtitle = create_brand_header(
             "ANIM EXPORT",
             "Automatic Alembic and FBX shot cache extraction",
             parent=self,
         )
+        self.settings_btn = create_button("☰", role="secondary", fixed_width=36, parent=self)
+        self.settings_btn.setObjectName("HeaderHamburgerButton")
+        self.settings_btn.setToolTip("Export Settings (Alembic & FBX Parameters)")
+        header.layout().addWidget(self.settings_btn, 0, QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
         root.addWidget(header)
 
         # 2. Shot & Pipeline Information (Centralized 2-Column Split Stat Cards) [UI-03, FW-07]
@@ -181,14 +183,6 @@ class AnimIODialog(BaseToolDialog):
         self.asset_table.setToolTip("Tip: Double-click a Camera row to automatically standardize or create it.")
         asset_layout.addWidget(self.asset_table, 1)
 
-        # Velocity toggle
-        vel_row = QtWidgets.QHBoxLayout()
-        vel_lbl = QtWidgets.QLabel("Alembic Motion Blur Velocity Vectors", self)
-        self.vel_toggle = create_toggle_switch(text="", checked=True, accent="pipeline", parent=self)
-        vel_row.addWidget(vel_lbl, 1)
-        vel_row.addWidget(self.vel_toggle)
-        asset_layout.addLayout(vel_row)
-
         root.addWidget(asset_panel, 1)
 
         # 4. Standard Action Footer [UI-06]
@@ -217,11 +211,16 @@ class AnimIODialog(BaseToolDialog):
         root.addWidget(action_footer)
 
     def _connect(self):
+        self.settings_btn.clicked.connect(self._open_settings_dialog)
         self.refresh_btn.clicked.connect(self.refresh_scene_data)
         self.asset_table.cellDoubleClicked.connect(self._on_table_double_clicked)
         self.asset_table.cellClicked.connect(self._on_cell_clicked)
         self.open_folder_btn.clicked.connect(self._open_shot_folder)
         self.apply_button.clicked.connect(self._do_export)
+
+    def _open_settings_dialog(self):
+        """Open the dedicated Alembic & FBX settings dialog."""
+        show_settings_dialog(parent=self)
 
     def _on_cell_clicked(self, row, col):
         """Clicking the Export column cell toggles the checkbox cleanly."""
@@ -489,12 +488,25 @@ class AnimIODialog(BaseToolDialog):
                     elif atype == "asset":
                         assets_to_export.append(anode)
 
-        vel = self.vel_toggle.is_checked()
         total_items = (1 if export_cam_node else 0) + len(assets_to_export)
 
         # Geo formats
         geo_idx = self.geo_format_combo.currentIndex()
         geo_fmts = ("abc",) if geo_idx == 0 else (("fbx",) if geo_idx == 1 else ("abc", "fbx"))
+
+        # Read configured Alembic and FBX parameters
+        user_cfg = get_anim_export_settings()
+        step = float(user_cfg.get("abc_step", 1.0))
+        handles = int(user_cfg.get("abc_handles", 0))
+        write_vel = bool(user_cfg.get("abc_write_velocities", True))
+        write_uv = bool(user_cfg.get("abc_uv_write", True))
+        write_norm = bool(user_cfg.get("abc_write_normals", True))
+        write_rend = bool(user_cfg.get("abc_renderable_only", True))
+        write_vis = bool(user_cfg.get("abc_write_visibility", True))
+        fbx_axis = str(user_cfg.get("fbx_up_axis", "Y-Up"))
+        fbx_smooth = bool(user_cfg.get("fbx_smoothing_groups", True))
+        fbx_ver = str(user_cfg.get("fbx_version", "FBX 2020"))
+        fbx_tri = bool(user_cfg.get("fbx_triangulate", False))
 
         # Launch Centralized OperationProgressPopup
         self._progress_popup = OperationProgressPopup(
@@ -533,9 +545,17 @@ class AnimIODialog(BaseToolDialog):
                 character_formats=geo_fmts,
                 prop_nodes=[],
                 prop_formats=geo_fmts,
-                handles=0,
-                step=1.0,
-                write_velocities=vel,
+                handles=handles,
+                step=step,
+                write_velocities=write_vel,
+                uv_write=write_uv,
+                write_normals=write_norm,
+                renderable_only=write_rend,
+                write_visibility=write_vis,
+                fbx_up_axis=fbx_axis,
+                fbx_smoothing_groups=fbx_smooth,
+                fbx_version=fbx_ver,
+                fbx_triangulate=fbx_tri,
                 callbacks=callbacks,
             )
             if self._progress_popup:
