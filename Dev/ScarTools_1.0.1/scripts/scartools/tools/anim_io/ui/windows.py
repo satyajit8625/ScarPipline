@@ -118,7 +118,7 @@ class AnimIODialog(BaseToolDialog):
         )
         root.addWidget(header)
 
-        # 2. Shot & Pipeline Information (Read-Only Auto-Detection Card with Camera Fix Helper) [UI-03]
+        # 2. Shot & Pipeline Information (Clean 2-Row Context Card) [UI-03]
         info_panel, info_layout, _ = create_section_panel(
             "Shot Pipeline Context", accent="pipeline", parent=self
         )
@@ -130,21 +130,6 @@ class AnimIODialog(BaseToolDialog):
         lbl_shot_title.setStyleSheet("color: {}; font-weight: bold;".format(COLOR_TEXT_MUTED))
         self.val_shot = QtWidgets.QLabel("Detecting...", self)
         self.val_shot.setStyleSheet("color: {}; font-weight: bold; font-size: 13px;".format(COLOR_TEXT_PRIMARY))
-
-        lbl_cam_title = QtWidgets.QLabel("Shot Camera:", self)
-        lbl_cam_title.setStyleSheet("color: {}; font-weight: bold;".format(COLOR_TEXT_MUTED))
-
-        cam_box = QtWidgets.QHBoxLayout()
-        cam_box.setSpacing(8)
-        self.val_cam = QtWidgets.QLabel("Detecting...", self)
-        self.val_cam.setStyleSheet("color: {}; font-weight: bold; font-size: 13px;".format(COLOR_PRIMARY_BLUE))
-        self.fix_cam_btn = create_button("Fix Camera", role="secondary", parent=self)
-        self.fix_cam_btn.setFixedHeight(24)
-        self.fix_cam_btn.setVisible(False)
-        self.fix_cam_btn.setToolTip("Rename selected camera or create the standardized shot camera.")
-        cam_box.addWidget(self.val_cam)
-        cam_box.addWidget(self.fix_cam_btn)
-        cam_box.addStretch(1)
 
         lbl_range_title = QtWidgets.QLabel("Timeline Range:", self)
         lbl_range_title.setStyleSheet("color: {}; font-weight: bold;".format(COLOR_TEXT_MUTED))
@@ -159,12 +144,10 @@ class AnimIODialog(BaseToolDialog):
 
         info_grid.addWidget(lbl_shot_title, 0, 0)
         info_grid.addWidget(self.val_shot, 0, 1)
-        info_grid.addWidget(lbl_cam_title, 0, 2)
-        info_grid.addLayout(cam_box, 0, 3)
-        info_grid.addWidget(lbl_range_title, 1, 0)
-        info_grid.addWidget(self.val_range, 1, 1, 1, 3)
-        info_grid.addWidget(lbl_path_title, 2, 0)
-        info_grid.addWidget(self.val_path, 2, 1, 1, 3)
+        info_grid.addWidget(lbl_range_title, 0, 2)
+        info_grid.addWidget(self.val_range, 0, 3)
+        info_grid.addWidget(lbl_path_title, 1, 0)
+        info_grid.addWidget(self.val_path, 1, 1, 1, 3)
 
         info_layout.addLayout(info_grid)
         root.addWidget(info_panel)
@@ -194,11 +177,12 @@ class AnimIODialog(BaseToolDialog):
         self.asset_table = create_data_table(
             ["Asset Name", "Status"],
             stretch_columns=(0,),
-            fixed_columns={1: TABLE_STATUS_WIDTH},
+            fixed_columns={1: 180},
             extended_selection=True,
             minimum_height=180,
             parent=self,
         )
+        self.asset_table.setToolTip("Tip: Double-click a Camera row to automatically standardize or create it.")
         asset_layout.addWidget(self.asset_table, 1)
 
         # Velocity toggle
@@ -238,7 +222,7 @@ class AnimIODialog(BaseToolDialog):
 
     def _connect(self):
         self.refresh_btn.clicked.connect(self.refresh_scene_data)
-        self.fix_cam_btn.clicked.connect(self._fix_shot_camera)
+        self.asset_table.cellDoubleClicked.connect(self._on_table_double_clicked)
         self.open_folder_btn.clicked.connect(self._open_shot_folder)
         self.apply_button.clicked.connect(self._do_export)
 
@@ -292,27 +276,9 @@ class AnimIODialog(BaseToolDialog):
         self._resolved_shot_root = identity.get("export_dir") or ""
         is_unsaved = (self._resolved_shot_name.lower() in ("untitled_shot", "untitled_scene", "untitled"))
 
-        # Find camera with sanity check
         target_cam_name = self._resolved_shot_name + "_CAM" if not is_unsaved else "Shot_CAM"
         cam_node = find_active_shot_camera(self._resolved_shot_name)
         self._resolved_camera = cam_node
-
-        if cam_node:
-            short_cam = cam_node.split("|")[-1]
-            if short_cam.lower() == target_cam_name.lower():
-                self.val_cam.setText(target_cam_name)
-                self.val_cam.setStyleSheet("color: {}; font-weight: bold; font-size: 13px;".format(COLOR_PRIMARY_BLUE))
-                self.fix_cam_btn.setVisible(False)
-            else:
-                self.val_cam.setText(short_cam + " (Rename needed)")
-                self.val_cam.setStyleSheet("color: {}; font-weight: bold; font-size: 12px;".format(COLOR_STATUS_WARNING))
-                self.fix_cam_btn.setVisible(True)
-                self.fix_cam_btn.setText("Fix to " + target_cam_name)
-        else:
-            self.val_cam.setText("Missing ('{}')".format(target_cam_name))
-            self.val_cam.setStyleSheet("color: {}; font-weight: bold; font-size: 12px;".format(COLOR_STATUS_ERROR))
-            self.fix_cam_btn.setVisible(True)
-            self.fix_cam_btn.setText("Create " + target_cam_name)
 
         if is_unsaved:
             self.val_shot.setText(self._resolved_shot_name + " (Unsaved Scene)")
@@ -357,7 +323,6 @@ class AnimIODialog(BaseToolDialog):
 
         # Elements Table: Camera + Scene Assets (all checked by default)
         assets = data.get("assets", []) or (data.get("characters", []) + data.get("props", []))
-        # Deduplicate while preserving order
         seen_assets = set()
         clean_assets = []
         for a in assets:
@@ -365,26 +330,45 @@ class AnimIODialog(BaseToolDialog):
                 seen_assets.add(a)
                 clean_assets.append(a)
 
-        has_cam = bool(cam_node and cmds.objExists(cam_node))
-        total = (1 if has_cam else 0) + len(clean_assets)
+        total = (1 if cam_node else 0) + len(clean_assets)
         self.count_badge.setText("{} assets detected".format(total))
 
         self.asset_table.setRowCount(0)
         row = 0
 
-        # 1. Camera Row
-        if has_cam:
+        # 1. Camera Row (Indicates status directly in the list!)
+        if cam_node and cmds.objExists(cam_node):
             short_cam = cam_node.split("|")[-1]
             self.asset_table.insertRow(row)
 
             item_cam_name = QtWidgets.QTableWidgetItem(short_cam)
             item_cam_name.setData(QtCore.Qt.UserRole, ("camera", cam_node))
             item_cam_name.setCheckState(QtCore.Qt.Checked)
-            item_cam_name.setToolTip("Camera DAG Path: {}".format(cam_node))
 
-            item_cam_status = QtWidgets.QTableWidgetItem("Ready")
+            if short_cam.lower() == target_cam_name.lower():
+                item_cam_status = QtWidgets.QTableWidgetItem("Ready")
+                item_cam_status.setForeground(QtGui.QColor(COLOR_STATUS_SUCCESS))
+                item_cam_name.setToolTip("Shot Camera: {}".format(cam_node))
+            else:
+                item_cam_status = QtWidgets.QTableWidgetItem("Rename Needed -> " + target_cam_name)
+                item_cam_status.setForeground(QtGui.QColor(COLOR_STATUS_WARNING))
+                item_cam_name.setToolTip("Non-standard camera name. Double-click to rename to '{}'.".format(target_cam_name))
+
             item_cam_status.setTextAlignment(QtCore.Qt.AlignCenter)
-            item_cam_status.setForeground(QtGui.QColor(COLOR_STATUS_SUCCESS))
+            self.asset_table.setItem(row, 0, item_cam_name)
+            self.asset_table.setItem(row, 1, item_cam_status)
+            row += 1
+        elif not is_unsaved:
+            # Missing standardized camera row
+            self.asset_table.insertRow(row)
+            item_cam_name = QtWidgets.QTableWidgetItem(target_cam_name)
+            item_cam_name.setData(QtCore.Qt.UserRole, ("camera", None))
+            item_cam_name.setCheckState(QtCore.Qt.Unchecked)
+            item_cam_name.setToolTip("Camera '{}' not found in scene. Double-click to create.".format(target_cam_name))
+
+            item_cam_status = QtWidgets.QTableWidgetItem("Missing (Double-click to create)")
+            item_cam_status.setTextAlignment(QtCore.Qt.AlignCenter)
+            item_cam_status.setForeground(QtGui.QColor(COLOR_STATUS_ERROR))
 
             self.asset_table.setItem(row, 0, item_cam_name)
             self.asset_table.setItem(row, 1, item_cam_status)
@@ -408,12 +392,21 @@ class AnimIODialog(BaseToolDialog):
             self.asset_table.setItem(row, 1, item_status)
             row += 1
 
+    def _on_table_double_clicked(self, row, col):
+        """Double clicking a camera row standardizes or creates the shot camera."""
+        name_item = self.asset_table.item(row, 0)
+        if not name_item:
+            return
+        data = name_item.data(QtCore.Qt.UserRole)
+        if isinstance(data, (tuple, list)) and data[0] == "camera":
+            self._fix_shot_camera()
+
     def _fix_shot_camera(self):
         """1-Click Camera Fix Helper: rename selected camera or create standardized shot camera."""
         try:
             fixed_cam = fix_or_create_shot_camera(self._resolved_shot_name)
             self.refresh_scene_data()
-            self._set_message("Shot camera '{}' configured successfully.".format(fixed_cam.split("|")[-1]), "neutral")
+            self._set_message("Shot camera '{}' standardized successfully.".format(fixed_cam.split("|")[-1]), "neutral")
             self._set_status("Camera Fixed", "idle")
         except Exception as e:
             self._set_message("Camera fix error: {}".format(e), "warning")
@@ -467,9 +460,9 @@ class AnimIODialog(BaseToolDialog):
             item = self.asset_table.item(i, 0)
             if item and item.checkState() == QtCore.Qt.Checked:
                 atype, anode = item.data(QtCore.Qt.UserRole)
-                if atype == "camera":
+                if atype == "camera" and anode:
                     export_cam_node = anode
-                else:
+                elif atype == "asset":
                     assets_to_export.append(anode)
 
         vel = self.vel_toggle.is_checked()
