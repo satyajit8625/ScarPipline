@@ -96,6 +96,48 @@ class TestUIControls(unittest.TestCase):
         act3 = menu.addAction("↻  Reset to Default")
         self.assertEqual(len(menu.actions()), 4)
 
+    def test_status_badge(self):
+        from scartools.ui import create_badge, StatusBadge
+        badge = create_badge("✓ Verified", variant="success")
+        self.assertIsInstance(badge, StatusBadge)
+        self.assertEqual(badge.text(), "✓ Verified")
+        badge.set_variant("error")
+        self.assertEqual(badge._variant, "error")
+
+    def test_alert_callout(self):
+        from scartools.ui import create_alert_callout, AlertCallout
+        callout = create_alert_callout(title="Notice", message="Test callout", variant="warning")
+        self.assertIsInstance(callout, AlertCallout)
+        self.assertEqual(callout._title, "Notice")
+        self.assertEqual(callout._message, "Test callout")
+
+    def test_collapsible_card(self):
+        from scartools.ui import create_collapsible_card, CollapsibleCard
+        card = create_collapsible_card("Advanced Options", count=5, collapsed=True)
+        self.assertIsInstance(card, CollapsibleCard)
+        self.assertTrue(card._is_collapsed)
+        card._on_toggle()
+        self.assertFalse(card._is_collapsed)
+
+    def test_empty_state_widget(self):
+        from scartools.ui import create_empty_state, EmptyStateWidget
+        empty = create_empty_state("No Meshes", subtitle="Select meshes to begin", icon="📂", action_text="Scan Scene")
+        self.assertIsInstance(empty, EmptyStateWidget)
+        self.assertIsNotNone(empty.action_button)
+        self.assertEqual(empty.action_button.text(), "Scan Scene")
+
+    def test_search_input(self):
+        from scartools.ui import create_search_input, SearchInput
+        search = create_search_input(placeholder="Filter items...")
+        self.assertIsInstance(search, SearchInput)
+        self.assertEqual(search.placeholderText(), "Filter items...")
+
+    def test_key_value_row(self):
+        from scartools.ui import create_key_value_row
+        row = create_key_value_row("Frame Rate", "24 fps", is_badge=False)
+        self.assertIsNotNone(row)
+        self.assertEqual(row.count(), 3)
+
 
 if __name__ == "__main__":
     unittest.main()

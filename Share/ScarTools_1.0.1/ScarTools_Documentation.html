@@ -583,6 +583,9 @@
                 <div class="nav-item" onclick="showSection('updater_security', this)">
                     <span class="nav-item-icon">⚡</span> In-App Updater & Security
                 </div>
+                <div class="nav-item" onclick="showSection('design_system', this)">
+                    <span class="nav-item-icon">🎨</span> UI Design System (scartools.ui)
+                </div>
 
                 
 
@@ -1021,6 +1024,45 @@ Shot_010/
                             <li><strong>Hardware Fingerprinting:</strong> Deterministic hardware fingerprinting tied to Motherboard MachineGuid, CPU node ID, and physical NIC MAC.</li>
                             <li><strong>Two-Tier Fleet Enforcement:</strong> Level 1 Soft Lock (<code>Revoke</code>) vs Level 2 Hard Kill-Switch (<code>Delete / Purge</code>) with 0-byte zero-fill content shredding.</li>
                         </ul>
+                    </div>
+                </div>
+
+                <!-- 9.2 Design System & Components -->
+                <div id="design_system" class="doc-section">
+                    <div class="breadcrumb">Framework &bull; UI Design System</div>
+                    <h1>Centralized UI Design System (scartools.ui)</h1>
+                    <div class="doc-subtitle">Studio-grade component library, 8-point geometric spacing, and contrast-flipped semantic status badges inspired by <em>Refactoring UI</em>.</div>
+
+                    <h2>🎨 Core Components & Visual Hierarchy</h2>
+                    <div class="card">
+                        <div class="card-header">1. StatusBadge (Contrast-Flipped Tints)</div>
+                        <p>Provides clear, instant feedback without noisy high-saturation fills:</p>
+                        <ul>
+                            <li><code>variant="success"</code> (🟢): Dark emerald background (<code>#1B2B22</code>) with mint text (<code>#72D6AA</code>).</li>
+                            <li><code>variant="warning"</code> (🟡): Dark amber background (<code>#2B2518</code>) with gold text (<code>#D6B36A</code>).</li>
+                            <li><code>variant="error"</code> (🔴): Dark crimson background (<code>#2B1A1A</code>) with coral text (<code>#E06C6C</code>).</li>
+                            <li><code>variant="locked"</code> (🔒): Dark slate background (<code>#1A242B</code>) with sky blue text (<code>#79A9E6</code>).</li>
+                        </ul>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">2. AlertCallout (Informational Banners)</div>
+                        <p>Structured callout containers with a 4px colored left accent border, high-contrast title, and readable secondary body text.</p>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">3. CollapsibleCard (Accordion Sections)</div>
+                        <p>Standardized collapsible containers with an interactive toggle chevron (<code>▸</code> / <code>▾</code>), optional parameter count badges (<code>[ 5 options ]</code>), and smooth child widget expansion.</p>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">4. EmptyStateWidget (Table Placeholders)</div>
+                        <p>Centered placeholder displayed when tables or asset lists have 0 items. Features a large department icon, explanation message, and a 1-click CTA button.</p>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">5. SearchInput & KeyValuePairWidget</div>
+                        <p>Recessed instant search bar with clear button (<code>✖</code>), and standard key-value display rows implementing the <em>de-emphasize labels, emphasize values</em> principle.</p>
                     </div>
                 </div>
 

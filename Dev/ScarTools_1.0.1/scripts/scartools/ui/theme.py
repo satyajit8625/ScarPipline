@@ -140,6 +140,7 @@ QFrame#SectionPanel[accent="primary"] { border-top: 2px solid #4F78B8; }
 QFrame#SectionPanel[accent="neutral"] { border-top: 2px solid #505050; }
 QLabel#SectionTitle {
     color: #D2D2D2; font-size: 11px; font-weight: 600; padding: 0;
+    letter-spacing: 0.8px;
 }
 QFrame#ActionFooter {
     background: #292929; border: 1px solid #3A3A3A; border-radius: 6px;
@@ -320,6 +321,7 @@ QHeaderView::section {
     background: #2A2A2A; color: #AFAFAF; border: none;
     border-right: 1px solid #363636; border-bottom: 1px solid #3B3B3B;
     padding: 6px 8px; font-size: 10px; font-weight: 600;
+    letter-spacing: 0.5px;
 }
 QPushButton {
     background: #343434; border: 1px solid #484848; border-radius: 5px;
@@ -332,11 +334,13 @@ QPushButton:focus, QComboBox:focus, QLineEdit:focus, QSpinBox:focus {
 }
 QPushButton:disabled { background: #2A2A2A; color: #666; border-color: #333; }
 QPushButton#PrimaryButton, QPushButton[role="primary"] {
-    background: #4F78B8; border: 1px solid #6E94CE; color: white;
+    background: #4F78B8; border: 1px solid #5C87C8; border-top: 1px solid #7BA3E0;
+    border-bottom: 1px solid #36578C; color: white;
     padding: 0 14px; font-size: 12px; font-weight: 700;
+    letter-spacing: 0.4px; border-radius: 5px;
 }
 QPushButton#PrimaryButton:hover, QPushButton[role="primary"]:hover {
-    background: #5C87C8; border-color: #83A6DA;
+    background: #5C87C8; border-color: #83A6DA; border-top-color: #9EC0F5;
 }
 QPushButton#PrimaryButton[mode="export"] { background: #4F78B5; border-color: #7095CF; }
 QPushButton#PrimaryButton[mode="import"] { background: #4C9278; border-color: #70B69A; }

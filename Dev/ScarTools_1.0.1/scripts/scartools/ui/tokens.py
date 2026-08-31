@@ -33,6 +33,8 @@ FONT_WEIGHT_BOLD = 700
 COLOR_BG_ROOT = "#242424"
 COLOR_BG_PANEL = "#292929"
 COLOR_BG_DARK = "#202020"
+COLOR_BG_WELL = "#1E2024"
+COLOR_BG_HOVER = "#32363F"
 COLOR_BG_INPUT = "#181818"
 COLOR_BG_INPUT_FOCUS = "#1E1E1E"
 COLOR_BG_INPUT_READONLY = "#141414"
@@ -100,7 +102,42 @@ COLOR_TAG_BG = "#2D323B"
 COLOR_TAG_BORDER = "#4C566A"
 
 # -----------------------------------------------------------------------------
-# 3. Layout & Dimension Metrics
+# 3. Refactoring UI 8-Point Spacing Scale & Letter-Spacing
+# -----------------------------------------------------------------------------
+SPACE_XS = 4
+SPACE_SM = 8
+SPACE_MD = 12
+SPACE_LG = 16
+SPACE_XL = 24
+SPACE_2XL = 32
+
+LETTER_SPACING_HEADER = "0.8px"
+LETTER_SPACING_BADGE = "0.5px"
+LETTER_SPACING_BUTTON = "0.4px"
+
+# Semantic Contrast-Flipped Badge & Callout Tints
+COLOR_BADGE_SUCCESS_BG = "#1B2B22"
+COLOR_BADGE_SUCCESS_BORDER = "#2E523E"
+COLOR_BADGE_SUCCESS_TEXT = "#72D6AA"
+
+COLOR_BADGE_WARNING_BG = "#2B2518"
+COLOR_BADGE_WARNING_BORDER = "#524528"
+COLOR_BADGE_WARNING_TEXT = "#D6B36A"
+
+COLOR_BADGE_ERROR_BG = "#2B1A1A"
+COLOR_BADGE_ERROR_BORDER = "#522B2B"
+COLOR_BADGE_ERROR_TEXT = "#E06C6C"
+
+COLOR_BADGE_INFO_BG = "#1A242B"
+COLOR_BADGE_INFO_BORDER = "#2B4352"
+COLOR_BADGE_INFO_TEXT = "#79A9E6"
+
+COLOR_BADGE_NEUTRAL_BG = "#202227"
+COLOR_BADGE_NEUTRAL_BORDER = "#363C46"
+COLOR_BADGE_NEUTRAL_TEXT = "#A0AAB8"
+
+# -----------------------------------------------------------------------------
+# 4. Layout & Dimension Metrics
 # -----------------------------------------------------------------------------
 WINDOW_MARGIN = 14
 WINDOW_SPACING = 10
@@ -126,4 +163,5 @@ STATUS_DOT_WIDTH = 20
 ACTION_FOOTER_MIN_HEIGHT = 92
 
 __all__ = [name for name in globals() if name.isupper()]
+
 

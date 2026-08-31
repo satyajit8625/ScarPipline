@@ -16,6 +16,8 @@ from scartools.ui import (
     create_brand_header,
     create_section_panel,
     create_button,
+    create_collapsible_card,
+    create_badge,
     apply_theme,
     repolish,
     PRIMARY_BUTTON_WIDTH,
@@ -220,8 +222,7 @@ class AlembicSettingsDialog(BaseToolDialog):
         row_fmt = QtWidgets.QHBoxLayout()
         lbl_fmt = QtWidgets.QLabel("Data Format:", self)
         lbl_fmt.setObjectName("SettingsMutedLabel")
-        val_fmt = QtWidgets.QLabel("Ogawa [Pipeline Standard 🔒]", self)
-        val_fmt.setStyleSheet("color: #72D6AA; font-weight: 600; font-size: 11px;")
+        val_fmt = create_badge("Ogawa 🔒", variant="pipeline", parent=self)
         val_fmt.setToolTip("Ogawa is the high-performance pipeline standard for Alembic caching")
         row_fmt.addWidget(lbl_fmt)
         row_fmt.addWidget(val_fmt)
@@ -310,19 +311,8 @@ class AlembicSettingsDialog(BaseToolDialog):
 
         layout.addWidget(_create_separator())
 
-        # Collapsible Advanced Section inside the master card
-        self.adv_btn = QtWidgets.QPushButton("▸  Advanced Options (Rarely Modified)", self)
-        self.adv_btn.setObjectName("SettingsFieldLabel")
-        self.adv_btn.setFlat(True)
-        self.adv_btn.setStyleSheet("text-align: left; padding: 2px 0; color: #8A94A6; font-weight: 500;")
-        self.adv_btn.setCursor(QtCore.Qt.PointingHandCursor)
-        layout.addWidget(self.adv_btn)
-
-        self.adv_frame = QtWidgets.QFrame(self)
-        self.adv_frame.setVisible(False)
-        adv_sub_layout = QtWidgets.QVBoxLayout(self.adv_frame)
-        adv_sub_layout.setContentsMargins(0, 4, 0, 0)
-        adv_sub_layout.setSpacing(6)
+        # Centralized CollapsibleCard Accordion Section
+        self.adv_card = create_collapsible_card("Advanced Options (Rarely Modified)", count=5, collapsed=True, parent=self)
 
         grid_adv = QtWidgets.QGridLayout()
         grid_adv.setHorizontalSpacing(18)
@@ -361,8 +351,8 @@ class AlembicSettingsDialog(BaseToolDialog):
         grid_adv.addWidget(lbl_euler, 2, 0)
         grid_adv.addWidget(self.sw_euler, 2, 1)
 
-        adv_sub_layout.addLayout(grid_adv)
-        layout.addWidget(self.adv_frame)
+        self.adv_card.add_layout(grid_adv)
+        layout.addWidget(self.adv_card)
 
         root.addWidget(master_panel)
 
@@ -384,15 +374,9 @@ class AlembicSettingsDialog(BaseToolDialog):
         root.addWidget(footer_frame)
 
         # Connections
-        self.adv_btn.clicked.connect(self._toggle_advanced)
         self.btn_reset.clicked.connect(self._on_reset)
         self.btn_cancel.clicked.connect(self.close)
         self.btn_save.clicked.connect(self._on_save)
-
-    def _toggle_advanced(self):
-        is_open = self.adv_frame.isVisible()
-        self.adv_frame.setVisible(not is_open)
-        self.adv_btn.setText("▾  Advanced Options (Rarely Modified)" if not is_open else "▸  Advanced Options (Rarely Modified)")
 
     def _load_values(self, data):
         step_val = float(data.get("step", 1.0))
@@ -595,23 +579,19 @@ class FBXSettingsDialog(BaseToolDialog):
 
         lbl_p_fmt = QtWidgets.QLabel("File Format:", self)
         lbl_p_fmt.setObjectName("SettingsMutedLabel")
-        val_p_fmt = QtWidgets.QLabel("Binary [Standard 🔒]", self)
-        val_p_fmt.setStyleSheet("color: #72D6AA; font-weight: 600; font-size: 11px;")
+        val_p_fmt = create_badge("Binary 🔒", variant="locked", parent=self)
 
         lbl_p_axis = QtWidgets.QLabel("Up Axis:", self)
         lbl_p_axis.setObjectName("SettingsMutedLabel")
-        val_p_axis = QtWidgets.QLabel("Y-Up (Maya / Film) [🔒]", self)
-        val_p_axis.setStyleSheet("color: #72D6AA; font-weight: 600; font-size: 11px;")
+        val_p_axis = create_badge("Y-Up 🔒", variant="locked", parent=self)
 
         lbl_p_unit = QtWidgets.QLabel("Units:", self)
         lbl_p_unit.setObjectName("SettingsMutedLabel")
-        val_p_unit = QtWidgets.QLabel("Centimeters [🔒]", self)
-        val_p_unit.setStyleSheet("color: #72D6AA; font-weight: 600; font-size: 11px;")
+        val_p_unit = create_badge("cm 🔒", variant="locked", parent=self)
 
         lbl_p_media = QtWidgets.QLabel("Embed Media:", self)
         lbl_p_media.setObjectName("SettingsMutedLabel")
-        val_p_media = QtWidgets.QLabel("OFF [Clean 🔒]", self)
-        val_p_media.setStyleSheet("color: #72D6AA; font-weight: 600; font-size: 11px;")
+        val_p_media = create_badge("OFF 🔒", variant="locked", parent=self)
 
         grid_pipe.addWidget(lbl_p_fmt, 0, 0)
         grid_pipe.addWidget(val_p_fmt, 0, 1)
@@ -626,19 +606,8 @@ class FBXSettingsDialog(BaseToolDialog):
 
         layout.addWidget(_create_separator())
 
-        # Collapsible Advanced Section inside the master card
-        self.adv_btn = QtWidgets.QPushButton("▸  Advanced Options (Rarely Modified)", self)
-        self.adv_btn.setObjectName("SettingsFieldLabel")
-        self.adv_btn.setFlat(True)
-        self.adv_btn.setStyleSheet("text-align: left; padding: 2px 0; color: #8A94A6; font-weight: 500;")
-        self.adv_btn.setCursor(QtCore.Qt.PointingHandCursor)
-        layout.addWidget(self.adv_btn)
-
-        self.adv_frame = QtWidgets.QFrame(self)
-        self.adv_frame.setVisible(False)
-        adv_sub_layout = QtWidgets.QVBoxLayout(self.adv_frame)
-        adv_sub_layout.setContentsMargins(0, 4, 0, 0)
-        adv_sub_layout.setSpacing(6)
+        # Centralized CollapsibleCard Accordion Section
+        self.adv_card = create_collapsible_card("Advanced Options (Rarely Modified)", count=3, collapsed=True, parent=self)
 
         grid_adv = QtWidgets.QGridLayout()
         grid_adv.setHorizontalSpacing(18)
@@ -663,8 +632,8 @@ class FBXSettingsDialog(BaseToolDialog):
         grid_adv.addWidget(lbl_pres, 1, 0)
         grid_adv.addWidget(self.sw_pres, 1, 1)
 
-        adv_sub_layout.addLayout(grid_adv)
-        layout.addWidget(self.adv_frame)
+        self.adv_card.add_layout(grid_adv)
+        layout.addWidget(self.adv_card)
 
         root.addWidget(master_panel)
 
@@ -686,15 +655,9 @@ class FBXSettingsDialog(BaseToolDialog):
         root.addWidget(footer_frame)
 
         # Connections
-        self.adv_btn.clicked.connect(self._toggle_advanced)
         self.btn_reset.clicked.connect(self._on_reset)
         self.btn_cancel.clicked.connect(self.close)
         self.btn_save.clicked.connect(self._on_save)
-
-    def _toggle_advanced(self):
-        is_open = self.adv_frame.isVisible()
-        self.adv_frame.setVisible(not is_open)
-        self.adv_btn.setText("▾  Advanced Options (Rarely Modified)" if not is_open else "▸  Advanced Options (Rarely Modified)")
 
     def _load_values(self, data):
         self.sw_anim.set_checked(data.get("animation", True))

@@ -1075,6 +1075,19 @@ from .workspace import (
     create_preset_bar,
     dock_tool_window,
 )
+from .refactored_components import (
+    StatusBadge,
+    create_badge,
+    AlertCallout,
+    create_alert_callout,
+    CollapsibleCard,
+    create_collapsible_card,
+    EmptyStateWidget,
+    create_empty_state,
+    SearchInput,
+    create_search_input,
+    create_key_value_row,
+)
 from .theme import (
     THEMES,
     get_available_themes,
@@ -1134,5 +1147,16 @@ __all__ += [
     "set_active_theme",
     "DesignSystemShowcaseDialog",
     "show_showcase",
+    "StatusBadge",
+    "create_badge",
+    "AlertCallout",
+    "create_alert_callout",
+    "CollapsibleCard",
+    "create_collapsible_card",
+    "EmptyStateWidget",
+    "create_empty_state",
+    "SearchInput",
+    "create_search_input",
+    "create_key_value_row",
 ]
 
