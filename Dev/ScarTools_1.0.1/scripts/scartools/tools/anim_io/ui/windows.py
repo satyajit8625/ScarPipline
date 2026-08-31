@@ -171,9 +171,9 @@ class AnimIODialog(BaseToolDialog):
         asset_layout.addLayout(top_bar)
 
         self.asset_table = create_data_table(
-            ["Asset Name", "Status"],
+            ["Asset Name", "Export", "Status"],
             stretch_columns=(0,),
-            fixed_columns={1: 190},
+            fixed_columns={1: 75, 2: 190},
             extended_selection=True,
             minimum_height=180,
             parent=self,
@@ -219,8 +219,17 @@ class AnimIODialog(BaseToolDialog):
     def _connect(self):
         self.refresh_btn.clicked.connect(self.refresh_scene_data)
         self.asset_table.cellDoubleClicked.connect(self._on_table_double_clicked)
+        self.asset_table.cellClicked.connect(self._on_cell_clicked)
         self.open_folder_btn.clicked.connect(self._open_shot_folder)
         self.apply_button.clicked.connect(self._do_export)
+
+    def _on_cell_clicked(self, row, col):
+        """Clicking the Export column cell toggles the checkbox cleanly."""
+        if col == 1:
+            check_item = self.asset_table.item(row, 1)
+            if check_item:
+                new_state = QtCore.Qt.Unchecked if check_item.checkState() == QtCore.Qt.Checked else QtCore.Qt.Checked
+                check_item.setCheckState(new_state)
 
     def _register_scene_callbacks(self):
         """Register Maya scene scriptJobs for automatic real-time UI updates on scene open, new, save, and timing changes."""
@@ -276,9 +285,7 @@ class AnimIODialog(BaseToolDialog):
         cam_node = find_active_shot_camera(self._resolved_shot_name)
         self._resolved_camera = cam_node
 
-        dept = identity.get("department") or "ANM"
         proj = identity.get("project")
-        ver = identity.get("version_str") or "V001"
 
         if is_unsaved:
             self.val_shot.setText(self._resolved_shot_name + " (Unsaved)")
@@ -332,37 +339,50 @@ class AnimIODialog(BaseToolDialog):
             short_cam = cam_node.split("|")[-1]
             self.asset_table.insertRow(row)
 
+            # Col 0: Asset Name
             item_cam_name = QtWidgets.QTableWidgetItem(short_cam)
             item_cam_name.setData(QtCore.Qt.UserRole, ("camera", cam_node))
-            item_cam_name.setCheckState(QtCore.Qt.Checked)
+            item_cam_name.setToolTip("Shot Camera: {}".format(cam_node))
 
+            # Col 1: Export Checkbox
+            item_cam_check = QtWidgets.QTableWidgetItem()
+            item_cam_check.setCheckState(QtCore.Qt.Checked)
+            item_cam_check.setTextAlignment(QtCore.Qt.AlignCenter)
+            item_cam_check.setFlags(QtCore.Qt.ItemIsUserCheckable | QtCore.Qt.ItemIsEnabled | QtCore.Qt.ItemIsSelectable)
+            item_cam_check.setToolTip("Include shot camera in export")
+
+            # Col 2: Status
             if short_cam.lower() == target_cam_name.lower():
                 item_cam_status = QtWidgets.QTableWidgetItem("Ready")
                 item_cam_status.setForeground(QtGui.QColor(COLOR_STATUS_SUCCESS))
-                item_cam_name.setToolTip("Shot Camera: {}".format(cam_node))
             else:
                 item_cam_status = QtWidgets.QTableWidgetItem("Rename Needed -> " + target_cam_name)
                 item_cam_status.setForeground(QtGui.QColor(COLOR_STATUS_WARNING))
-                item_cam_name.setToolTip("Non-standard camera name. Double-click to rename to '{}'.".format(target_cam_name))
 
             item_cam_status.setTextAlignment(QtCore.Qt.AlignCenter)
             self.asset_table.setItem(row, 0, item_cam_name)
-            self.asset_table.setItem(row, 1, item_cam_status)
+            self.asset_table.setItem(row, 1, item_cam_check)
+            self.asset_table.setItem(row, 2, item_cam_status)
             row += 1
         elif not is_unsaved:
             # Missing standardized camera row
             self.asset_table.insertRow(row)
             item_cam_name = QtWidgets.QTableWidgetItem(target_cam_name)
             item_cam_name.setData(QtCore.Qt.UserRole, ("camera", None))
-            item_cam_name.setCheckState(QtCore.Qt.Unchecked)
             item_cam_name.setToolTip("Camera '{}' not found in scene. Double-click to create.".format(target_cam_name))
+
+            item_cam_check = QtWidgets.QTableWidgetItem()
+            item_cam_check.setCheckState(QtCore.Qt.Unchecked)
+            item_cam_check.setTextAlignment(QtCore.Qt.AlignCenter)
+            item_cam_check.setFlags(QtCore.Qt.ItemIsUserCheckable | QtCore.Qt.ItemIsEnabled | QtCore.Qt.ItemIsSelectable)
 
             item_cam_status = QtWidgets.QTableWidgetItem("Missing (Double-click to create)")
             item_cam_status.setTextAlignment(QtCore.Qt.AlignCenter)
             item_cam_status.setForeground(QtGui.QColor(COLOR_STATUS_ERROR))
 
             self.asset_table.setItem(row, 0, item_cam_name)
-            self.asset_table.setItem(row, 1, item_cam_status)
+            self.asset_table.setItem(row, 1, item_cam_check)
+            self.asset_table.setItem(row, 2, item_cam_status)
             row += 1
 
         # 2. Scene Asset Rows
@@ -370,17 +390,26 @@ class AnimIODialog(BaseToolDialog):
             short = a.split("|")[-1]
             self.asset_table.insertRow(row)
 
+            # Col 0: Asset Name
             item_name = QtWidgets.QTableWidgetItem(short)
             item_name.setData(QtCore.Qt.UserRole, ("asset", a))
-            item_name.setCheckState(QtCore.Qt.Checked)
             item_name.setToolTip("Scene Hierarchy: {}".format(a))
 
+            # Col 1: Export Checkbox
+            item_check = QtWidgets.QTableWidgetItem()
+            item_check.setCheckState(QtCore.Qt.Checked)
+            item_check.setTextAlignment(QtCore.Qt.AlignCenter)
+            item_check.setFlags(QtCore.Qt.ItemIsUserCheckable | QtCore.Qt.ItemIsEnabled | QtCore.Qt.ItemIsSelectable)
+            item_check.setToolTip("Include asset in export")
+
+            # Col 2: Status
             item_status = QtWidgets.QTableWidgetItem("Ready")
             item_status.setTextAlignment(QtCore.Qt.AlignCenter)
             item_status.setForeground(QtGui.QColor(COLOR_STATUS_SUCCESS))
 
             self.asset_table.setItem(row, 0, item_name)
-            self.asset_table.setItem(row, 1, item_status)
+            self.asset_table.setItem(row, 1, item_check)
+            self.asset_table.setItem(row, 2, item_status)
             row += 1
 
     def _on_table_double_clicked(self, row, col):
@@ -449,13 +478,16 @@ class AnimIODialog(BaseToolDialog):
         assets_to_export = []
         export_cam_node = None
         for i in range(self.asset_table.rowCount()):
-            item = self.asset_table.item(i, 0)
-            if item and item.checkState() == QtCore.Qt.Checked:
-                atype, anode = item.data(QtCore.Qt.UserRole)
-                if atype == "camera" and anode:
-                    export_cam_node = anode
-                elif atype == "asset":
-                    assets_to_export.append(anode)
+            check_item = self.asset_table.item(i, 1)
+            name_item = self.asset_table.item(i, 0)
+            if check_item and check_item.checkState() == QtCore.Qt.Checked and name_item:
+                data = name_item.data(QtCore.Qt.UserRole)
+                if isinstance(data, (tuple, list)):
+                    atype, anode = data
+                    if atype == "camera" and anode:
+                        export_cam_node = anode
+                    elif atype == "asset":
+                        assets_to_export.append(anode)
 
         vel = self.vel_toggle.is_checked()
         total_items = (1 if export_cam_node else 0) + len(assets_to_export)
