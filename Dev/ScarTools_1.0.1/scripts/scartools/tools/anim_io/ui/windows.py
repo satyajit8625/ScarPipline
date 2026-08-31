@@ -26,6 +26,9 @@ from scartools.ui import (
     create_data_table,
     create_action_footer,
     create_button,
+    create_badge,
+    create_segmented_control,
+    create_empty_state,
     apply_theme,
     repolish,
     OperationProgressPopup,
@@ -97,7 +100,7 @@ class AnimIODialog(BaseToolDialog):
         self.setWindowTitle(self.WINDOW_TITLE)
         self.controller = AnimIOController()
         self.setAttribute(QtCore.Qt.WA_DeleteOnClose, True)
-        configure_window(self, (700, 500), (820, 600))
+        configure_window(self, (720, 520), (840, 620))
         apply_window_icon(self)
 
         self._resolved_shot_name = "untitled_shot"
@@ -164,19 +167,19 @@ class AnimIODialog(BaseToolDialog):
         top_bar.addStretch(1)
 
         fmt_lbl = QtWidgets.QLabel("Format:", self)
-        self.geo_format_combo = QtWidgets.QComboBox(self)
-        self.geo_format_combo.addItems(["Alembic", "FBX", "Both"])
-        self.geo_format_combo.setCurrentIndex(2)  # Default: Both
-        configure_field(self.geo_format_combo, minimum_width=140)
+        fmt_lbl.setStyleSheet("color: #8A94A6; font-size: 11px; font-weight: 500;")
+        self.geo_format_seg = create_segmented_control(["Alembic", "FBX", "Both"], current=2, accent="pipeline", parent=self)
         top_bar.addWidget(fmt_lbl)
-        top_bar.addWidget(self.geo_format_combo)
+        top_bar.addWidget(self.geo_format_seg)
+        top_bar.addSpacing(10)
 
         self.refresh_btn = create_button("Refresh Scene", role="secondary", parent=self)
+        self.refresh_btn.setToolTip("Scan active Maya scene for new rigs and cameras (Hotkey: F5)")
         top_bar.addWidget(self.refresh_btn)
 
         self.settings_btn = create_button("⋮", role="secondary", fixed_width=32, parent=self)
         self.settings_btn.setObjectName("TableOverflowButton")
-        self.settings_btn.setToolTip("Export Settings")
+        self.settings_btn.setToolTip("Export Settings (Alembic & FBX Parameters)")
         top_bar.addWidget(self.settings_btn)
 
         asset_layout.addLayout(top_bar)
@@ -210,6 +213,7 @@ class AnimIODialog(BaseToolDialog):
             include_log=False,
         )
         self.apply_button.setMinimumWidth(PRIMARY_BUTTON_WIDTH)
+        self.apply_button.setToolTip("Export shot caches to Alembic and FBX (Hotkey: Ctrl+Enter)")
 
         # Open Shot Folder Button (Initially hidden until export completes)
         self.open_folder_btn = create_button("Open Folder", role="secondary", parent=self)
@@ -226,6 +230,22 @@ class AnimIODialog(BaseToolDialog):
         self.asset_table.cellClicked.connect(self._on_cell_clicked)
         self.open_folder_btn.clicked.connect(self._open_shot_folder)
         self.apply_button.clicked.connect(self._do_export)
+
+    def keyPressEvent(self, event):
+        """Keyboard accelerators: Ctrl+Enter (Export), F5 (Refresh), Escape (Close)."""
+        if (event.key() in (QtCore.Qt.Key_Return, QtCore.Qt.Key_Enter)) and (event.modifiers() & QtCore.Qt.ControlModifier):
+            self._do_export()
+            event.accept()
+            return
+        elif event.key() == QtCore.Qt.Key_F5:
+            self.refresh_scene_data()
+            event.accept()
+            return
+        elif event.key() == QtCore.Qt.Key_Escape:
+            self.close()
+            event.accept()
+            return
+        super(AnimIODialog, self).keyPressEvent(event)
 
     def _open_settings_menu(self):
         """Show the standardized ScarPopupMenu with Alembic Settings, FBX Settings, and Defaults."""
@@ -296,6 +316,16 @@ class AnimIODialog(BaseToolDialog):
         self.message_label.setText(str(text))
         self.message_label.setProperty("state", state)
         repolish(self.message_label)
+
+    def _set_cell_badge(self, row, text, variant="neutral"):
+        """Attach a centered StatusBadge widget to a table cell."""
+        badge = create_badge(text=text, variant=variant, parent=self.asset_table)
+        cell_widget = QtWidgets.QWidget()
+        cell_layout = QtWidgets.QHBoxLayout(cell_widget)
+        cell_layout.setContentsMargins(4, 2, 4, 2)
+        cell_layout.setAlignment(QtCore.Qt.AlignCenter)
+        cell_layout.addWidget(badge)
+        self.asset_table.setCellWidget(row, 2, cell_widget)
 
     def refresh_scene_data(self):
         """Scan active Maya scene for shot identity, cameras, characters, props, and timeline range."""
@@ -376,18 +406,14 @@ class AnimIODialog(BaseToolDialog):
             item_cam_check.setFlags(QtCore.Qt.ItemIsUserCheckable | QtCore.Qt.ItemIsEnabled | QtCore.Qt.ItemIsSelectable)
             item_cam_check.setToolTip("Include shot camera in export")
 
-            # Col 2: Status
-            if short_cam.lower() == target_cam_name.lower():
-                item_cam_status = QtWidgets.QTableWidgetItem("Ready")
-                item_cam_status.setForeground(QtGui.QColor(COLOR_STATUS_SUCCESS))
-            else:
-                item_cam_status = QtWidgets.QTableWidgetItem("Rename Needed -> " + target_cam_name)
-                item_cam_status.setForeground(QtGui.QColor(COLOR_STATUS_WARNING))
-
-            item_cam_status.setTextAlignment(QtCore.Qt.AlignCenter)
             self.asset_table.setItem(row, 0, item_cam_name)
             self.asset_table.setItem(row, 1, item_cam_check)
-            self.asset_table.setItem(row, 2, item_cam_status)
+
+            # Col 2: Status Badge
+            if short_cam.lower() == target_cam_name.lower():
+                self._set_cell_badge(row, "✓ Ready", variant="success")
+            else:
+                self._set_cell_badge(row, "⚠️ Rename Needed", variant="warning")
             row += 1
         elif not is_unsaved:
             # Missing standardized camera row
@@ -401,13 +427,9 @@ class AnimIODialog(BaseToolDialog):
             item_cam_check.setTextAlignment(QtCore.Qt.AlignCenter)
             item_cam_check.setFlags(QtCore.Qt.ItemIsUserCheckable | QtCore.Qt.ItemIsEnabled | QtCore.Qt.ItemIsSelectable)
 
-            item_cam_status = QtWidgets.QTableWidgetItem("Missing (Double-click to create)")
-            item_cam_status.setTextAlignment(QtCore.Qt.AlignCenter)
-            item_cam_status.setForeground(QtGui.QColor(COLOR_STATUS_ERROR))
-
             self.asset_table.setItem(row, 0, item_cam_name)
             self.asset_table.setItem(row, 1, item_cam_check)
-            self.asset_table.setItem(row, 2, item_cam_status)
+            self._set_cell_badge(row, "❌ Missing Camera", variant="error")
             row += 1
 
         # 2. Scene Asset Rows
@@ -427,14 +449,9 @@ class AnimIODialog(BaseToolDialog):
             item_check.setFlags(QtCore.Qt.ItemIsUserCheckable | QtCore.Qt.ItemIsEnabled | QtCore.Qt.ItemIsSelectable)
             item_check.setToolTip("Include asset in export")
 
-            # Col 2: Status
-            item_status = QtWidgets.QTableWidgetItem("Ready")
-            item_status.setTextAlignment(QtCore.Qt.AlignCenter)
-            item_status.setForeground(QtGui.QColor(COLOR_STATUS_SUCCESS))
-
             self.asset_table.setItem(row, 0, item_name)
             self.asset_table.setItem(row, 1, item_check)
-            self.asset_table.setItem(row, 2, item_status)
+            self._set_cell_badge(row, "✓ Ready", variant="success")
             row += 1
 
     def _on_table_double_clicked(self, row, col):
@@ -517,7 +534,7 @@ class AnimIODialog(BaseToolDialog):
         total_items = (1 if export_cam_node else 0) + len(assets_to_export)
 
         # Geo formats
-        geo_idx = self.geo_format_combo.currentIndex()
+        geo_idx = self.geo_format_seg.current_index()
         geo_fmts = ("abc",) if geo_idx == 0 else (("fbx",) if geo_idx == 1 else ("abc", "fbx"))
 
         # Read configured Alembic and FBX parameters
