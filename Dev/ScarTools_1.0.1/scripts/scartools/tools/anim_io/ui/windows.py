@@ -5,7 +5,6 @@ from __future__ import absolute_import, division, print_function
 
 import os
 import maya.cmds as cmds
-import maya.mel as mel
 
 from scartools.ui.qt import QtCore, QtWidgets, QtGui, apply_window_icon, maya_main_window
 from scartools.ui.window import BaseToolDialog, register_window
@@ -28,7 +27,6 @@ from scartools.ui import (
     repolish,
 )
 from scartools.ui.controls import (
-    create_segmented_control,
     create_toggle_switch,
 )
 
@@ -65,7 +63,7 @@ def _get_scene_fps():
 
 
 class AnimIODialog(BaseToolDialog):
-    """Dedicated Studio UI Dialog for Anim Export Tool with Smart Timing Panel."""
+    """Ultra-Clean Automated Studio UI Dialog for Anim Export Tool."""
 
     OBJECT_NAME = "ScarToolsAnimIODialog"
     TOOL_ID = "scartools_anim_io"
@@ -80,7 +78,7 @@ class AnimIODialog(BaseToolDialog):
         self.setWindowTitle(self.WINDOW_TITLE)
         self.controller = AnimIOController()
         self.setAttribute(QtCore.Qt.WA_DeleteOnClose, True)
-        configure_window(self, (740, 600), (860, 720))
+        configure_window(self, (720, 520), (840, 620))
         apply_window_icon(self)
 
         self._resolved_shot_name = "untitled_shot"
@@ -122,6 +120,11 @@ class AnimIODialog(BaseToolDialog):
         self.val_cam = QtWidgets.QLabel("Detecting...", self)
         self.val_cam.setStyleSheet("color: #4F94CD; font-weight: bold; font-size: 13px;")
 
+        lbl_range_title = QtWidgets.QLabel("Timeline Range:", self)
+        lbl_range_title.setStyleSheet("color: #888888; font-weight: bold;")
+        self.val_range = QtWidgets.QLabel("Detecting...", self)
+        self.val_range.setStyleSheet("color: #4E937B; font-weight: bold; font-size: 12px;")
+
         lbl_path_title = QtWidgets.QLabel("Target Shot Root:", self)
         lbl_path_title.setStyleSheet("color: #888888; font-weight: bold;")
         self.val_path = QtWidgets.QLabel("Detecting...", self)
@@ -132,8 +135,10 @@ class AnimIODialog(BaseToolDialog):
         info_grid.addWidget(self.val_shot, 0, 1)
         info_grid.addWidget(lbl_cam_title, 0, 2)
         info_grid.addWidget(self.val_cam, 0, 3)
-        info_grid.addWidget(lbl_path_title, 1, 0)
-        info_grid.addWidget(self.val_path, 1, 1, 1, 3)
+        info_grid.addWidget(lbl_range_title, 1, 0)
+        info_grid.addWidget(self.val_range, 1, 1, 1, 3)
+        info_grid.addWidget(lbl_path_title, 2, 0)
+        info_grid.addWidget(self.val_path, 2, 1, 1, 3)
 
         info_layout.addLayout(info_grid)
         root.addWidget(info_panel)
@@ -151,14 +156,13 @@ class AnimIODialog(BaseToolDialog):
         fmt_lbl = QtWidgets.QLabel("Format:", self)
         self.geo_format_combo = QtWidgets.QComboBox(self)
         self.geo_format_combo.addItems(["Alembic (.abc)", "FBX (.fbx)", "Both (.abc + .fbx)"])
+        self.geo_format_combo.setCurrentIndex(2)  # Default: Both
         configure_field(self.geo_format_combo, minimum_width=140)
         top_bar.addWidget(fmt_lbl)
         top_bar.addWidget(self.geo_format_combo)
 
         self.refresh_btn = create_button("Refresh Scene", role="secondary", parent=self)
-        self.select_all_btn = create_button("Select All", role="secondary", parent=self)
         top_bar.addWidget(self.refresh_btn)
-        top_bar.addWidget(self.select_all_btn)
         asset_layout.addLayout(top_bar)
 
         self.asset_table = create_data_table(
@@ -166,7 +170,7 @@ class AnimIODialog(BaseToolDialog):
             stretch_columns=(0, 2),
             fixed_columns={1: 90, 3: TABLE_STATUS_WIDTH},
             extended_selection=True,
-            minimum_height=160,
+            minimum_height=170,
             parent=self,
         )
         asset_layout.addWidget(self.asset_table, 1)
@@ -181,83 +185,7 @@ class AnimIODialog(BaseToolDialog):
 
         root.addWidget(asset_panel, 1)
 
-        # 4. Smart Frame Range & Timing Panel [UI-03, UI-04, UI-05]
-        range_panel, range_layout, _ = create_section_panel(
-            "Frame Range & Timing", accent="pipeline", parent=self
-        )
-
-        # Mode Selection + From Selected Keys Row
-        mode_row = QtWidgets.QHBoxLayout()
-        self.range_mode = create_segmented_control(
-            ["Timeline", "Full Scene", "Custom"], current=0, accent="pipeline", parent=self
-        )
-        self.from_keys_btn = create_button("From Selected Keys", role="secondary", parent=self)
-        self.from_keys_btn.setToolTip("Snap start and end frames to keyframes on selected nodes or rig controls.")
-        mode_row.addWidget(self.range_mode)
-        mode_row.addStretch(1)
-        mode_row.addWidget(self.from_keys_btn)
-        range_layout.addLayout(mode_row)
-
-        # Numerical Spinboxes Row
-        spin_row = QtWidgets.QHBoxLayout()
-        spin_row.setSpacing(INLINE_SPACING)
-
-        start_f = 1001
-        end_f = 1100
-        try:
-            if hasattr(cmds, "playbackOptions"):
-                start_f = int(cmds.playbackOptions(q=True, minTime=True) or 1001)
-                end_f = int(cmds.playbackOptions(q=True, maxTime=True) or 1100)
-        except Exception:
-            pass
-
-        start_lbl = QtWidgets.QLabel("Start:", self)
-        self.start_spin = QtWidgets.QSpinBox(self)
-        self.start_spin.setRange(-999999, 999999)
-        self.start_spin.setValue(start_f)
-        configure_field(self.start_spin, minimum_width=85)
-        spin_row.addWidget(start_lbl)
-        spin_row.addWidget(self.start_spin)
-
-        end_lbl = QtWidgets.QLabel("End:", self)
-        self.end_spin = QtWidgets.QSpinBox(self)
-        self.end_spin.setRange(-999999, 999999)
-        self.end_spin.setValue(end_f)
-        configure_field(self.end_spin, minimum_width=85)
-        spin_row.addWidget(end_lbl)
-        spin_row.addWidget(self.end_spin)
-
-        handles_lbl = QtWidgets.QLabel("Handles (±):", self)
-        self.handles_spin = QtWidgets.QSpinBox(self)
-        self.handles_spin.setRange(0, 100)
-        self.handles_spin.setValue(5)
-        configure_field(self.handles_spin, minimum_width=65)
-        spin_row.addWidget(handles_lbl)
-        spin_row.addWidget(self.handles_spin)
-
-        step_lbl = QtWidgets.QLabel("Step:", self)
-        self.step_spin = QtWidgets.QDoubleSpinBox(self)
-        self.step_spin.setRange(0.01, 10.0)
-        self.step_spin.setSingleStep(0.5)
-        self.step_spin.setDecimals(2)
-        self.step_spin.setValue(1.0)
-        configure_field(self.step_spin, minimum_width=70)
-        spin_row.addWidget(step_lbl)
-        spin_row.addWidget(self.step_spin)
-
-        range_layout.addLayout(spin_row)
-
-        # Live Evaluated Range Summary Badge
-        self.range_summary_lbl = QtWidgets.QLabel(self)
-        self.range_summary_lbl.setStyleSheet(
-            "color: #4E937B; font-size: 11px; font-weight: bold; padding: 4px 8px; "
-            "background-color: rgba(78, 147, 123, 0.12); border-radius: 4px;"
-        )
-        range_layout.addWidget(self.range_summary_lbl)
-
-        root.addWidget(range_panel)
-
-        # 5. Standard Action Footer [UI-06]
+        # 4. Standard Action Footer [UI-06]
         (
             action_footer,
             self.message_label,
@@ -276,14 +204,7 @@ class AnimIODialog(BaseToolDialog):
         root.addWidget(action_footer)
 
     def _connect(self):
-        self.range_mode.currentIndexChanged.connect(self._on_range_mode_changed)
-        self.from_keys_btn.clicked.connect(self._snap_from_selected_keys)
-        self.start_spin.valueChanged.connect(self._on_spin_changed)
-        self.end_spin.valueChanged.connect(self._on_spin_changed)
-        self.handles_spin.valueChanged.connect(self._update_range_summary)
-        self.step_spin.valueChanged.connect(self._update_range_summary)
         self.refresh_btn.clicked.connect(self.refresh_scene_data)
-        self.select_all_btn.clicked.connect(self._select_all_table_rows)
         self.apply_button.clicked.connect(self._do_export)
 
     def _set_status(self, text, state="idle"):
@@ -298,85 +219,8 @@ class AnimIODialog(BaseToolDialog):
         self.message_label.setProperty("state", state)
         repolish(self.message_label)
 
-    def _on_spin_changed(self):
-        # If user manually changes spinboxes, switch segmented control to Custom
-        self._update_range_summary()
-
-    def _on_range_mode_changed(self, index):
-        if index == 0:  # Timeline
-            try:
-                if hasattr(cmds, "playbackOptions"):
-                    self.start_spin.blockSignals(True)
-                    self.end_spin.blockSignals(True)
-                    self.start_spin.setValue(int(cmds.playbackOptions(q=True, minTime=True) or 1001))
-                    self.end_spin.setValue(int(cmds.playbackOptions(q=True, maxTime=True) or 1100))
-                    self.start_spin.blockSignals(False)
-                    self.end_spin.blockSignals(False)
-            except Exception:
-                pass
-        elif index == 1:  # Full Scene
-            try:
-                if hasattr(cmds, "playbackOptions"):
-                    self.start_spin.blockSignals(True)
-                    self.end_spin.blockSignals(True)
-                    self.start_spin.setValue(int(cmds.playbackOptions(q=True, animationStartTime=True) or 1001))
-                    self.end_spin.setValue(int(cmds.playbackOptions(q=True, animationEndTime=True) or 1100))
-                    self.start_spin.blockSignals(False)
-                    self.end_spin.blockSignals(False)
-            except Exception:
-                pass
-        self._update_range_summary()
-
-    def _snap_from_selected_keys(self):
-        """Snap start and end frames from keyframes on selected nodes."""
-        sel = cmds.ls(selection=True) or []
-        if not sel:
-            self._set_message("Please select animated nodes or rig controls first.", "warning")
-            return
-
-        keys = cmds.keyframe(sel, query=True, timeChange=True) or []
-        if not keys:
-            self._set_message("No keyframes found on selected nodes.", "warning")
-            return
-
-        min_k = int(round(min(keys)))
-        max_k = int(round(max(keys)))
-
-        self.range_mode.blockSignals(True)
-        self.range_mode.set_current_index(2)  # Custom
-        self.range_mode.blockSignals(False)
-
-        self.start_spin.blockSignals(True)
-        self.end_spin.blockSignals(True)
-        self.start_spin.setValue(min_k)
-        self.end_spin.setValue(max_k)
-        self.start_spin.blockSignals(False)
-        self.end_spin.blockSignals(False)
-
-        self._update_range_summary()
-        self._set_message("Snapped range to selected keys: {} – {}".format(min_k, max_k), "neutral")
-
-    def _update_range_summary(self):
-        """Compute and display live evaluated range math."""
-        start = self.start_spin.value()
-        end = self.end_spin.value()
-        handles = self.handles_spin.value()
-        step = self.step_spin.value()
-        fps = _get_scene_fps()
-
-        eval_start = start - handles
-        eval_end = end + handles
-        total_frames = max(0, eval_end - eval_start + 1)
-        duration_sec = (total_frames / fps) if fps > 0 else 0.0
-
-        step_str = " (Step: {})".format(step) if step != 1.0 else ""
-        text = "Export Range: {} to {}  •  {} frames ({:.2f}s @ {:.2f} FPS{})".format(
-            eval_start, eval_end, total_frames, duration_sec, fps, step_str
-        )
-        self.range_summary_lbl.setText(text)
-
     def refresh_scene_data(self):
-        """Scan active Maya scene for shot identity, cameras, characters, and props."""
+        """Scan active Maya scene for shot identity, cameras, characters, props, and timeline range."""
         identity = parse_shot_scene_identity()
 
         self._resolved_shot_name = identity.get("shot_name") or "untitled_shot"
@@ -391,6 +235,18 @@ class AnimIODialog(BaseToolDialog):
         self.val_cam.setText(cam_display)
         self.val_path.setText(self._resolved_shot_root or "Active Maya Project / Current Scene Directory")
 
+        # Timeline range
+        start_f = 1001
+        end_f = 1100
+        try:
+            if hasattr(cmds, "playbackOptions"):
+                start_f = int(cmds.playbackOptions(q=True, minTime=True) or 1001)
+                end_f = int(cmds.playbackOptions(q=True, maxTime=True) or 1100)
+        except Exception:
+            pass
+        total_frames = max(0, end_f - start_f + 1)
+        self.val_range.setText("Frames {} to {} ({} frames)".format(start_f, end_f, total_frames))
+
         proj = identity.get("project")
         dept = identity.get("department") or "ANM"
         ver = identity.get("version_str") or "V001"
@@ -403,7 +259,7 @@ class AnimIODialog(BaseToolDialog):
 
         data = discover_scene_assets()
 
-        # Characters & Props Table
+        # Characters & Props Table (all checked by default)
         chars = data.get("characters", [])
         props = data.get("props", [])
         total = len(chars) + len(props)
@@ -453,15 +309,6 @@ class AnimIODialog(BaseToolDialog):
             self.asset_table.setItem(row, 3, item_status)
             row += 1
 
-        # Refresh timing
-        self._on_range_mode_changed(self.range_mode.current_index())
-
-    def _select_all_table_rows(self):
-        for i in range(self.asset_table.rowCount()):
-            item = self.asset_table.item(i, 0)
-            if item:
-                item.setCheckState(QtCore.Qt.Checked)
-
     def _do_export(self):
         out_dir = self._resolved_shot_root
         if not out_dir or not os.path.isdir(out_dir):
@@ -477,10 +324,17 @@ class AnimIODialog(BaseToolDialog):
             return
 
         shot_name = self._resolved_shot_name or "untitled_shot"
-        start_f = self.start_spin.value()
-        end_f = self.end_spin.value()
-        handles = self.handles_spin.value()
-        step = self.step_spin.value()
+
+        # Frame range directly from Maya playback slider
+        start_f = 1001
+        end_f = 1100
+        try:
+            if hasattr(cmds, "playbackOptions"):
+                start_f = int(cmds.playbackOptions(q=True, minTime=True) or 1001)
+                end_f = int(cmds.playbackOptions(q=True, maxTime=True) or 1100)
+        except Exception:
+            pass
+
         fps = _get_scene_fps()
 
         # Camera
@@ -522,8 +376,8 @@ class AnimIODialog(BaseToolDialog):
                 character_formats=geo_fmts,
                 prop_nodes=props,
                 prop_formats=geo_fmts,
-                handles=handles,
-                step=step,
+                handles=0,
+                step=1.0,
                 write_velocities=vel,
             )
             self._set_message("Exported shot caches successfully to '{}'!".format(res["target_dir"]), "neutral")
