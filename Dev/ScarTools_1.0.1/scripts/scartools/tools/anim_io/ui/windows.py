@@ -26,6 +26,14 @@ from scartools.ui import (
     apply_theme,
     repolish,
     OperationProgressPopup,
+    COLOR_TEXT_MUTED,
+    COLOR_TEXT_PRIMARY,
+    COLOR_PRIMARY_BLUE,
+    COLOR_ACCENT_PIPELINE,
+    COLOR_STATUS_SUCCESS,
+    COLOR_STATUS_WARNING,
+    COLOR_STATUS_ERROR,
+    FONT_FAMILY_MONO,
 )
 from scartools.ui.controls import (
     create_toggle_switch,
@@ -117,17 +125,17 @@ class AnimIODialog(BaseToolDialog):
         info_grid.setVerticalSpacing(8)
 
         lbl_shot_title = QtWidgets.QLabel("Active Shot:", self)
-        lbl_shot_title.setStyleSheet("color: #888888; font-weight: bold;")
+        lbl_shot_title.setStyleSheet("color: {}; font-weight: bold;".format(COLOR_TEXT_MUTED))
         self.val_shot = QtWidgets.QLabel("Detecting...", self)
-        self.val_shot.setStyleSheet("color: #E0E0E0; font-weight: bold; font-size: 13px;")
+        self.val_shot.setStyleSheet("color: {}; font-weight: bold; font-size: 13px;".format(COLOR_TEXT_PRIMARY))
 
         lbl_cam_title = QtWidgets.QLabel("Shot Camera:", self)
-        lbl_cam_title.setStyleSheet("color: #888888; font-weight: bold;")
+        lbl_cam_title.setStyleSheet("color: {}; font-weight: bold;".format(COLOR_TEXT_MUTED))
 
         cam_box = QtWidgets.QHBoxLayout()
         cam_box.setSpacing(8)
         self.val_cam = QtWidgets.QLabel("Detecting...", self)
-        self.val_cam.setStyleSheet("color: #4F94CD; font-weight: bold; font-size: 13px;")
+        self.val_cam.setStyleSheet("color: {}; font-weight: bold; font-size: 13px;".format(COLOR_PRIMARY_BLUE))
         self.fix_cam_btn = create_button("Fix Camera", role="secondary", parent=self)
         self.fix_cam_btn.setFixedHeight(22)
         self.fix_cam_btn.setVisible(False)
@@ -137,14 +145,14 @@ class AnimIODialog(BaseToolDialog):
         cam_box.addStretch(1)
 
         lbl_range_title = QtWidgets.QLabel("Timeline Range:", self)
-        lbl_range_title.setStyleSheet("color: #888888; font-weight: bold;")
+        lbl_range_title.setStyleSheet("color: {}; font-weight: bold;".format(COLOR_TEXT_MUTED))
         self.val_range = QtWidgets.QLabel("Detecting...", self)
-        self.val_range.setStyleSheet("color: #4E937B; font-weight: bold; font-size: 12px;")
+        self.val_range.setStyleSheet("color: {}; font-weight: bold; font-size: 12px;".format(COLOR_ACCENT_PIPELINE))
 
         lbl_path_title = QtWidgets.QLabel("Target Shot Root:", self)
-        lbl_path_title.setStyleSheet("color: #888888; font-weight: bold;")
+        lbl_path_title.setStyleSheet("color: {}; font-weight: bold;".format(COLOR_TEXT_MUTED))
         self.val_path = QtWidgets.QLabel("Detecting...", self)
-        self.val_path.setStyleSheet("color: #A0A0A0; font-family: monospace;")
+        self.val_path.setStyleSheet("color: {}; font-family: {};".format(COLOR_TEXT_MUTED, FONT_FAMILY_MONO))
         self.val_path.setWordWrap(True)
 
         info_grid.addWidget(lbl_shot_title, 0, 0)
@@ -262,16 +270,16 @@ class AnimIODialog(BaseToolDialog):
             short_cam = cam_node.split("|")[-1]
             if short_cam.lower() == target_cam_name.lower():
                 self.val_cam.setText(target_cam_name)
-                self.val_cam.setStyleSheet("color: #4F94CD; font-weight: bold; font-size: 13px;")
+                self.val_cam.setStyleSheet("color: {}; font-weight: bold; font-size: 13px;".format(COLOR_PRIMARY_BLUE))
                 self.fix_cam_btn.setVisible(False)
             else:
                 self.val_cam.setText(short_cam + " (Rename needed)")
-                self.val_cam.setStyleSheet("color: #D9822B; font-weight: bold; font-size: 12px;")
+                self.val_cam.setStyleSheet("color: {}; font-weight: bold; font-size: 12px;".format(COLOR_STATUS_WARNING))
                 self.fix_cam_btn.setVisible(True)
                 self.fix_cam_btn.setText("Fix to " + target_cam_name)
         else:
             self.val_cam.setText("Missing ('{}')".format(target_cam_name))
-            self.val_cam.setStyleSheet("color: #DB5461; font-weight: bold; font-size: 12px;")
+            self.val_cam.setStyleSheet("color: {}; font-weight: bold; font-size: 12px;".format(COLOR_STATUS_ERROR))
             self.fix_cam_btn.setVisible(True)
             self.fix_cam_btn.setText("Create " + target_cam_name)
 
