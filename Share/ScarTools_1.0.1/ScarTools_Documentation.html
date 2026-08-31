@@ -706,9 +706,9 @@ Shot_010/
                     <h2>1-Click Zero-Complexity Export Workflow</h2>
                     <ol>
                         <li>Open <strong>Anim Export</strong> from the ScarTools shelf or menu.</li>
-                        <li>The tool automatically inspects the active scene (e.g. <code>PRT_SH_010_ANM_V001.ma</code>) and auto-resolves the <strong>Shot Name</strong> (<code>PRT_SH_010</code>), <strong>Shot Camera</strong> (<code>PRT_SH_010_CAM</code>), <strong>Timeline Playback Range</strong>, and <strong>Target Shot Root</strong>.</li>
-                        <li>If the standardized camera is missing or non-standard, a 1-click <code>Fix Camera</code> helper button automatically appears to standardize the camera in 1 step.</li>
-                        <li>Detected characters and props are automatically checked in the table. Double-click the <code>Type</code> column to toggle between Character and Prop if needed.</li>
+                        <li>The tool automatically inspects the active scene (e.g. <code>PRT_SH_020_ANM_V001.ma</code>) and auto-resolves the <strong>Active Shot</strong> (<code>PRT_SH_020</code>), <strong>Project</strong> (<code>PRT</code>), <strong>Timeline Range</strong>, and <strong>Target Shot Root</strong>.</li>
+                        <li>If the camera is non-standard (e.g. <code>Shot_020_Camera</code>) or missing, it is indicated directly in the list table with status <code>Rename Needed &rarr; PRT_SH_020_CAM</code>. Double-clicking the row renames the camera in-place in 1 step with zero duplicates.</li>
+                        <li>Detected assets and camera are automatically checked in the clean 2-column table (<code>Asset Name</code>, <code>Status</code>).</li>
                         <li>Click <strong>EXPORT SHOT CACHES</strong>. The centralized <code>OperationProgressPopup</code> displays real-time caching progress across all assets.</li>
                         <li>Upon completion, click <strong>Open Folder</strong> to instantly view the exported files in Windows Explorer.</li>
                     </ol>
