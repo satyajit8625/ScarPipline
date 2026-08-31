@@ -19,12 +19,16 @@ def build_shot_manifest(
     characters=None,
     props=None,
     handles=0,
+    step=1.0,
     exported_by=None,
     notes="",
 ):
     """
     Construct a structured shot manifest dictionary.
     """
+    eval_start = int(start_frame) - int(handles)
+    eval_end = int(end_frame) + int(handles)
+    total_frames = max(0, eval_end - eval_start + 1)
     return {
         "schema_version": "1.0.0",
         "shot_name": str(shot_name or "untitled_shot").strip(),
@@ -33,8 +37,10 @@ def build_shot_manifest(
             "start": int(start_frame),
             "end": int(end_frame),
             "handles": int(handles),
-            "eval_start": int(start_frame) - int(handles),
-            "eval_end": int(end_frame) + int(handles),
+            "step": float(step or 1.0),
+            "eval_start": eval_start,
+            "eval_end": eval_end,
+            "total_frames": total_frames,
         },
         "camera": camera_info or {},
         "characters": list(characters or []),

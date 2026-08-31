@@ -7,7 +7,7 @@ import os
 import maya.cmds as cmds
 import maya.mel as mel
 
-from .camera import export_camera, discover_shot_cameras
+from .camera import export_camera, discover_shot_cameras, find_active_shot_camera
 from .manifest_builder import build_shot_manifest, save_shot_manifest
 
 
@@ -46,7 +46,6 @@ def discover_scene_assets():
             elif any(k in name_lower for k in ("prop", "veh", "item", "set", "asset", "weapon")):
                 props.append(long_path)
             else:
-                # Default categorizer by child count/mesh count
                 meshes = cmds.listRelatives(long_path, allDescendents=True, type="mesh") or []
                 if len(meshes) > 0:
                     characters.append(long_path)
@@ -78,12 +77,13 @@ def export_character_cache(
     start_frame,
     end_frame,
     formats=("abc",),
+    step=1.0,
     write_velocities=True,
     uv_write=True,
     world_space=True,
 ):
     """
-    Export character geometry hierarchy to Alembic (.abc) in alembic/ and/or FBX (.fbx) in fbx/.
+    Export character geometry hierarchy to Alembic (.abc) in Alembic/ and/or FBX (.fbx) in FBX/.
     Returns list of exported file paths.
     """
     if not cmds.objExists(root_node):
@@ -109,7 +109,7 @@ def export_character_cache(
         if hasattr(cmds, "AbcExport"):
             flags = [
                 "-frameRange {} {}".format(start_frame, end_frame),
-                "-step 1",
+                "-step {}".format(step),
                 "-root {}".format(root_node),
                 '-file "{}"'.format(abc_path),
             ]
@@ -149,7 +149,7 @@ def export_character_cache(
                 mel.eval("FBXExportBakeComplexAnimation -v true")
                 mel.eval("FBXExportBakeComplexStart -v {}".format(start_frame))
                 mel.eval("FBXExportBakeComplexEnd -v {}".format(end_frame))
-                mel.eval("FBXExportBakeComplexStep -v 1")
+                mel.eval("FBXExportBakeComplexStep -v {}".format(step))
                 mel.eval("FBXExportAnimationOnly -v false")
                 mel.eval("FBXExportSkins -v true")
                 mel.eval("FBXExportShapes -v true")
@@ -171,6 +171,7 @@ def export_prop_cache(
     start_frame,
     end_frame,
     formats=("abc",),
+    step=1.0,
     write_velocities=True,
     uv_write=True,
     world_space=True,
@@ -182,6 +183,7 @@ def export_prop_cache(
         start_frame=start_frame,
         end_frame=end_frame,
         formats=formats,
+        step=step,
         write_velocities=write_velocities,
         uv_write=uv_write,
         world_space=world_space,
@@ -201,6 +203,7 @@ def export_shot_package(
     prop_nodes=None,
     prop_formats=("abc",),
     handles=0,
+    step=1.0,
     write_velocities=True,
     uv_write=True,
     notes="",
@@ -244,7 +247,7 @@ def export_shot_package(
         os.makedirs(cam_out_dir, exist_ok=True)
         cam_out_path = os.path.join(cam_out_dir, cam_file)
 
-        export_camera(resolved_cam, cam_out_path, eval_start, eval_end, export_format=camera_format)
+        export_camera(resolved_cam, cam_out_path, eval_start, eval_end, export_format=camera_format, step=step)
         camera_record = {
             "source_node": resolved_cam,
             "file": cam_sub + "/" + cam_file,
@@ -262,6 +265,7 @@ def export_shot_package(
             start_frame=eval_start,
             end_frame=eval_end,
             formats=character_formats,
+            step=step,
             write_velocities=write_velocities,
             uv_write=uv_write,
         )
@@ -284,6 +288,7 @@ def export_shot_package(
             start_frame=eval_start,
             end_frame=eval_end,
             formats=prop_formats,
+            step=step,
             write_velocities=write_velocities,
             uv_write=uv_write,
         )
@@ -305,6 +310,7 @@ def export_shot_package(
         characters=char_records,
         props=prop_records,
         handles=handles,
+        step=step,
         notes=notes,
     )
     manifest_file = save_shot_manifest(manifest_dict, target_dir)

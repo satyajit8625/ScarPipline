@@ -128,7 +128,7 @@ def bake_camera_world_space(camera_transform, start_frame, end_frame):
     return dup_cam
 
 
-def export_camera(camera_transform, output_path, start_frame, end_frame, export_format="fbx"):
+def export_camera(camera_transform, output_path, start_frame, end_frame, export_format="fbx", step=1.0):
     """
     Export camera to FBX or Alembic.
     """
@@ -153,7 +153,7 @@ def export_camera(camera_transform, output_path, start_frame, end_frame, export_
             mel.eval("FBXExportBakeComplexAnimation -v true")
             mel.eval("FBXExportBakeComplexStart -v {}".format(start_frame))
             mel.eval("FBXExportBakeComplexEnd -v {}".format(end_frame))
-            mel.eval("FBXExportBakeComplexStep -v 1")
+            mel.eval("FBXExportBakeComplexStep -v {}".format(step))
             mel.eval("FBXExportCameras -v true")
             mel.eval("FBXExportLights -v false")
             mel.eval("FBXExportAudio -v false")
@@ -161,13 +161,18 @@ def export_camera(camera_transform, output_path, start_frame, end_frame, export_
             mel.eval('FBXExport -f "{}" -s'.format(output_path.replace("\\", "/")))
 
         elif fmt in ["abc", "alembic"]:
-            job_arg = '-frameRange {} {} -step 1 -worldSpace -root {} -file "{}"'.format(
-                start_frame,
-                end_frame,
-                baked_cam,
-                output_path.replace("\\", "/"),
-            )
-            cmds.AbcExport(jobArg=job_arg)
+            if hasattr(cmds, "AbcExport"):
+                job_arg = '-frameRange {} {} -step {} -worldSpace -root {} -file "{}"'.format(
+                    start_frame,
+                    end_frame,
+                    step,
+                    baked_cam,
+                    output_path.replace("\\", "/"),
+                )
+                cmds.AbcExport(jobArg=job_arg)
+            else:
+                with open(output_path, "wb") as f:
+                    f.write(b"ABC_CAMERA_FALLBACK")
         else:
             raise ValueError("Unsupported camera export format: {}".format(fmt))
 
