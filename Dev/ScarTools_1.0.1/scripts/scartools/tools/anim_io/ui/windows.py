@@ -335,7 +335,29 @@ class AnimIODialog(BaseToolDialog):
                 pass
 
     def refresh_scene_data(self):
-        """Scan active Maya scene for cameras, characters, and props."""
+        """Scan active Maya scene for shot identity, cameras, characters, and props."""
+        # 1. Automatic Shot Scene Identity Parsing
+        from scartools.framework.naming import parse_shot_scene_identity
+        identity = parse_shot_scene_identity()
+
+        shot_name = identity.get("shot_name")
+        if shot_name and shot_name != "untitled_scene":
+            self.shot_name_input.setText(shot_name)
+
+        export_dir = identity.get("export_dir")
+        if export_dir and not self.path_picker.path():
+            self.path_picker.set_path(export_dir)
+
+        proj = identity.get("project")
+        dept = identity.get("department") or "ANM"
+        ver = identity.get("version_str") or "V001"
+        if proj:
+            self.header_subtitle.setText(
+                "Project: {} | Shot: {} | Dept: {} | Scene: {}".format(
+                    proj, shot_name, dept, ver
+                )
+            )
+
         data = discover_scene_assets()
 
         # Cameras

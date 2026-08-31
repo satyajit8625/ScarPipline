@@ -53,6 +53,7 @@ from .naming import (
     apply_affixes,
     split_version_string,
     format_version,
+    parse_shot_scene_identity,
 )
 
 __all__ = [
@@ -106,4 +107,5 @@ __all__ = [
     "apply_affixes",
     "split_version_string",
     "format_version",
+    "parse_shot_scene_identity",
 ]

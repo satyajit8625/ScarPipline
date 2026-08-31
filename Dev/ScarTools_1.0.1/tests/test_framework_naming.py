@@ -19,6 +19,7 @@ from scartools.framework.naming import (
     apply_affixes,
     split_version_string,
     format_version,
+    parse_shot_scene_identity,
 )
 
 
@@ -44,6 +45,28 @@ class TestFrameworkNaming(unittest.TestCase):
         self.assertEqual(split_version_string("asset_v02"), ("asset_", 2, 2))
         self.assertEqual(format_version(5, padding=3), "v005")
         self.assertEqual(format_version(12, padding=4), "v0012")
+
+    def test_parse_shot_scene_identity(self):
+        # Test 5-token studio pattern: PRT_SH_010_ANM_V001.ma
+        path_a = "O:/Projects/PRT/Shots/SH_010/ANM/Maya/PRT_SH_010_ANM_V001.ma"
+        res_a = parse_shot_scene_identity(path_a)
+        self.assertEqual(res_a["project"], "PRT")
+        self.assertEqual(res_a["sequence"], "SH")
+        self.assertEqual(res_a["shot_num"], "010")
+        self.assertEqual(res_a["shot_name"], "PRT_SH_010")
+        self.assertEqual(res_a["department"], "ANM")
+        self.assertEqual(res_a["version_str"], "V001")
+        self.assertEqual(res_a["version_num"], 1)
+        self.assertEqual(res_a["export_dir"], "O:/Projects/PRT/Shots/SH_010/ANM/Export/PRT_SH_010")
+
+        # Test 4-token pattern: PRT_SH010_ANM_V002.mb
+        path_b = "O:/Projects/PRT/Shots/SH010/ANM/scenes/PRT_SH010_ANM_V002.mb"
+        res_b = parse_shot_scene_identity(path_b)
+        self.assertEqual(res_b["project"], "PRT")
+        self.assertEqual(res_b["shot_name"], "PRT_SH010")
+        self.assertEqual(res_b["department"], "ANM")
+        self.assertEqual(res_b["version_str"], "V002")
+        self.assertEqual(res_b["version_num"], 2)
 
 
 if __name__ == "__main__":

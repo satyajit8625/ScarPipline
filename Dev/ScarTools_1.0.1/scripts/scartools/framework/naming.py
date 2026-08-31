@@ -116,10 +116,117 @@ def format_version(version_num, padding=3, prefix="v"):
     return fmt.format(prefix, int(version_num))
 
 
+def parse_shot_scene_identity(scene_path=None):
+    """
+    Parse studio shot scene file naming:
+    Pattern: <PROJECT>_<SEQ>_<SHOT>_<DEPT>_<VERSION>
+    Example: 'PRT_SH_010_ANM_V001.ma'
+      - project: 'PRT'
+      - sequence: 'SH'
+      - shot_num: '010'
+      - shot_name: 'PRT_SH_010'
+      - department: 'ANM'
+      - version_str: 'V001'
+      - version_num: 1
+      - scene_dir: Directory containing the scene file
+      - export_dir: Resolved export destination folder
+
+    Args:
+        scene_path (str, optional): Full path to scene file. If None, queries active Maya scene.
+
+    Returns:
+        dict: Standardized shot scene identity dictionary.
+    """
+    import os
+    if scene_path is None:
+        try:
+            import maya.cmds as cmds
+            scene_path = cmds.file(query=True, sceneName=True) or ""
+        except Exception:
+            scene_path = ""
+
+    clean_path = str(scene_path or "").replace("\\", "/")
+    if clean_path:
+        filename = clean_path.rsplit("/", 1)[-1]
+        scene_dir = clean_path.rsplit("/", 1)[0]
+    else:
+        filename = ""
+        scene_dir = ""
+
+    stem = os.path.splitext(filename)[0] if filename else ""
+    if not stem:
+        stem = "untitled_scene"
+
+    tokens = stem.split("_")
+    project = ""
+    sequence = ""
+    shot_num = ""
+    shot_name = ""
+    department = ""
+    version_str = "V001"
+    version_num = 1
+
+    # 1. Check for trailing version token (e.g. V001, v002, 001)
+    if tokens and re.match(r"^v?\d+$", tokens[-1], re.IGNORECASE):
+        v_token = tokens[-1]
+        version_str = v_token.upper() if v_token.lower().startswith("v") else "V" + v_token
+        v_match = re.search(r"\d+", v_token)
+        version_num = int(v_match.group(0)) if v_match else 1
+        core_tokens = tokens[:-1]
+    else:
+        core_tokens = tokens
+
+    # 2. Check if second to last token is department (e.g. ANM, MOD, RIG, TXT, LGT, CMP, FX, LAY)
+    KNOWN_DEPTS = {"ANM", "ANIM", "MOD", "MODEL", "RIG", "RIGGING", "TXT", "TEX", "LGT", "LIGHT", "CMP", "COMP", "FX", "CFX", "LAY", "LAYOUT"}
+    if core_tokens and core_tokens[-1].upper() in KNOWN_DEPTS:
+        department = core_tokens[-1].upper()
+        core_tokens = core_tokens[:-1]
+
+    # 3. Resolve Project and Shot Name
+    if len(core_tokens) >= 3:
+        project = core_tokens[0]
+        sequence = core_tokens[1]
+        shot_num = core_tokens[2]
+        shot_name = "_".join(core_tokens)
+    elif len(core_tokens) == 2:
+        project = core_tokens[0]
+        shot_name = "_".join(core_tokens)
+    elif len(core_tokens) == 1:
+        shot_name = core_tokens[0]
+    else:
+        shot_name = stem
+
+    # 4. Resolve default Export Directory
+    export_dir = ""
+    if scene_dir:
+        norm_dir = os.path.normpath(scene_dir)
+        dir_name = os.path.basename(norm_dir).lower()
+        parent_dir = os.path.dirname(norm_dir)
+        if dir_name in ("maya", "scenes", "scene", "work", "wip", "scripts"):
+            export_dir = os.path.join(parent_dir, "Export", shot_name).replace("\\", "/")
+        else:
+            export_dir = os.path.join(norm_dir, "Export", shot_name).replace("\\", "/")
+
+    return {
+        "file_name": filename,
+        "stem": stem,
+        "scene_dir": scene_dir,
+        "export_dir": export_dir,
+        "project": project,
+        "sequence": sequence,
+        "shot_num": shot_num,
+        "shot_name": shot_name,
+        "department": department,
+        "version_str": version_str,
+        "version_num": version_num,
+    }
+
+
 __all__ = [
     "SuffixRegistry",
     "sanitize_maya_name",
     "apply_affixes",
     "split_version_string",
     "format_version",
+    "parse_shot_scene_identity",
 ]
