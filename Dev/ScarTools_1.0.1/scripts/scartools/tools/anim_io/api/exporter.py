@@ -102,7 +102,7 @@ def export_character_cache(
             except Exception:
                 pass
 
-        abc_dir = os.path.join(output_dir, "alembic")
+        abc_dir = os.path.join(output_dir, "Alembic")
         os.makedirs(abc_dir, exist_ok=True)
         abc_path = os.path.join(abc_dir, clean_name + ".abc").replace("\\", "/")
 
@@ -137,7 +137,7 @@ def export_character_cache(
             except Exception:
                 pass
 
-        fbx_dir = os.path.join(output_dir, "fbx")
+        fbx_dir = os.path.join(output_dir, "FBX")
         os.makedirs(fbx_dir, exist_ok=True)
         fbx_path = os.path.join(fbx_dir, clean_name + ".fbx").replace("\\", "/")
 
@@ -175,7 +175,7 @@ def export_prop_cache(
     uv_write=True,
     world_space=True,
 ):
-    """Export prop geometry hierarchy to Alembic (.abc) in alembic/ and/or FBX (.fbx) in fbx/."""
+    """Export prop geometry hierarchy to Alembic (.abc) in Alembic/ and/or FBX (.fbx) in FBX/."""
     return export_character_cache(
         root_node=root_node,
         output_dir=output_dir,
@@ -206,7 +206,7 @@ def export_shot_package(
     notes="",
 ):
     """
-    Master pipeline entry point: exports shot camera, characters, props into alembic/ and fbx/ folders,
+    Master pipeline entry point: exports shot camera, characters, props into Alembic/ and FBX/ folders,
     and builds shot_manifest.json.
     """
     if not output_dir or not output_dir.strip():
@@ -233,10 +233,10 @@ def export_shot_package(
         cam_clean = camera_node.split("|")[-1].replace(":", "_")
         cam_fmt_lower = str(camera_format).lower()
         if cam_fmt_lower == "fbx":
-            cam_sub = "fbx"
+            cam_sub = "FBX"
             cam_file = cam_clean + ".fbx"
         else:
-            cam_sub = "alembic"
+            cam_sub = "Alembic"
             cam_file = cam_clean + ".abc"
 
         cam_out_dir = os.path.join(target_dir, cam_sub)

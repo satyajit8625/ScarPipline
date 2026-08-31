@@ -210,8 +210,8 @@ def parse_shot_scene_identity(scene_path=None):
             shot_root = norm_dir.replace("\\", "/")
 
         export_dir = shot_root
-        alembic_dir = os.path.join(shot_root, "alembic").replace("\\", "/")
-        fbx_dir = os.path.join(shot_root, "fbx").replace("\\", "/")
+        alembic_dir = os.path.join(shot_root, "Alembic").replace("\\", "/")
+        fbx_dir = os.path.join(shot_root, "FBX").replace("\\", "/")
 
     return {
         "file_name": filename,

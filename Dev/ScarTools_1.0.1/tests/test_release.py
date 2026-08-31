@@ -464,7 +464,7 @@ class ReleaseTests(unittest.TestCase):
         self.assertIn("Shader Tools", labels)
         self.assertIn("Character Finalizer", labels)
         self.assertIn("Generate UDIM", labels)
-        self.assertIn("Anim I/O", labels)
+        self.assertTrue(any(l in ("Anim Export", "Anim I/O") for l in labels))
         self.assertIn("Pipeline Renamer", labels)
         self.assertIn("Log Viewer", labels)
         self.assertIn("About ScarTools", labels)

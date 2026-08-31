@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""DCC Window for Animation Export & Import Suite matching Skin Tools & Shader Tools architecture."""
+"""DCC Window for Animation Export Suite strictly conforming to UI-01 - UI-07."""
 
 from __future__ import absolute_import, division, print_function
 
@@ -19,7 +19,6 @@ from scartools.ui import (
     configure_root_layout,
     configure_field,
     create_brand_header,
-    create_operation_group,
     create_section_panel,
     create_data_table,
     create_action_footer,
@@ -36,15 +35,15 @@ from scartools.ui.widgets import (
 )
 
 from ..controller import AnimIOController
-from ..operations import discover_scene_assets, load_shot_manifest
+from ..operations import discover_scene_assets
 
 
 class AnimIODialog(BaseToolDialog):
-    """Main Studio UI Dialog for ScarTools Animation Export & Import Suite."""
+    """Dedicated Studio UI Dialog for Animation Export Suite."""
 
     OBJECT_NAME = "ScarToolsAnimIODialog"
     TOOL_ID = "scartools_anim_io"
-    WINDOW_TITLE = "Animation I/O Suite"
+    WINDOW_TITLE = "Animation Export Suite"
 
     def __init__(self, parent=None):
         super(AnimIODialog, self).__init__(
@@ -55,7 +54,7 @@ class AnimIODialog(BaseToolDialog):
         self.setWindowTitle(self.WINDOW_TITLE)
         self.controller = AnimIOController()
         self.setAttribute(QtCore.Qt.WA_DeleteOnClose, True)
-        configure_window(self, (760, 640), (840, 750))
+        configure_window(self, (760, 620), (840, 720))
         apply_window_icon(self)
 
         self._build_ui()
@@ -67,43 +66,21 @@ class AnimIODialog(BaseToolDialog):
         root = QtWidgets.QVBoxLayout(self)
         configure_root_layout(root)
 
-        # 1. Brand Header
+        # 1. Brand Header [UI-02]
         header, self.header_subtitle = create_brand_header(
-            "ANIMATION I/O SUITE",
-            "Shot animation packaging, Alembic and FBX cache extraction, and scene assembly",
+            "ANIMATION EXPORT",
+            "Extract shot Alembic (.abc) and FBX (.fbx) caches to pipeline directories",
             parent=self,
         )
         root.addWidget(header)
 
-        # 2. Operation Mode Group (Matching Skin Tools & Shader Tools)
-        operation_group, self.operation_combo, self.operation_help = (
-            create_operation_group(
-                modes=["Export Shot", "Import & Assemble"],
-                help_text="Choose an operation, configure shot parameters, then click the action button.",
-                parent=self,
-            )
-        )
-        root.addWidget(operation_group)
-
-        # 3. Stacked Operation Pages
-        self.stack = QtWidgets.QStackedWidget(self)
-        root.addWidget(self.stack, 1)
-
-        # ==============================================================
-        # TAB 1: EXPORT PAGE
-        # ==============================================================
-        export_widget = QtWidgets.QWidget(self)
-        export_layout = QtWidgets.QVBoxLayout(export_widget)
-        export_layout.setContentsMargins(0, 0, 0, 0)
-        export_layout.setSpacing(10)
-
-        # A. Target Destination & Shot Context
+        # 2. Target Destination & Shot Context [UI-03, UI-04]
         dest_panel, dest_layout, _ = create_section_panel(
             "Target Destination & Shot Context", accent="pipeline", parent=self
         )
         self.path_picker = PathPickerWidget(
             mode="directory",
-            placeholder="Select target export folder...",
+            placeholder="Select shot root directory (containing Alembic, FBX, Maya folders)...",
             parent=self,
         )
         dest_layout.addWidget(self.path_picker)
@@ -131,9 +108,9 @@ class AnimIODialog(BaseToolDialog):
         shot_row.addWidget(self.cam_format_combo)
 
         dest_layout.addLayout(shot_row)
-        export_layout.addWidget(dest_panel)
+        root.addWidget(dest_panel)
 
-        # B. Frame Range & Timing
+        # 3. Frame Range & Timing [UI-03, UI-04]
         range_panel, range_layout, _ = create_section_panel(
             "Frame Range & Timing", accent="pipeline", parent=self
         )
@@ -179,9 +156,9 @@ class AnimIODialog(BaseToolDialog):
         range_row.addWidget(self.handles_spin)
 
         range_layout.addLayout(range_row)
-        export_layout.addWidget(range_panel)
+        root.addWidget(range_panel)
 
-        # C. Characters & Props Data Table (Matching Skin Tools data table)
+        # 4. Characters & Props Data Table [UI-03, UI-05]
         asset_panel, asset_layout, _ = create_section_panel(
             "Characters & Props to Export", accent="data", parent=self
         )
@@ -209,7 +186,7 @@ class AnimIODialog(BaseToolDialog):
             stretch_columns=(0, 2),
             fixed_columns={1: 90, 3: TABLE_STATUS_WIDTH},
             extended_selection=True,
-            minimum_height=150,
+            minimum_height=160,
             parent=self,
         )
         asset_layout.addWidget(self.asset_table, 1)
@@ -222,59 +199,9 @@ class AnimIODialog(BaseToolDialog):
         vel_row.addWidget(self.vel_toggle)
         asset_layout.addLayout(vel_row)
 
-        export_layout.addWidget(asset_panel, 1)
-        self.stack.addWidget(export_widget)
+        root.addWidget(asset_panel, 1)
 
-        # ==============================================================
-        # TAB 2: IMPORT / ASSEMBLE PAGE
-        # ==============================================================
-        import_widget = QtWidgets.QWidget(self)
-        import_layout = QtWidgets.QVBoxLayout(import_widget)
-        import_layout.setContentsMargins(0, 0, 0, 0)
-        import_layout.setSpacing(10)
-
-        in_panel, in_layout, _ = create_section_panel(
-            "Load Shot Package", accent="pipeline", parent=self
-        )
-        self.import_path_picker = PathPickerWidget(
-            mode="directory",
-            placeholder="Select shot package directory containing shot_manifest.json...",
-            parent=self,
-        )
-        in_layout.addWidget(self.import_path_picker)
-        import_layout.addWidget(in_panel)
-
-        info_panel, info_layout, _ = create_section_panel(
-            "Shot Manifest Details", accent="pipeline", parent=self
-        )
-        self.manifest_summary = QtWidgets.QTextEdit(self)
-        self.manifest_summary.setReadOnly(True)
-        self.manifest_summary.setPlaceholderText("Select a shot package to preview camera, frame range, and asset lists...")
-        self.manifest_summary.setMinimumHeight(140)
-        info_layout.addWidget(self.manifest_summary)
-        import_layout.addWidget(info_panel)
-
-        opts_panel, opts_layout, _ = create_section_panel(
-            "Downstream Assembly Options", accent="pipeline", parent=self
-        )
-        self.chk_time = QtWidgets.QCheckBox("Set Timeline Frame Range & Playback FPS", self)
-        self.chk_time.setChecked(True)
-        self.chk_cam = QtWidgets.QCheckBox("Import & Reference Shot Camera (Lock Transforms)", self)
-        self.chk_cam.setChecked(True)
-        self.chk_chars = QtWidgets.QCheckBox("Import Character Point Caches", self)
-        self.chk_chars.setChecked(True)
-        self.chk_props = QtWidgets.QCheckBox("Import Prop Point Caches & Transforms", self)
-        self.chk_props.setChecked(True)
-        opts_layout.addWidget(self.chk_time)
-        opts_layout.addWidget(self.chk_cam)
-        opts_layout.addWidget(self.chk_chars)
-        opts_layout.addWidget(self.chk_props)
-        import_layout.addWidget(opts_panel)
-        import_layout.addStretch(1)
-
-        self.stack.addWidget(import_widget)
-
-        # 4. Standard Action Footer (Matching Skin Tools & Shader Tools)
+        # 5. Standard Action Footer [UI-06]
         (
             action_footer,
             self.message_label,
@@ -284,7 +211,7 @@ class AnimIODialog(BaseToolDialog):
             self.view_log_button,
             _status_layout,
         ) = create_action_footer(
-            "EXPORT SHOT PACKAGE",
+            "EXPORT SHOT CACHES",
             message="Ready to package shot.",
             parent=self,
             include_log=False,
@@ -293,12 +220,10 @@ class AnimIODialog(BaseToolDialog):
         root.addWidget(action_footer)
 
     def _connect(self):
-        self.operation_combo.currentIndexChanged.connect(self._on_operation_changed)
         self.range_mode.currentIndexChanged.connect(self._on_range_mode_changed)
         self.refresh_btn.clicked.connect(self.refresh_scene_data)
         self.select_all_btn.clicked.connect(self._select_all_table_rows)
-        self.import_path_picker.pathChanged.connect(self._on_import_path_changed)
-        self.apply_button.clicked.connect(self._on_action_clicked)
+        self.apply_button.clicked.connect(self._do_export)
 
     def _set_status(self, text, state="idle"):
         self.status_label.setText(str(text))
@@ -312,19 +237,6 @@ class AnimIODialog(BaseToolDialog):
         self.message_label.setProperty("state", state)
         repolish(self.message_label)
 
-    def _on_operation_changed(self, index):
-        self.stack.setCurrentIndex(index)
-        if index == 0:
-            self.apply_button.setText("EXPORT SHOT PACKAGE")
-            self.operation_help.setText("Extract camera and geometry caches into a versioned shot directory.")
-            self._set_message("Ready to package shot.", "neutral")
-            self._set_status("Ready", "idle")
-        else:
-            self.apply_button.setText("ASSEMBLE SHOT SCENE")
-            self.operation_help.setText("Import and assemble camera, frame range, and caches from shot_manifest.json.")
-            self._set_message("Select a shot package to assemble.", "neutral")
-            self._set_status("Ready", "idle")
-
     def _on_range_mode_changed(self, index):
         if index == 0:  # Timeline
             try:
@@ -336,7 +248,6 @@ class AnimIODialog(BaseToolDialog):
 
     def refresh_scene_data(self):
         """Scan active Maya scene for shot identity, cameras, characters, and props."""
-        # 1. Automatic Shot Scene Identity Parsing
         from scartools.framework.naming import parse_shot_scene_identity
         identity = parse_shot_scene_identity()
 
@@ -368,7 +279,7 @@ class AnimIODialog(BaseToolDialog):
                 short = c.split("|")[-1]
                 self.cam_combo.addItem(short, c)
         else:
-            self.cam_combo.addItem("None (No custom camera)", None)
+            self.cam_combo.addItem("None (No custom camera in scene)", None)
 
         # Characters & Props Table
         chars = data.get("characters", [])
@@ -426,48 +337,10 @@ class AnimIODialog(BaseToolDialog):
             if item:
                 item.setCheckState(QtCore.Qt.Checked)
 
-    def _on_import_path_changed(self, path):
-        """Read manifest and populate summary."""
-        manifest = load_shot_manifest(path)
-        if not manifest:
-            self.manifest_summary.setHtml("<span style='color:#E57373;'>No valid shot_manifest.json found in this directory.</span>")
-            self._set_message("No valid shot_manifest.json found.", "warning")
-            self._set_status("No Manifest", "warning")
-            return
-
-        shot_name = manifest.get("shot_name", "Unknown")
-        fps = manifest.get("fps", 24.0)
-        fr = manifest.get("frame_range", {})
-        cam = manifest.get("camera", {}).get("name", manifest.get("camera", {}).get("file", "None"))
-        chars = len(manifest.get("characters", []))
-        props = len(manifest.get("props", []))
-        date = manifest.get("metadata", {}).get("timestamp", "")
-
-        html = """
-        <table style='width:100%; border-collapse: collapse; font-family: Segoe UI, sans-serif; font-size: 12px;'>
-            <tr><td style='color:#AFAFAF; width:120px;'><b>Shot Name:</b></td><td style='color:#FFFFFF;'><b>{}</b></td></tr>
-            <tr><td style='color:#AFAFAF;'><b>Frame Range:</b></td><td style='color:#FFFFFF;'>{} to {} (FPS: {})</td></tr>
-            <tr><td style='color:#AFAFAF;'><b>Active Camera:</b></td><td style='color:#FFFFFF;'>{}</td></tr>
-            <tr><td style='color:#AFAFAF;'><b>Characters:</b></td><td style='color:#FFFFFF;'>{} asset(s)</td></tr>
-            <tr><td style='color:#AFAFAF;'><b>Props:</b></td><td style='color:#FFFFFF;'>{} asset(s)</td></tr>
-            <tr><td style='color:#AFAFAF;'><b>Export Date:</b></td><td style='color:#FFFFFF;'>{}</td></tr>
-        </table>
-        """.format(shot_name, fr.get("start"), fr.get("end"), fps, cam, chars, props, date)
-        self.manifest_summary.setHtml(html)
-        self._set_message("Manifest loaded for shot '{}'.".format(shot_name), "neutral")
-        self._set_status("Manifest Loaded", "idle")
-
-    def _on_action_clicked(self):
-        mode = self.operation_combo.currentIndex()
-        if mode == 0:
-            self._do_export()
-        else:
-            self._do_import()
-
     def _do_export(self):
         out_dir = self.path_picker.path()
         if not out_dir or not os.path.isdir(out_dir):
-            self._set_message("Please specify a valid export directory.", "warning")
+            self._set_message("Please specify a valid shot output directory.", "warning")
             self._set_status("Invalid Directory", "warning")
             return
 
@@ -499,7 +372,7 @@ class AnimIODialog(BaseToolDialog):
         vel = self.vel_toggle.is_checked()
 
         try:
-            self._set_message("Exporting shot package...", "neutral")
+            self._set_message("Exporting shot caches into Alembic/ and FBX/...", "neutral")
             self._set_status("Exporting...", "running")
             QtWidgets.QApplication.processEvents()
 
@@ -519,43 +392,11 @@ class AnimIODialog(BaseToolDialog):
                 handles=handles,
                 write_velocities=vel,
             )
-            self._set_message("Exported shot '{}' successfully!".format(shot_name), "neutral")
+            self._set_message("Exported shot caches successfully to '{}'!".format(res["target_dir"]), "neutral")
             self._set_status("Export Success", "idle")
         except Exception as e:
             self._set_message("Export failed: {}".format(e), "warning")
             self._set_status("Export Failed", "error")
-
-    def _do_import(self):
-        in_path = self.import_path_picker.path()
-        if not in_path:
-            self._set_message("Please select a shot package folder.", "warning")
-            self._set_status("No Folder Selected", "warning")
-            return
-
-        try:
-            self._set_message("Assembling shot scene...", "neutral")
-            self._set_status("Assembling...", "running")
-            QtWidgets.QApplication.processEvents()
-
-            from ..operations import import_shot_package
-            res = import_shot_package(
-                package_dir_or_manifest=in_path,
-                import_time_settings=self.chk_time.isChecked(),
-                import_camera=self.chk_cam.isChecked(),
-                import_characters=self.chk_chars.isChecked(),
-                import_props=self.chk_props.isChecked(),
-                lock_camera=True,
-            )
-            self._set_message(
-                "Assembled {} chars, {} props successfully!".format(
-                    res.get("characters_imported", 0), res.get("props_imported", 0)
-                ),
-                "neutral",
-            )
-            self._set_status("Assembly Success", "idle")
-        except Exception as e:
-            self._set_message("Assembly failed: {}".format(e), "warning")
-            self._set_status("Assembly Failed", "error")
 
 
 _ACTIVE_DIALOG = None

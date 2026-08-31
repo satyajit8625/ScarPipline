@@ -148,7 +148,7 @@ class TestAnimIO(unittest.TestCase):
         self.assertEqual(int(cmds.playbackOptions(q=True, maxTime=True)), 1120)
 
     def test_export_shot_package_subfolders(self):
-        """Verify export_shot_package creates alembic/ and fbx/ subfolders."""
+        """Verify export_shot_package creates Alembic/ and FBX/ subfolders."""
         cam = cmds.camera(name="ShotCam")[0]
         char_grp = cmds.group(em=True, name="char_runner_GRP")
         mesh = cmds.polySphere(name="runner_GEO")[0]
@@ -168,8 +168,8 @@ class TestAnimIO(unittest.TestCase):
 
         self.assertTrue(res["success"])
         target_dir = res["target_dir"]
-        self.assertTrue(os.path.isdir(os.path.join(target_dir, "alembic")))
-        self.assertTrue(os.path.isdir(os.path.join(target_dir, "fbx")))
+        self.assertTrue(os.path.isdir(os.path.join(target_dir, "Alembic")))
+        self.assertTrue(os.path.isdir(os.path.join(target_dir, "FBX")))
         self.assertTrue(os.path.isfile(res["manifest_file"]))
 
 
