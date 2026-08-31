@@ -74,6 +74,20 @@ class TestAnimExportSettings(unittest.TestCase):
         self.assertEqual(loaded["fbx"]["up_axis"], "Y-Up")
         self.assertEqual(loaded["alembic"]["step"], 1.0)
 
+    def test_scoped_reset_settings(self):
+        save_anim_export_settings({
+            "fbx": {"step": 4},
+            "alembic": {"step": 0.25},
+        })
+        reset_anim_export_settings(scope="alembic")
+        loaded = get_anim_export_settings()
+        self.assertEqual(loaded["alembic"]["step"], 1.0)
+        self.assertEqual(loaded["fbx"]["step"], 4)
+
+        reset_anim_export_settings(scope="fbx")
+        loaded = get_anim_export_settings()
+        self.assertEqual(loaded["fbx"]["step"], 1)
+
 
 if __name__ == "__main__":
     unittest.main()
