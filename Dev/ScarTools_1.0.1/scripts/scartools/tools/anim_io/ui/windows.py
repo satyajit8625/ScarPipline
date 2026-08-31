@@ -26,6 +26,8 @@ from scartools.ui import (
     apply_theme,
     repolish,
     OperationProgressPopup,
+    COLOR_BG_INPUT,
+    COLOR_BORDER_SUBTLE,
     COLOR_TEXT_MUTED,
     COLOR_TEXT_PRIMARY,
     COLOR_PRIMARY_BLUE,
@@ -91,7 +93,7 @@ class AnimIODialog(BaseToolDialog):
         self.setWindowTitle(self.WINDOW_TITLE)
         self.controller = AnimIOController()
         self.setAttribute(QtCore.Qt.WA_DeleteOnClose, True)
-        configure_window(self, (680, 490), (800, 600))
+        configure_window(self, (700, 500), (820, 600))
         apply_window_icon(self)
 
         self._resolved_shot_name = "untitled_shot"
@@ -118,39 +120,68 @@ class AnimIODialog(BaseToolDialog):
         )
         root.addWidget(header)
 
-        # 2. Shot & Pipeline Information (Structured 3-Row Aligned Card) [UI-03]
+        # 2. Shot & Pipeline Information (2-Column Split Dashboard Cards) [UI-03]
         info_panel, info_layout, _ = create_section_panel(
             "Shot Pipeline Context", accent="pipeline", parent=self
         )
-        info_grid = QtWidgets.QGridLayout()
-        info_grid.setHorizontalSpacing(14)
-        info_grid.setVerticalSpacing(8)
-        info_grid.setColumnMinimumWidth(0, 125)
+        cards_row = QtWidgets.QHBoxLayout()
+        cards_row.setSpacing(12)
+        cards_row.setContentsMargins(0, 0, 0, 0)
+
+        card_style = (
+            "QFrame {{ background: {}; border: 1px solid {}; border-radius: 4px; }}"
+        ).format(COLOR_BG_INPUT, COLOR_BORDER_SUBTLE)
+
+        # Left Card: Shot & Department Identity
+        card_left = QtWidgets.QFrame(self)
+        card_left.setStyleSheet(card_style)
+        left_grid = QtWidgets.QGridLayout(card_left)
+        left_grid.setContentsMargins(10, 8, 10, 8)
+        left_grid.setHorizontalSpacing(10)
+        left_grid.setVerticalSpacing(6)
 
         lbl_shot_title = QtWidgets.QLabel("Active Shot:", self)
-        lbl_shot_title.setStyleSheet("color: {}; font-weight: bold;".format(COLOR_TEXT_MUTED))
+        lbl_shot_title.setStyleSheet("color: {}; font-weight: bold; min-width: 70px;".format(COLOR_TEXT_MUTED))
         self.val_shot = QtWidgets.QLabel("Detecting...", self)
         self.val_shot.setStyleSheet("color: {}; font-weight: bold; font-size: 13px;".format(COLOR_TEXT_PRIMARY))
 
-        lbl_range_title = QtWidgets.QLabel("Timeline Range:", self)
-        lbl_range_title.setStyleSheet("color: {}; font-weight: bold;".format(COLOR_TEXT_MUTED))
+        lbl_dept_title = QtWidgets.QLabel("Department:", self)
+        lbl_dept_title.setStyleSheet("color: {}; font-weight: bold; min-width: 70px;".format(COLOR_TEXT_MUTED))
+        self.val_dept = QtWidgets.QLabel("Animation (ANM)", self)
+        self.val_dept.setStyleSheet("color: {}; font-weight: bold; font-size: 12px;".format(COLOR_PRIMARY_BLUE))
+
+        left_grid.addWidget(lbl_shot_title, 0, 0)
+        left_grid.addWidget(self.val_shot, 0, 1)
+        left_grid.addWidget(lbl_dept_title, 1, 0)
+        left_grid.addWidget(self.val_dept, 1, 1)
+
+        # Right Card: Timing & Destination Root
+        card_right = QtWidgets.QFrame(self)
+        card_right.setStyleSheet(card_style)
+        right_grid = QtWidgets.QGridLayout(card_right)
+        right_grid.setContentsMargins(10, 8, 10, 8)
+        right_grid.setHorizontalSpacing(10)
+        right_grid.setVerticalSpacing(6)
+
+        lbl_range_title = QtWidgets.QLabel("Timeline:", self)
+        lbl_range_title.setStyleSheet("color: {}; font-weight: bold; min-width: 65px;".format(COLOR_TEXT_MUTED))
         self.val_range = QtWidgets.QLabel("Detecting...", self)
         self.val_range.setStyleSheet("color: {}; font-weight: bold; font-size: 12px;".format(COLOR_ACCENT_PIPELINE))
 
-        lbl_path_title = QtWidgets.QLabel("Target Shot Root:", self)
-        lbl_path_title.setStyleSheet("color: {}; font-weight: bold;".format(COLOR_TEXT_MUTED))
+        lbl_path_title = QtWidgets.QLabel("Shot Root:", self)
+        lbl_path_title.setStyleSheet("color: {}; font-weight: bold; min-width: 65px;".format(COLOR_TEXT_MUTED))
         self.val_path = QtWidgets.QLabel("Detecting...", self)
         self.val_path.setStyleSheet("color: {}; font-family: {}; font-size: 11px;".format(COLOR_TEXT_MUTED, FONT_FAMILY_MONO))
         self.val_path.setWordWrap(True)
 
-        info_grid.addWidget(lbl_shot_title, 0, 0)
-        info_grid.addWidget(self.val_shot, 0, 1)
-        info_grid.addWidget(lbl_range_title, 1, 0)
-        info_grid.addWidget(self.val_range, 1, 1)
-        info_grid.addWidget(lbl_path_title, 2, 0)
-        info_grid.addWidget(self.val_path, 2, 1)
+        right_grid.addWidget(lbl_range_title, 0, 0)
+        right_grid.addWidget(self.val_range, 0, 1)
+        right_grid.addWidget(lbl_path_title, 1, 0)
+        right_grid.addWidget(self.val_path, 1, 1)
 
-        info_layout.addLayout(info_grid)
+        cards_row.addWidget(card_left, 1)
+        cards_row.addWidget(card_right, 2)
+        info_layout.addLayout(cards_row)
         root.addWidget(info_panel)
 
         # 3. Shot Assets to Export Data Table [UI-03, UI-05]
@@ -281,12 +312,18 @@ class AnimIODialog(BaseToolDialog):
         cam_node = find_active_shot_camera(self._resolved_shot_name)
         self._resolved_camera = cam_node
 
+        dept = identity.get("department") or "ANM"
+        proj = identity.get("project")
+        ver = identity.get("version_str") or "V001"
+
         if is_unsaved:
-            self.val_shot.setText(self._resolved_shot_name + " (Unsaved Scene)")
+            self.val_shot.setText(self._resolved_shot_name + " (Unsaved)")
             self.val_shot.setStyleSheet("color: {}; font-weight: bold; font-size: 13px;".format(COLOR_STATUS_WARNING))
+            self.val_dept.setText("Unsaved Scene")
         else:
             self.val_shot.setText(self._resolved_shot_name)
             self.val_shot.setStyleSheet("color: {}; font-weight: bold; font-size: 13px;".format(COLOR_TEXT_PRIMARY))
+            self.val_dept.setText("{} ({})".format(proj or "Scene", dept))
 
         self.val_path.setText(self._resolved_shot_root or "Active Maya Project / Current Scene Directory")
 
@@ -308,9 +345,6 @@ class AnimIODialog(BaseToolDialog):
         total_frames = max(0, end_f - start_f + 1)
         self.val_range.setText("Frames {} to {} ({} frames)".format(start_f, end_f, total_frames))
 
-        proj = identity.get("project")
-        dept = identity.get("department") or "ANM"
-        ver = identity.get("version_str") or "V001"
         if proj:
             self.header_subtitle.setText(
                 "Project: {} | Shot: {} | Dept: {} | Scene: {}".format(
