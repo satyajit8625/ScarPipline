@@ -6,11 +6,17 @@
   - Dedicated zero-complexity 1-page shot animation caching tool exporting to studio standard `Alembic/` and `FBX/` folders alongside `Maya/` files.
   - 100% automated scene parsing: auto-detects shot name (`PRT_SH_020`), active project (`PRT`), timeline range, and active shot camera (`PRT_SH_020_CAM`).
   - Integrated in-place camera standardization: non-standard cameras in the table can be double-clicked to rename directly in-place without duplicate node creation.
-  - Header Hamburger Icon (`☰`) & Dedicated Export Settings Dialog: allows configuring velocity vectors, sub-frame step sampling (1.0 / 0.5 / 0.25), simulation handles (0 / ±5 / ±10), UV/normal flags, coordinate axes (Y-Up / Z-Up), and FBX versions with persistent Maya optionVar storage and 1-click Reset to Defaults.
+  - Standardized Kebab Menu (`⋮`) on table toolbar next to Refresh Scene, preserving 100% Brand Header consistency across all suite tools.
+  - Dedicated **Alembic Settings** (`AlembicSettingsDialog`) and **FBX Settings** (`FBXSettingsDialog`) dialogs with validated studio presets (`ScarFall Shot Cache`), department color hierarchy (`pipeline` green `#4E937B`, `modeling` blue `#5F7FA8`, `rig` purple `#766A8E`, `data` teal `#667A70`), frame handles (0, 2, 5, 8, 10 frames), pipeline locked standards (`🔒`), and collapsible advanced accordion panels.
+  - Reusable `ScarPopupMenu` / `create_popup_menu` in `scartools.ui` with automatic right-aligned positioning (`exec_below_widget`).
+  - Safe Confirmation Modal on Reset to Defaults to prevent accidental configuration overwrites.
   - Centralized `create_stat_card` dashboard component with tight label-value spacing and zero custom stylesheets.
   - Real-time Maya scene synchronization: automatic `scriptJob` listeners for scene open, new, save, and timeline changes with clean termination on dialog close.
   - Centralized Modal Progress: integrates `scartools.ui.OperationProgressPopup` and `scartools.framework.OperationCallbacks` for live `%` and asset caching progress.
   - Post-Export 1-Click Open: integrated `open_in_file_manager` button opens destination shot root in Windows Explorer.
+- **Suite-Wide Department Color System & UX Polish**:
+  - Enforced department color standards across all tools: `pipeline` green `#4E937B`, `modeling` steel blue `#5F7FA8`, `rig` amethyst purple `#766A8E`, `texturing` amber gold `#A67C45`, and `data` dark teal `#667A70`.
+  - Upgraded `ToggleSwitch` and `SegmentedControl` selection components to natively support all department accent styles.
 - **Active Cloud Allowlist Licensing Architecture**:
   - Upgraded registry model to a true Active Allowlist: the master registry (`studio_licenses_registry.json`) holds only authorized active seats.
   - Removing a user or seat from the registry automatically triggers the Zero-Fill Remote File Wipe upon the next online check.

@@ -722,11 +722,25 @@ Shot_010/
                     </ol>
 
                     <h2>⚙️ Export Settings & Kebab Menu (⋮)</h2>
-                    <p>Clicking the <strong>Kebab Menu (<code>⋮</code>)</strong> in the top-right header opens the standardized <code>ScarPopupMenu</code>:</p>
+                    <p>Clicking the <strong>Kebab Menu (<code>⋮</code>)</strong> next to the <em>Refresh Scene</em> button opens the right-aligned studio <code>ScarPopupMenu</code>:</p>
                     <ul>
-                        <li><strong><code>◇ Alembic Settings…</code></strong>: Opens the settings dialog directly to the Alembic tab to configure Motion Blur Velocity Vectors (<code>-writeVelocities</code>), Sub-Frame Sampling Steps (1.0 / 0.5 / 0.25), Simulation Handles (0 / &plusmn;5 / &plusmn;10 frames), and mesh attributes (UVs, Normals, Renderable Only).</li>
-                        <li><strong><code>◇ FBX Settings…</code></strong>: Opens the settings dialog directly to the FBX tab to configure Coordinate Up-Axis (<code>Y-Up</code> Maya/Film vs <code>Z-Up</code> Unreal Engine), FBX SDK Versions (2020 / 2018 / 2016), Smoothing Groups, and Triangulation.</li>
-                        <li><strong><code>↻ Reset to Default</code></strong>: 1-Click action that instantly restores all export parameters to studio pipeline standards and notifies the artist in the status bar.</li>
+                        <li><strong><code>◇ Alembic Settings…</code></strong>: Opens the dedicated Alembic Settings dialog with department color-coded panels:
+                            <ul>
+                                <li><strong>Cache & Timing (🟢 Green)</strong>: Verified <code>Ogawa [Pipeline Standard 🔒]</code> format, Frame Step segmented control (1.0 / 0.5 / 0.25), and Pre/Post-roll Simulation Handles (0, 2, 5, 8, 10 frames).</li>
+                                <li><strong>Geometry & Shading (🔵 Blue)</strong>: Toggle switches for UV Sets, Vertex Normals, Visibility Keys, Face Sets (Materials), and Color Sets.</li>
+                                <li><strong>Transforms & Naming (🟣 Purple)</strong>: World Space Matrix and Strip Namespaces toggles.</li>
+                                <li><strong>Advanced Options (Collapsible)</strong>: Motion blur velocities (<code>-writeVelocities</code>), renderable only, subdivision creases, whole frame geometry, and Euler angle filter.</li>
+                            </ul>
+                        </li>
+                        <li><strong><code>◇ FBX Settings…</code></strong>: Opens the dedicated FBX Settings dialog:
+                            <ul>
+                                <li><strong>Animation & Deformation (🟣 Purple)</strong>: Animation Takes, Bake Animation, Resample Curves, Skin Weights, and Blend Shapes.</li>
+                                <li><strong>Geometry & Scene Data (🔵 Blue)</strong>: Smoothing Groups, Tangents/Binormals, Triangulate Polygons, Cameras, and Lights.</li>
+                                <li><strong>Pipeline Locked Standards (🔘 Teal)</strong>: Guaranteed studio standards (Binary format 🔒, Y-Up Axis 🔒, Centimeters 🔒, Embed Media OFF 🔒).</li>
+                                <li><strong>Advanced Options (Collapsible)</strong>: Euler Filter, Constant Key Reducer, and Preserve Instances.</li>
+                            </ul>
+                        </li>
+                        <li><strong><code>↻ Reset to Default</code></strong>: Opens a safe confirmation modal to restore all Alembic & FBX parameters back to studio pipeline standards.</li>
                     </ul>
                 </div>
 
