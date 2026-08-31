@@ -114,7 +114,7 @@ class AnimIODialog(BaseToolDialog):
         # 1. Brand Header [UI-02]
         header, self.header_subtitle = create_brand_header(
             "ANIM EXPORT",
-            "Automatic Alembic (.abc) and FBX (.fbx) shot cache extraction",
+            "Automatic Alembic and FBX shot cache extraction",
             parent=self,
         )
         root.addWidget(header)
@@ -160,7 +160,7 @@ class AnimIODialog(BaseToolDialog):
 
         fmt_lbl = QtWidgets.QLabel("Format:", self)
         self.geo_format_combo = QtWidgets.QComboBox(self)
-        self.geo_format_combo.addItems(["Alembic (.abc)", "FBX (.fbx)", "Both (.abc + .fbx)"])
+        self.geo_format_combo.addItems(["Alembic", "FBX", "Both"])
         self.geo_format_combo.setCurrentIndex(2)  # Default: Both
         configure_field(self.geo_format_combo, minimum_width=140)
         top_bar.addWidget(fmt_lbl)
@@ -308,7 +308,7 @@ class AnimIODialog(BaseToolDialog):
 
         total_frames = max(0, end_f - start_f + 1)
         self.val_range.setText("Frames {} to {} ({} frames)".format(start_f, end_f, total_frames))
-        self.header_subtitle.setText("Automatic Alembic (.abc) and FBX (.fbx) shot cache extraction")
+        self.header_subtitle.setText("Automatic Alembic and FBX shot cache extraction")
 
         data = discover_scene_assets()
 
