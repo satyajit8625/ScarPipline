@@ -371,8 +371,9 @@ class AnimIODialog(BaseToolDialog):
         # Populate Table
         self.asset_table.setRowCount(len(self.controller.assets))
         for row, asset_item in enumerate(self.controller.assets):
-            # Col 0: Name
+            # Col 0: Name (Read-only, selectable)
             name_item = QtWidgets.QTableWidgetItem(asset_item.name)
+            name_item.setFlags(QtCore.Qt.ItemIsEnabled | QtCore.Qt.ItemIsSelectable)
             name_item.setData(QtCore.Qt.UserRole, (asset_item.item_type, asset_item.node))
             name_item.setToolTip("{}: {}".format(asset_item.details, asset_item.node or "Not in scene"))
 
@@ -383,7 +384,7 @@ class AnimIODialog(BaseToolDialog):
             check_item.setFlags(QtCore.Qt.ItemIsUserCheckable | QtCore.Qt.ItemIsEnabled | QtCore.Qt.ItemIsSelectable)
             check_item.setToolTip("Include in export")
 
-            # Col 2: Status
+            # Col 2: Status (Read-only, centered)
             if asset_item.status_variant == "success":
                 status_color = COLOR_STATUS_SUCCESS
             elif asset_item.status_variant == "warning":
@@ -394,6 +395,7 @@ class AnimIODialog(BaseToolDialog):
                 status_color = COLOR_TEXT_MUTED
 
             status_item = self._item(asset_item.status, color=status_color, alignment=QtCore.Qt.AlignCenter)
+            status_item.setFlags(QtCore.Qt.ItemIsEnabled | QtCore.Qt.ItemIsSelectable)
 
             self.asset_table.setItem(row, 0, name_item)
             self.asset_table.setItem(row, 1, check_item)
