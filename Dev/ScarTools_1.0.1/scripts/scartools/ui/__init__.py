@@ -1097,6 +1097,7 @@ __all__ = [
     "create_navigation_tabs",
     "create_operation_group",
     "create_section_panel",
+    "create_subheading",
     "create_status_bar",
     "enable_rollup",
     "repolish",
@@ -1225,3 +1226,25 @@ __all__ += [
     "create_key_value_row",
 ]
 
+
+
+def create_subheading(title, is_first=False):
+    """Create a standardized letter-spaced uppercase subheader with subtle divider line [UI-03, UI-04]."""
+    container = QtWidgets.QWidget()
+    h_layout = QtWidgets.QHBoxLayout(container)
+    top_m = 0 if is_first else SECTION_HEADING_TOP_GAP
+    bot_m = SECTION_HEADING_BOTTOM_GAP
+    h_layout.setContentsMargins(0, top_m, 0, bot_m)
+    h_layout.setSpacing(8)
+
+    lbl = QtWidgets.QLabel(str(title).upper())
+    lbl.setObjectName("SubheadingLabel")
+
+    line = QtWidgets.QFrame()
+    line.setFrameShape(QtWidgets.QFrame.HLine)
+    line.setFrameShadow(QtWidgets.QFrame.Plain)
+    line.setObjectName("DividerLine")
+
+    h_layout.addWidget(lbl)
+    h_layout.addWidget(line, 1)
+    return container

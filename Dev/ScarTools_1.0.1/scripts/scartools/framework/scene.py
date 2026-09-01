@@ -169,3 +169,59 @@ __all__ = [
     "split_namespace",
     "get_connected_nodes",
 ]
+
+
+def get_scene_fps():
+    """Query active Maya scene FPS cleanly with full fractional precision."""
+    try:
+        if hasattr(cmds, "currentTimeUnitToFPS"):
+            return float(cmds.currentTimeUnitToFPS())
+    except Exception:
+        pass
+
+    try:
+        unit = str(cmds.currentUnit(query=True, time=True)).strip().lower()
+        fps_map = {
+            "game": 15.0,
+            "film": 24.0,
+            "pal": 25.0,
+            "ntsc": 30.0,
+            "show": 48.0,
+            "palf": 50.0,
+            "palfps": 50.0,
+            "ntscf": 60.0,
+            "ntscfps": 60.0,
+            "23.976fps": 23.976,
+            "29.97fps": 29.97,
+            "29.97df": 29.97,
+            "47.952fps": 47.952,
+            "59.94fps": 59.94,
+            "24fps": 24.0,
+            "25fps": 25.0,
+            "30fps": 30.0,
+            "48fps": 48.0,
+            "50fps": 50.0,
+            "60fps": 60.0,
+        }
+        if unit in fps_map:
+            return fps_map[unit]
+        if unit.endswith("fps"):
+            return float(unit[:-3])
+    except Exception:
+        pass
+    return 24.0
+
+
+def get_scene_frame_range():
+    """Return active timeline (start_frame, end_frame) as integers."""
+    try:
+        if hasattr(cmds, "playbackOptions"):
+            min_t = cmds.playbackOptions(q=True, minTime=True)
+            max_t = cmds.playbackOptions(q=True, maxTime=True)
+            if min_t is not None and max_t is not None:
+                start = int(min_t)
+                end = int(max_t)
+                return (min(start, end), max(start, end))
+    except Exception:
+        pass
+    return (1001, 1100)

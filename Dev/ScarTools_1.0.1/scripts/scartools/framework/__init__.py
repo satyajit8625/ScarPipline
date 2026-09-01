@@ -20,7 +20,7 @@ from .validation import (
     inspect_mesh_topology,
     select_mesh_topology_issues,
 )
-from .paths import icons_root, package_root, scripts_root, resolve_icon, open_in_file_manager
+from .paths import icons_root, package_root, scripts_root, resolve_icon, open_in_file_manager, is_valid_filename
 from .snapshots import (
     SnapshotError,
     asset_directory,
@@ -39,6 +39,8 @@ from .scene import (
     get_short_name,
     split_namespace,
     get_connected_nodes,
+    get_scene_fps,
+    get_scene_frame_range,
 )
 from .preflight import (
     PreflightSeverity,
@@ -109,4 +111,7 @@ __all__ = [
     "format_version",
     "parse_shot_scene_identity",
     "open_in_file_manager",
+    "is_valid_filename",
+    "get_scene_fps",
+    "get_scene_frame_range",
 ]

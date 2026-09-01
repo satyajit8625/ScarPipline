@@ -59,3 +59,15 @@ def open_in_file_manager(path):
             return True
     except Exception:
         return False
+
+
+def is_valid_filename(filename):
+    """
+    Validate that filename contains no illegal Windows/POSIX characters.
+    Empty string is considered valid (representing default naming).
+    """
+    import re
+    if not filename or not str(filename).strip():
+        return True
+    illegal_chars = r'[\/:*?"<>|]'
+    return not bool(re.search(illegal_chars, str(filename).strip()))

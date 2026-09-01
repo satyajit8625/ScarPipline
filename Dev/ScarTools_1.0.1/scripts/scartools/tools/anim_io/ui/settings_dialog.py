@@ -20,6 +20,7 @@ from scartools.ui import (
     create_brand_header,
     create_button,
     create_section_panel,
+    create_subheading,
     apply_theme,
     repolish,
     FORM_LABEL_WIDTH,
@@ -31,6 +32,7 @@ from scartools.ui import (
     SECTION_HEADING_BOTTOM_GAP,
 )
 from scartools.framework.logging import emit_log
+from scartools.framework.paths import is_valid_filename as _is_valid_filename
 
 
 # ==============================================================================
@@ -208,26 +210,7 @@ def confirm_and_reset_settings(parent=None):
     return False
 
 
-def _create_subheading(title, is_first=False):
-    """Create a standardized letter-spaced uppercase subheader with subtle divider line."""
-    container = QtWidgets.QWidget()
-    h_layout = QtWidgets.QHBoxLayout(container)
-    top_m = 0 if is_first else SECTION_HEADING_TOP_GAP
-    bot_m = SECTION_HEADING_BOTTOM_GAP
-    h_layout.setContentsMargins(0, top_m, 0, bot_m)
-    h_layout.setSpacing(8)
-
-    lbl = QtWidgets.QLabel(str(title).upper())
-    lbl.setObjectName("SubheadingLabel")
-
-    line = QtWidgets.QFrame()
-    line.setFrameShape(QtWidgets.QFrame.HLine)
-    line.setFrameShadow(QtWidgets.QFrame.Plain)
-    line.setObjectName("DividerLine")
-
-    h_layout.addWidget(lbl)
-    h_layout.addWidget(line, 1)
-    return container
+_create_subheading = create_subheading
 
 
 def _create_label(text, width=80):
