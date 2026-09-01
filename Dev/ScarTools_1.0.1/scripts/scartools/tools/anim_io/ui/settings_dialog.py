@@ -239,11 +239,11 @@ def _create_label(text, width=80):
 
 
 def _is_valid_filename(filename):
-    """Check if filename contains no illegal Windows/POSIX characters."""
-    if not filename or not filename.strip():
-        return False
+    """Check if filename contains no illegal Windows/POSIX characters. Empty string is allowed (uses default asset name)."""
+    if not filename or not str(filename).strip():
+        return True
     illegal_chars = r'[\\/:*?"<>|]'
-    return not bool(re.search(illegal_chars, filename))
+    return not bool(re.search(illegal_chars, str(filename).strip()))
 
 
 # ==============================================================================

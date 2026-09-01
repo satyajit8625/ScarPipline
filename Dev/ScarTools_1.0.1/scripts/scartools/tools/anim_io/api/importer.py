@@ -141,16 +141,12 @@ def import_shot_package(
 
     package_dir = manifest["_package_dir"]
 
-    # 1. Apply frame range and FPS
-    if import_time_settings:
-        apply_shot_time_settings(manifest)
-
-    # 2. Import Camera
+    # 1. Import Camera
     cam_imported = None
     if import_camera and manifest.get("camera"):
         cam_imported = import_shot_camera(package_dir, manifest["camera"], lock_attributes=lock_camera)
 
-    # 3. Import Characters
+    # 2. Import Characters
     chars_imported = []
     if import_characters:
         for c_rec in manifest.get("characters", []):
@@ -161,7 +157,7 @@ def import_shot_package(
             except Exception as e:
                 print("[ScarTools Anim I/O] Character import warning: {}".format(e))
 
-    # 4. Import Props
+    # 3. Import Props
     props_imported = []
     if import_props:
         for p_rec in manifest.get("props", []):
@@ -171,6 +167,10 @@ def import_shot_package(
                     props_imported.append(p)
             except Exception as e:
                 print("[ScarTools Anim I/O] Prop import warning: {}".format(e))
+
+    # 4. Apply frame range and FPS (Applied after asset imports to ensure FBX does not overwrite timeline)
+    if import_time_settings:
+        apply_shot_time_settings(manifest)
 
     return {
         "success": True,

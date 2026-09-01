@@ -158,9 +158,7 @@ def export_character_cache(
             if all_uv_sets:
                 flags.append("-writeUVSets")
             if write_velocities:
-                flags.append("-writeVelocities")
-            if write_normals:
-                flags.append("-writeNormals")
+                flags.append("-wv")
             if renderable_only:
                 flags.append("-renderableOnly")
             if write_visibility:
@@ -242,7 +240,7 @@ def export_character_cache(
                 mel.eval("FBXExportConstraints -v {}".format("true" if fbx_constraints else "false"))
                 mel.eval("FBXExportInputConnections -v {}".format("true" if fbx_input_connections else "false"))
                 mel.eval("FBXExportInstances -v {}".format("true" if fbx_preserve_instances else "false"))
-                mel.eval("FBXExportEmbeddedProperties -v {}".format("true" if fbx_embed_media else "false"))
+                mel.eval("FBXExportEmbeddedTextures -v {}".format("true" if fbx_embed_media else "false"))
 
                 mel.eval('FBXExport -f "{}" -s'.format(fbx_path))
             except Exception:
