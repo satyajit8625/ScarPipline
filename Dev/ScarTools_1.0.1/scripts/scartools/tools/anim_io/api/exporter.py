@@ -79,16 +79,46 @@ def export_character_cache(
     end_frame,
     formats=("abc",),
     step=1.0,
+    # Alembic parameters
     write_velocities=True,
     uv_write=True,
+    all_uv_sets=True,
     write_normals=True,
-    renderable_only=True,
+    renderable_only=False,
     write_visibility=True,
+    write_face_sets=True,
+    write_color_sets=False,
+    auto_subd=False,
     world_space=True,
-    fbx_up_axis="Y-Up",
+    euler_filter=False,
+    user_attributes=False,
+    attribute_prefix="ABC_",
+    strip_namespaces=True,
+    data_format="Ogawa",
+    # FBX parameters
+    fbx_bake_animation=True,
+    fbx_step=1,
+    fbx_resample=True,
+    fbx_euler_filter=False,
+    fbx_constant_key_reducer=False,
+    fbx_quaternion_mode="Resample",
+    fbx_skin=True,
+    fbx_blend_shapes=True,
     fbx_smoothing_groups=True,
-    fbx_version="FBX 2020",
+    fbx_tangents_binormals=True,
+    fbx_smooth_mesh=False,
     fbx_triangulate=False,
+    fbx_cameras=True,
+    fbx_lights=False,
+    fbx_constraints=False,
+    fbx_input_connections=False,
+    fbx_preserve_instances=False,
+    fbx_units="Centimeters",
+    fbx_up_axis="Y",
+    fbx_file_type="Binary",
+    fbx_version="FBX 2020",
+    fbx_embed_media=False,
+    fbx_strip_namespaces=True,
 ):
     """
     Export character geometry hierarchy to Alembic (.abc) in Alembic/ and/or FBX (.fbx) in FBX/.
@@ -125,6 +155,7 @@ def export_character_cache(
                 flags.append("-worldSpace")
             if uv_write:
                 flags.append("-uvWrite")
+            if all_uv_sets:
                 flags.append("-writeUVSets")
             if write_velocities:
                 flags.append("-writeVelocities")
@@ -134,8 +165,24 @@ def export_character_cache(
                 flags.append("-renderableOnly")
             if write_visibility:
                 flags.append("-writeVisibility")
-            flags.append("-stripNamespaces")
-            flags.append("-dataFormat ogawa")
+            if write_face_sets:
+                flags.append("-writeFaceSets")
+            if write_color_sets:
+                flags.append("-writeColorSets")
+            if auto_subd:
+                flags.append("-autoSubD")
+            if euler_filter:
+                flags.append("-eulerFilter")
+            if user_attributes and attribute_prefix:
+                flags.append('-userAttrPrefix "{}"'.format(attribute_prefix))
+            if strip_namespaces:
+                flags.append("-stripNamespaces")
+
+            df_clean = str(data_format).strip().lower()
+            if df_clean in ("hdf", "hdf5"):
+                flags.append("-dataFormat hdf")
+            else:
+                flags.append("-dataFormat ogawa")
 
             job_str = " ".join(flags)
             cmds.AbcExport(jobArg=job_str)
@@ -159,15 +206,14 @@ def export_character_cache(
             try:
                 cmds.select(root_node, replace=True)
                 mel.eval("FBXResetExport")
-                mel.eval("FBXExportInAscii -v false")
 
-                if fbx_smoothing_groups:
-                    mel.eval("FBXExportSmoothingGroups -v true")
+                is_ascii = "ascii" in str(fbx_file_type).lower()
+                mel.eval("FBXExportInAscii -v {}".format("true" if is_ascii else "false"))
 
-                if fbx_triangulate:
-                    mel.eval("FBXExportTriangulate -v true")
-                else:
-                    mel.eval("FBXExportTriangulate -v false")
+                mel.eval("FBXExportSmoothingGroups -v {}".format("true" if fbx_smoothing_groups else "false"))
+                mel.eval("FBXExportTangents -v {}".format("true" if fbx_tangents_binormals else "false"))
+                mel.eval("FBXExportSmoothMesh -v {}".format("true" if fbx_smooth_mesh else "false"))
+                mel.eval("FBXExportTriangulate -v {}".format("true" if fbx_triangulate else "false"))
 
                 if str(fbx_up_axis).strip().lower().startswith("z"):
                     mel.eval("FBXExportUpAxis z")
@@ -181,13 +227,23 @@ def export_character_cache(
                     except Exception:
                         pass
 
-                mel.eval("FBXExportBakeComplexAnimation -v true")
+                mel.eval("FBXExportBakeComplexAnimation -v {}".format("true" if fbx_bake_animation else "false"))
                 mel.eval("FBXExportBakeComplexStart -v {}".format(start_frame))
                 mel.eval("FBXExportBakeComplexEnd -v {}".format(end_frame))
-                mel.eval("FBXExportBakeComplexStep -v {}".format(step))
+                mel.eval("FBXExportBakeComplexStep -v {}".format(fbx_step))
+                mel.eval("FBXExportBakeResampleAnimation -v {}".format("true" if fbx_resample else "false"))
+                mel.eval("FBXExportApplyConstantKeyReducer -v {}".format("true" if fbx_constant_key_reducer else "false"))
+
                 mel.eval("FBXExportAnimationOnly -v false")
-                mel.eval("FBXExportSkins -v true")
-                mel.eval("FBXExportShapes -v true")
+                mel.eval("FBXExportSkins -v {}".format("true" if fbx_skin else "false"))
+                mel.eval("FBXExportShapes -v {}".format("true" if fbx_blend_shapes else "false"))
+                mel.eval("FBXExportCameras -v {}".format("true" if fbx_cameras else "false"))
+                mel.eval("FBXExportLights -v {}".format("true" if fbx_lights else "false"))
+                mel.eval("FBXExportConstraints -v {}".format("true" if fbx_constraints else "false"))
+                mel.eval("FBXExportInputConnections -v {}".format("true" if fbx_input_connections else "false"))
+                mel.eval("FBXExportInstances -v {}".format("true" if fbx_preserve_instances else "false"))
+                mel.eval("FBXExportEmbeddedProperties -v {}".format("true" if fbx_embed_media else "false"))
+
                 mel.eval('FBXExport -f "{}" -s'.format(fbx_path))
             except Exception:
                 with open(fbx_path, "wb") as f:
@@ -207,16 +263,7 @@ def export_prop_cache(
     end_frame,
     formats=("abc",),
     step=1.0,
-    write_velocities=True,
-    uv_write=True,
-    write_normals=True,
-    renderable_only=True,
-    write_visibility=True,
-    world_space=True,
-    fbx_up_axis="Y-Up",
-    fbx_smoothing_groups=True,
-    fbx_version="FBX 2020",
-    fbx_triangulate=False,
+    **kwargs
 ):
     """Export prop geometry hierarchy to Alembic (.abc) in Alembic/ and/or FBX (.fbx) in FBX/."""
     return export_character_cache(
@@ -226,16 +273,7 @@ def export_prop_cache(
         end_frame=end_frame,
         formats=formats,
         step=step,
-        write_velocities=write_velocities,
-        uv_write=uv_write,
-        write_normals=write_normals,
-        renderable_only=renderable_only,
-        write_visibility=write_visibility,
-        world_space=world_space,
-        fbx_up_axis=fbx_up_axis,
-        fbx_smoothing_groups=fbx_smoothing_groups,
-        fbx_version=fbx_version,
-        fbx_triangulate=fbx_triangulate,
+        **kwargs
     )
 
 
@@ -253,15 +291,46 @@ def export_shot_package(
     prop_formats=("abc",),
     handles=0,
     step=1.0,
+    # Comprehensive Alembic parameters
     write_velocities=True,
     uv_write=True,
+    all_uv_sets=True,
     write_normals=True,
-    renderable_only=True,
+    renderable_only=False,
     write_visibility=True,
-    fbx_up_axis="Y-Up",
+    write_face_sets=True,
+    write_color_sets=False,
+    auto_subd=False,
+    world_space=True,
+    euler_filter=False,
+    user_attributes=False,
+    attribute_prefix="ABC_",
+    strip_namespaces=True,
+    data_format="Ogawa",
+    # Comprehensive FBX parameters
+    fbx_bake_animation=True,
+    fbx_step=1,
+    fbx_resample=True,
+    fbx_euler_filter=False,
+    fbx_constant_key_reducer=False,
+    fbx_quaternion_mode="Resample",
+    fbx_skin=True,
+    fbx_blend_shapes=True,
     fbx_smoothing_groups=True,
-    fbx_version="FBX 2020",
+    fbx_tangents_binormals=True,
+    fbx_smooth_mesh=False,
     fbx_triangulate=False,
+    fbx_cameras=True,
+    fbx_lights=False,
+    fbx_constraints=False,
+    fbx_input_connections=False,
+    fbx_preserve_instances=False,
+    fbx_units="Centimeters",
+    fbx_up_axis="Y",
+    fbx_file_type="Binary",
+    fbx_version="FBX 2020",
+    fbx_embed_media=False,
+    fbx_strip_namespaces=True,
     notes="",
     callbacks=None,
 ):
@@ -333,13 +402,42 @@ def export_shot_package(
             step=step,
             write_velocities=write_velocities,
             uv_write=uv_write,
+            all_uv_sets=all_uv_sets,
             write_normals=write_normals,
             renderable_only=renderable_only,
             write_visibility=write_visibility,
-            fbx_up_axis=fbx_up_axis,
+            write_face_sets=write_face_sets,
+            write_color_sets=write_color_sets,
+            auto_subd=auto_subd,
+            world_space=world_space,
+            euler_filter=euler_filter,
+            user_attributes=user_attributes,
+            attribute_prefix=attribute_prefix,
+            strip_namespaces=strip_namespaces,
+            data_format=data_format,
+            fbx_bake_animation=fbx_bake_animation,
+            fbx_step=fbx_step,
+            fbx_resample=fbx_resample,
+            fbx_euler_filter=fbx_euler_filter,
+            fbx_constant_key_reducer=fbx_constant_key_reducer,
+            fbx_quaternion_mode=fbx_quaternion_mode,
+            fbx_skin=fbx_skin,
+            fbx_blend_shapes=fbx_blend_shapes,
             fbx_smoothing_groups=fbx_smoothing_groups,
-            fbx_version=fbx_version,
+            fbx_tangents_binormals=fbx_tangents_binormals,
+            fbx_smooth_mesh=fbx_smooth_mesh,
             fbx_triangulate=fbx_triangulate,
+            fbx_cameras=fbx_cameras,
+            fbx_lights=fbx_lights,
+            fbx_constraints=fbx_constraints,
+            fbx_input_connections=fbx_input_connections,
+            fbx_preserve_instances=fbx_preserve_instances,
+            fbx_units=fbx_units,
+            fbx_up_axis=fbx_up_axis,
+            fbx_file_type=fbx_file_type,
+            fbx_version=fbx_version,
+            fbx_embed_media=fbx_embed_media,
+            fbx_strip_namespaces=fbx_strip_namespaces,
         )
         for fpath in exp_files:
             rel_path = os.path.relpath(fpath, target_dir).replace("\\", "/")
@@ -357,7 +455,7 @@ def export_shot_package(
     for i, p_node in enumerate(props_to_export):
         p_clean = p_node.split("|")[-1]
         if callbacks:
-            pct = 65 + int(25 * (i + 1) / max(1, total_props))
+            pct = 65 + int(30 * (i + 1) / max(1, total_props))
             callbacks.progress(pct, "Exporting prop '{}' ({}/{})...".format(p_clean, i + 1, total_props))
 
         exp_files = export_prop_cache(
@@ -369,13 +467,42 @@ def export_shot_package(
             step=step,
             write_velocities=write_velocities,
             uv_write=uv_write,
+            all_uv_sets=all_uv_sets,
             write_normals=write_normals,
             renderable_only=renderable_only,
             write_visibility=write_visibility,
-            fbx_up_axis=fbx_up_axis,
+            write_face_sets=write_face_sets,
+            write_color_sets=write_color_sets,
+            auto_subd=auto_subd,
+            world_space=world_space,
+            euler_filter=euler_filter,
+            user_attributes=user_attributes,
+            attribute_prefix=attribute_prefix,
+            strip_namespaces=strip_namespaces,
+            data_format=data_format,
+            fbx_bake_animation=fbx_bake_animation,
+            fbx_step=fbx_step,
+            fbx_resample=fbx_resample,
+            fbx_euler_filter=fbx_euler_filter,
+            fbx_constant_key_reducer=fbx_constant_key_reducer,
+            fbx_quaternion_mode=fbx_quaternion_mode,
+            fbx_skin=fbx_skin,
+            fbx_blend_shapes=fbx_blend_shapes,
             fbx_smoothing_groups=fbx_smoothing_groups,
-            fbx_version=fbx_version,
+            fbx_tangents_binormals=fbx_tangents_binormals,
+            fbx_smooth_mesh=fbx_smooth_mesh,
             fbx_triangulate=fbx_triangulate,
+            fbx_cameras=fbx_cameras,
+            fbx_lights=fbx_lights,
+            fbx_constraints=fbx_constraints,
+            fbx_input_connections=fbx_input_connections,
+            fbx_preserve_instances=fbx_preserve_instances,
+            fbx_units=fbx_units,
+            fbx_up_axis=fbx_up_axis,
+            fbx_file_type=fbx_file_type,
+            fbx_version=fbx_version,
+            fbx_embed_media=fbx_embed_media,
+            fbx_strip_namespaces=fbx_strip_namespaces,
         )
         for fpath in exp_files:
             rel_path = os.path.relpath(fpath, target_dir).replace("\\", "/")
@@ -385,12 +512,9 @@ def export_shot_package(
                 "format": os.path.splitext(fpath)[1].replace(".", "").lower(),
             })
 
-    # 4. Build & Save Manifest
-    if callbacks:
-        callbacks.progress(95, "Saving shot package manifest...")
-
-    manifest_dict = build_shot_manifest(
-        shot_name=shot_name,
+    # 4. Build and Save JSON Manifest
+    manifest_data = build_shot_manifest(
+        shot_name=shot_clean,
         start_frame=start_frame,
         end_frame=end_frame,
         fps=fps,
@@ -398,19 +522,18 @@ def export_shot_package(
         characters=char_records,
         props=prop_records,
         handles=handles,
-        step=step,
         notes=notes,
     )
-    manifest_file = save_shot_manifest(manifest_dict, target_dir)
+    manifest_file = save_shot_manifest(manifest_data, target_dir)
 
     if callbacks:
-        callbacks.progress(100, "Shot export complete!")
+        callbacks.progress(100, "Shot cache export complete!")
 
     return {
-        "success": True,
+        "shot_name": shot_clean,
         "target_dir": target_dir,
-        "manifest_file": manifest_file,
+        "manifest_path": manifest_file,
         "camera": camera_record,
-        "characters_count": len(char_records),
-        "props_count": len(prop_records),
+        "characters_exported": len(char_records),
+        "props_exported": len(prop_records),
     }

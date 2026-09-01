@@ -505,6 +505,51 @@ class MultiSelectComboBox(QtWidgets.QComboBox):
         super(MultiSelectComboBox, self).paintEvent(event)
 
 
+
+# ===========================================================================
+# 6. Anchored Menu Button
+# ===========================================================================
+
+class ScarMenuButton(QtWidgets.QPushButton):
+    """
+    Studio-standard dropdown button with animated chevron state (▾ -> ▴)
+    and seamless binding to an anchored popup menu (ScarPopupMenu / ScarAnchoredPopupMenu).
+    """
+
+    def __init__(self, text="Settings", menu=None, parent=None):
+        clean_text = text.replace(" ▾", "").replace(" ▴", "").strip()
+        super(ScarMenuButton, self).__init__(clean_text + " ▾", parent)
+        self.setObjectName("ScarMenuButton")
+        self.setProperty("role", "secondary")
+        self._base_label = clean_text
+        self._popup_menu = menu
+        self._is_menu_open = False
+        self.clicked.connect(self._on_clicked)
+
+    def set_popup_menu(self, menu):
+        self._popup_menu = menu
+
+    def popup_menu(self):
+        return self._popup_menu
+
+    def _on_clicked(self):
+        if self._is_menu_open:
+            return
+        if not self._popup_menu:
+            return
+
+        self._is_menu_open = True
+        try:
+            self._popup_menu.exec_below_widget(self, offset_y=2, align="right")
+        finally:
+            self._is_menu_open = False
+
+
+def create_menu_button(text="Settings", menu=None, parent=None):
+    """Create a standardized ScarMenuButton conforming to studio tokens."""
+    return ScarMenuButton(text=text, menu=menu, parent=parent)
+
+
 from .widgets import PathPickerWidget, create_path_picker
 
 __all__ = [
@@ -518,4 +563,6 @@ __all__ = [
     "MultiSelectComboBox",
     "PathPickerWidget",
     "create_path_picker",
+    "ScarMenuButton",
+    "create_menu_button",
 ]

@@ -48,6 +48,7 @@ from .settings_dialog import (
     show_fbx_settings,
     confirm_and_reset_settings,
     get_anim_export_settings,
+    close_settings_dialogs,
 )
 from scartools.framework import (
     open_in_file_manager,
@@ -138,14 +139,14 @@ class AnimIODialog(BaseToolDialog):
 
         lbl_mode = QtWidgets.QLabel("Format", self)
         lbl_mode.setFixedWidth(FORM_LABEL_WIDTH)
-        lbl_mode.setStyleSheet("color: #D2D2D2; font-size: 11px; font-weight: 500;")
+        lbl_mode.setObjectName("FieldLabel")
 
         self.format_combo = QtWidgets.QComboBox(self)
         self.format_combo.addItems(["Both (Alembic + FBX)", "Alembic (.abc)", "FBX (.fbx)"])
         configure_field(self.format_combo, minimum_width=180)
 
         self.operation_help = QtWidgets.QLabel(self.FORMAT_DESCRIPTIONS[0], self)
-        self.operation_help.setStyleSheet("color: #8A94A6; font-size: 11px;")
+        self.operation_help.setObjectName("Muted")
         self.operation_help.setWordWrap(True)
 
         op_row.addWidget(lbl_mode)
@@ -164,7 +165,7 @@ class AnimIODialog(BaseToolDialog):
         self.rescan_btn = create_button("Rescan Scene", role="secondary", parent=self)
         self.rescan_btn.setToolTip("Scan active Maya scene for rigs and cameras (Hotkey: F5)")
 
-        self.settings_btn = create_button("⚙ Settings ▾", role="secondary", parent=self)
+        self.settings_btn = create_button("Settings ▾", role="secondary", parent=self)
         self.settings_btn.setToolTip("Configure Alembic & FBX export parameters")
 
         top_bar.addWidget(self.count_badge)
@@ -251,22 +252,29 @@ class AnimIODialog(BaseToolDialog):
         self._settings_menu_open = True
         menu = create_popup_menu(parent=self)
 
-        act_alembic = menu.addAction("⚙  Alembic Settings...")
-        act_fbx = menu.addAction("⚙  FBX Settings...")
+        act_alembic = menu.addAction("Alembic Settings...")
+        act_fbx = menu.addAction("FBX Settings...")
         menu.addSeparator()
-        act_reset = menu.addAction("↻  Reset to Default")
+        act_reset = menu.addAction("Reset to Default")
 
         def _on_about_to_hide():
             QtCore.QTimer.singleShot(150, lambda: setattr(self, "_settings_menu_open", False))
 
         menu.aboutToHide.connect(_on_about_to_hide)
 
-        action = menu.exec_below_widget(self.settings_btn, offset_y=5, align="right")
+        action = menu.exec_below_widget(self.settings_btn, offset_y=2, align="right")
+
+        shot_ctx = {
+            "shot_name": self.controller.shot_name,
+            "shot_root": self.controller.shot_root,
+            "start_frame": self.controller.start_frame,
+            "end_frame": self.controller.end_frame,
+        }
 
         if action == act_alembic:
-            show_alembic_settings(parent=self)
+            show_alembic_settings(parent=self, shot_context=shot_ctx)
         elif action == act_fbx:
-            show_fbx_settings(parent=self)
+            show_fbx_settings(parent=self, shot_context=shot_ctx)
         elif action == act_reset:
             if confirm_and_reset_settings(parent=self):
                 self.controller.recompute_state()
@@ -306,6 +314,7 @@ class AnimIODialog(BaseToolDialog):
 
     def closeEvent(self, event):
         self._unregister_scene_callbacks()
+        close_settings_dialogs()
         super(AnimIODialog, self).closeEvent(event)
 
     def changeEvent(self, event):
@@ -436,17 +445,51 @@ class AnimIODialog(BaseToolDialog):
         abc_cfg = user_cfg.get("alembic", {})
         fbx_cfg = user_cfg.get("fbx", {})
 
+        # Frame range from settings if explicitly overridden, else scene timeline
+        start_f = abc_cfg.get("start_frame") if abc_cfg.get("start_frame") is not None else self.controller.start_frame
+        end_f = abc_cfg.get("end_frame") if abc_cfg.get("end_frame") is not None else self.controller.end_frame
         step = float(abc_cfg.get("step", 1.0))
-        handles = int(abc_cfg.get("handles", 0))
-        write_vel = bool(abc_cfg.get("write_velocities", True))
+
+        # Alembic flags
         write_uv = bool(abc_cfg.get("uvs", True))
+        all_uv_sets = bool(abc_cfg.get("all_uv_sets", True))
         write_norm = bool(abc_cfg.get("normals", True))
-        write_rend = bool(abc_cfg.get("renderable_only", True))
         write_vis = bool(abc_cfg.get("visibility", True))
-        fbx_axis = str(fbx_cfg.get("up_axis", "Y-Up"))
+        write_face_sets = bool(abc_cfg.get("face_sets", True))
+        write_color_sets = bool(abc_cfg.get("color_sets", False))
+        auto_subd = bool(abc_cfg.get("auto_subd", False))
+        write_rend = bool(abc_cfg.get("renderable_only", False))
+        world_space = bool(abc_cfg.get("world_space", True))
+        euler_filter = bool(abc_cfg.get("euler_filter", False))
+        user_attributes = bool(abc_cfg.get("user_attributes", False))
+        attribute_prefix = str(abc_cfg.get("attribute_prefix", "ABC_"))
+        strip_namespaces = bool(abc_cfg.get("strip_namespaces", True))
+        data_format = str(abc_cfg.get("data_format", "Ogawa"))
+
+        # FBX flags
+        fbx_bake_anim = bool(fbx_cfg.get("bake_animation", True))
+        fbx_step = int(fbx_cfg.get("step", 1))
+        fbx_resample = bool(fbx_cfg.get("resample", True))
+        fbx_euler_filter = bool(fbx_cfg.get("euler_filter", False))
+        fbx_constant_key_reducer = bool(fbx_cfg.get("constant_key_reducer", False))
+        fbx_quaternion_mode = str(fbx_cfg.get("quaternion_mode", "Resample"))
+        fbx_skin = bool(fbx_cfg.get("skin", True))
+        fbx_blend_shapes = bool(fbx_cfg.get("blend_shapes", True))
         fbx_smooth = bool(fbx_cfg.get("smoothing_groups", True))
-        fbx_ver = str(fbx_cfg.get("fbx_version", "FBX 2020"))
+        fbx_tangents_binormals = bool(fbx_cfg.get("tangents_binormals", True))
+        fbx_smooth_mesh = bool(fbx_cfg.get("smooth_mesh", False))
         fbx_tri = bool(fbx_cfg.get("triangulate", False))
+        fbx_cameras = bool(fbx_cfg.get("cameras", True))
+        fbx_lights = bool(fbx_cfg.get("lights", False))
+        fbx_constraints = bool(fbx_cfg.get("constraints", False))
+        fbx_input_connections = bool(fbx_cfg.get("input_connections", False))
+        fbx_preserve_instances = bool(fbx_cfg.get("preserve_instances", False))
+        fbx_units = str(fbx_cfg.get("units", "Centimeters"))
+        fbx_axis = str(fbx_cfg.get("up_axis", "Y"))
+        fbx_file_type = str(fbx_cfg.get("file_type", "Binary"))
+        fbx_ver = str(fbx_cfg.get("fbx_version", "FBX 2020"))
+        fbx_embed_media = bool(fbx_cfg.get("embed_media", False))
+        fbx_strip_namespaces = bool(fbx_cfg.get("strip_namespaces", True))
 
         # Categorize plan nodes
         cam_node = None
@@ -494,17 +537,46 @@ class AnimIODialog(BaseToolDialog):
                 character_formats=geo_fmts,
                 prop_nodes=prop_nodes,
                 prop_formats=geo_fmts,
-                handles=handles,
+                handles=0,
                 step=step,
-                write_velocities=write_vel,
+                write_velocities=True,
                 uv_write=write_uv,
+                all_uv_sets=all_uv_sets,
                 write_normals=write_norm,
                 renderable_only=write_rend,
                 write_visibility=write_vis,
-                fbx_up_axis=fbx_axis,
+                write_face_sets=write_face_sets,
+                write_color_sets=write_color_sets,
+                auto_subd=auto_subd,
+                world_space=world_space,
+                euler_filter=euler_filter,
+                user_attributes=user_attributes,
+                attribute_prefix=attribute_prefix,
+                strip_namespaces=strip_namespaces,
+                data_format=data_format,
+                fbx_bake_animation=fbx_bake_anim,
+                fbx_step=fbx_step,
+                fbx_resample=fbx_resample,
+                fbx_euler_filter=fbx_euler_filter,
+                fbx_constant_key_reducer=fbx_constant_key_reducer,
+                fbx_quaternion_mode=fbx_quaternion_mode,
+                fbx_skin=fbx_skin,
+                fbx_blend_shapes=fbx_blend_shapes,
                 fbx_smoothing_groups=fbx_smooth,
-                fbx_version=fbx_ver,
+                fbx_tangents_binormals=fbx_tangents_binormals,
+                fbx_smooth_mesh=fbx_smooth_mesh,
                 fbx_triangulate=fbx_tri,
+                fbx_cameras=fbx_cameras,
+                fbx_lights=fbx_lights,
+                fbx_constraints=fbx_constraints,
+                fbx_input_connections=fbx_input_connections,
+                fbx_preserve_instances=fbx_preserve_instances,
+                fbx_units=fbx_units,
+                fbx_up_axis=fbx_axis,
+                fbx_file_type=fbx_file_type,
+                fbx_version=fbx_ver,
+                fbx_embed_media=fbx_embed_media,
+                fbx_strip_namespaces=fbx_strip_namespaces,
                 callbacks=callbacks,
             )
             if self._progress_popup:
@@ -552,3 +624,4 @@ def close_all_windows():
         except Exception:
             pass
     _ACTIVE_DIALOG = None
+    close_settings_dialogs()

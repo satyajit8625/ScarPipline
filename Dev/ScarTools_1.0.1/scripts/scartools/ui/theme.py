@@ -516,34 +516,60 @@ QProgressBar::chunk { background: #665A82; border-radius: 3px; }
 QScrollBar:vertical { background: #242424; width: 10px; margin: 1px; }
 QScrollBar::handle:vertical { background: #4A4A4A; min-height: 24px; border-radius: 4px; }
 QScrollBar:add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }
-QMenu, QMenu#ScarPopupMenu {
+QMenu, QMenu#ScarPopupMenu, QMenu#ScarAnchoredPopupMenu {
     background-color: #292929;
     color: #D2D2D2;
     border: 1px solid #3A3A3A;
     border-radius: 6px;
     padding: 4px;
+    font-family: "Roboto", "Segoe UI", "Inter", "Helvetica Neue", Arial, sans-serif;
     font-size: 12px;
     font-weight: 500;
 }
-QMenu::item, QMenu#ScarPopupMenu::item {
+QMenu::item, QMenu#ScarPopupMenu::item, QMenu#ScarAnchoredPopupMenu::item {
     background: transparent;
-    padding: 6px 16px 6px 12px;
-    min-height: 20px;
+    padding: 6px 16px 6px 14px;
+    min-height: 22px;
     border-radius: 4px;
     margin: 1px 2px;
     color: #D2D2D2;
 }
-QMenu::item:selected, QMenu#ScarPopupMenu::item:selected {
+QMenu::item:selected, QMenu#ScarPopupMenu::item:selected, QMenu#ScarAnchoredPopupMenu::item:selected {
     background-color: #3B5A8A;
     color: #FFFFFF;
 }
-QMenu::item:disabled, QMenu#ScarPopupMenu::item:disabled {
+QMenu::item:disabled, QMenu#ScarPopupMenu::item:disabled, QMenu#ScarAnchoredPopupMenu::item:disabled {
     color: #666666;
 }
-QMenu::separator, QMenu#ScarPopupMenu::separator {
+QMenu::separator, QMenu#ScarPopupMenu::separator, QMenu#ScarAnchoredPopupMenu::separator {
     height: 1px;
-    background: #3A3A3A;
+    background: #383838;
     margin: 4px 6px;
+}
+
+
+/* Centralized Form & Subheading Labels [UI-07] */
+QLabel#SubheadingLabel {
+    color: #8A94A6;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.9px;
+}
+QFrame#DividerLine {
+    background-color: #383838;
+    border: none;
+    min-height: 1px;
+    max-height: 1px;
+}
+QLabel#FieldLabel {
+    color: #D2D2D2;
+    font-size: 11px;
+    font-weight: 500;
+}
+QLabel#DialogTitle {
+    font-size: 13px;
+    font-weight: bold;
+    color: #FFFFFF;
 }
 
 /* Centralized Settings Dialog Labels */

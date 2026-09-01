@@ -730,24 +730,28 @@ Shot_010/
                     <h2>⚙️ Export Settings Menu (⚙ Settings ▾)</h2>
                     <p>Clicking the <strong><code>⚙ Settings ▾</code></strong> button next to the <em>Rescan Scene</em> button opens the right-aligned studio <code>ScarPopupMenu</code>:</p>
                     <ul>
-                        <li><strong><code>⚙ Alembic Settings…</code></strong>: Opens the compact Alembic Settings dialog exposing only artist-configurable options:
+                        <li><strong><code>⚙ Alembic Settings…</code></strong>: Opens the dedicated Alembic Settings dialog providing full visible and editable access to all production parameters (zero hidden backend configuration):
                             <ul>
-                                <li><strong>CACHE</strong>: Frame Step (sampling interval, default <code>1.0</code>) and Frame Handles (pre/post-roll frames, default <code>0</code>).</li>
-                                <li><strong>GEOMETRY</strong>: Checkboxes for UVs (ON), Normals (ON), Visibility (ON), Face Sets (ON), and Color Sets (OFF).</li>
-                                <li><strong>TRANSFORM</strong>: World Space coordinate baking (ON).</li>
-                                <li><em>Pipeline Controlled</em>: High-performance <code>Ogawa</code> format, motion blur velocity calculation, renderable-only filtering, and namespace stripping are automatically enforced by ScarTools.</li>
+                                <li><strong>SAMPLING</strong>: Start Frame (auto-populated timeline start), End Frame (auto-populated timeline end), Frame Step (sampling interval, default <code>1.0</code>).</li>
+                                <li><strong>GEOMETRY</strong>: Checkboxes for UVs (ON), All UV Sets (ON), Normals (ON), Visibility (ON), Face Sets (ON), Color Sets (OFF), Auto SubD (OFF), and Renderable Only (OFF).</li>
+                                <li><strong>TRANSFORM</strong>: World Space coordinate baking (ON) and Euler Filter (OFF).</li>
+                                <li><strong>ATTRIBUTES</strong>: User Attributes export toggle and custom Attribute Prefix (default <code>ABC_</code>).</li>
+                                <li><strong>NAMING</strong>: Strip Namespace (ON).</li>
+                                <li><strong>FILE</strong>: Data Format (Ogawa / HDF5), editable Output Path with <code>[ Browse ]</code> picker, and File Name template.</li>
                             </ul>
                         </li>
-                        <li><strong><code>⚙ FBX Settings…</code></strong>: Opens the compact FBX Settings dialog exposing only artist-configurable options:
+                        <li><strong><code>⚙ FBX Settings…</code></strong>: Opens the dedicated FBX Settings dialog providing full visible and editable access:
                             <ul>
-                                <li><strong>ANIMATION</strong>: Bake Animation (ON), Step (default <code>1</code>), Resample Animation (ON), and Euler Filter (OFF).</li>
+                                <li><strong>ANIMATION</strong>: Bake Animation (ON), Start Frame, End Frame, Step (default <code>1</code>), Resample Animation (ON), Euler Filter (OFF), Constant Key Reducer (OFF), and Quaternion Mode (Resample / Euler / Keep).</li>
                                 <li><strong>DEFORMATION</strong>: Skin deformers (ON) and Blend Shapes (ON).</li>
-                                <li><strong>GEOMETRY</strong>: Smoothing Groups (ON).</li>
-                                <li><strong>SCENE</strong>: Cameras (ON).</li>
-                                <li><em>Pipeline Controlled</em>: Binary format, FBX 2020 version, Y-Up axis, centimeters unit scale, tangents/binormals preservation, and non-triangulated geometry are automatically enforced by ScarTools.</li>
+                                <li><strong>GEOMETRY</strong>: Smoothing Groups (ON), Tangents & Binormals (ON), Smooth Mesh (OFF), and Triangulate (OFF).</li>
+                                <li><strong>SCENE</strong>: Cameras (ON), Lights (OFF), Constraints (OFF), Input Connections (OFF), and Preserve Instances (OFF).</li>
+                                <li><strong>COORDINATE SYSTEM</strong>: Units scale (Centimeters / Meters / etc.) and Up Axis (Y / Z).</li>
+                                <li><strong>FILE</strong>: File Type (Binary / ASCII), FBX Version (FBX 2020 / etc.), Embed Media (OFF), editable Output Path with <code>[ Browse ]</code> picker, and File Name template.</li>
+                                <li><strong>NAMING</strong>: Strip Namespace (ON).</li>
                             </ul>
                         </li>
-                        <li><strong><code>↻ Reset to Default</code></strong>: Restores all Alembic and FBX parameters back to studio pipeline standards. Each dialog also includes a dedicated <code>[ Reset ]</code> button for that format only.</li>
+                        <li><strong><code>↻ Reset to Default</code></strong>: Restores both Alembic and FBX configurations back to recommended ScarTools pipeline standards. Each dialog also includes a dedicated <code>[ Reset to Default ]</code> button for that format only.</li>
                     </ul>
                 </div>
 

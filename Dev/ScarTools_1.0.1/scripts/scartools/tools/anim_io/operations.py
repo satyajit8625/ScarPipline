@@ -27,17 +27,7 @@ def export_shot_package(
     prop_formats=("abc",),
     handles=0,
     step=1.0,
-    write_velocities=True,
-    uv_write=True,
-    write_normals=True,
-    renderable_only=True,
-    write_visibility=True,
-    fbx_up_axis="Y-Up",
-    fbx_smoothing_groups=True,
-    fbx_version="FBX 2020",
-    fbx_triangulate=False,
-    notes="",
-    callbacks=None,
+    **kwargs
 ):
     """Export shot package with atomic undo safety and license validation."""
     require_license("ScarTools_AnimExport")
@@ -57,17 +47,7 @@ def export_shot_package(
         prop_formats=prop_formats,
         handles=handles,
         step=step,
-        write_velocities=write_velocities,
-        uv_write=uv_write,
-        write_normals=write_normals,
-        renderable_only=renderable_only,
-        write_visibility=write_visibility,
-        fbx_up_axis=fbx_up_axis,
-        fbx_smoothing_groups=fbx_smoothing_groups,
-        fbx_version=fbx_version,
-        fbx_triangulate=fbx_triangulate,
-        notes=notes,
-        callbacks=callbacks,
+        **kwargs
     )
     emit_log("Shot package exported successfully to '{}'.".format(result["target_dir"]), level="SUCCESS", source="anim_io")
     return result

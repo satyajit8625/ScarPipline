@@ -735,26 +735,32 @@ def create_stat_card(fields=None, accent="neutral", parent=None):
 
 class ScarPopupMenu(QtWidgets.QMenu):
     """
-    Studio-standard popup context and overflow menu conforming strictly to centralized design tokens.
+    Studio-standard anchored popup menu conforming to centralized ScarTools design tokens.
 
     Provides:
-    - Consistent dark panel background (#292929) and border (#3A3A3A).
-    - 6px corner radius and consistent 28-30px item height with centered padding.
-    - Anchor alignment method (exec_below_widget) with right/left alignment, vertical gap, and screen bounds protection.
+    - Text-only clean menu items matching studio typography.
+    - Dark neutral popup surface (#292929) with subtle 1px border (#3A3A3A) and 6px radius.
+    - Anchored positioning below target widget with screen-edge boundary protection.
+    - Automatic anchor button state tracking (swapping chevron ▾ -> ▴ and pressed styling while open).
+    - Subtle connector notch pointing to the anchor button.
     """
 
     def __init__(self, parent=None):
         super(ScarPopupMenu, self).__init__(parent)
         self.setObjectName("ScarPopupMenu")
         self.setAttribute(QtCore.Qt.WA_DeleteOnClose, False)
+        self._anchor_widget = None
+        self._notch_x = -1
+        self._open_above = False
 
-    def exec_below_widget(self, widget, offset_y=5, align="right"):
+    def exec_below_widget(self, widget, offset_y=2, align="right"):
         """
-        Execute popup menu cleanly positioned below the anchor widget with screen bounds protection.
+        Execute popup menu cleanly positioned below the anchor widget with screen bounds protection,
+        connector notch alignment, and automatic button chevron toggling (▾ -> ▴).
 
         Args:
             widget (QWidget): Target anchor button or widget.
-            offset_y (int): Vertical gap below widget (default 5px).
+            offset_y (int): Vertical gap below widget (default 2px).
             align (str): 'right' aligns right edge of menu with right edge of widget; 'left' aligns left edge.
 
         Returns:
@@ -763,9 +769,19 @@ class ScarPopupMenu(QtWidgets.QMenu):
         if not widget:
             return self.exec_(QtGui.QCursor.pos())
 
+        self._anchor_widget = widget
+        original_text = widget.text() if hasattr(widget, "text") else ""
+        has_down_chevron = "▾" in original_text
+
+        # Update button to open/active state
+        if has_down_chevron:
+            widget.setText(original_text.replace("▾", "▴"))
+        if hasattr(widget, "setDown"):
+            widget.setDown(True)
+
         self.adjustSize()
         size_hint = self.sizeHint()
-        menu_width = max(size_hint.width(), 190)
+        menu_width = max(size_hint.width(), 180)
         menu_height = max(size_hint.height(), 40)
         widget_rect = widget.rect()
 
@@ -779,6 +795,7 @@ class ScarPopupMenu(QtWidgets.QMenu):
             target_x = global_bottom_left.x()
 
         target_y = global_bottom_right.y()
+        self._open_above = False
 
         # Multi-monitor / Screen Boundary Protection
         app = QtWidgets.QApplication.instance()
@@ -797,19 +814,37 @@ class ScarPopupMenu(QtWidgets.QMenu):
                 # If opening below would overflow screen bottom, open cleanly above
                 if (target_y + menu_height) > screen_rect.bottom():
                     target_y = max(screen_rect.top() + 4, widget_global_top_left.y() - menu_height - offset_y)
+                    self._open_above = True
                 # Keep within horizontal screen bounds
                 if target_x < screen_rect.left() + 4:
                     target_x = screen_rect.left() + 4
                 elif (target_x + menu_width) > (screen_rect.right() - 4):
                     target_x = screen_rect.right() - menu_width - 4
 
-        pos = QtCore.QPoint(int(target_x), int(target_y))
-        return self.exec_(pos)
+        # Compute notch position aligned with center of anchor widget
+        widget_center_x = widget_global_top_left.x() + int(widget_rect.width() / 2)
+        self._notch_x = widget_center_x - int(target_x)
 
+        pos = QtCore.QPoint(int(target_x), int(target_y))
+        try:
+            selected_action = self.exec_(pos)
+        finally:
+            # Restore button to closed/normal state
+            if has_down_chevron and hasattr(widget, "setText"):
+                widget.setText(original_text)
+            if hasattr(widget, "setDown"):
+                widget.setDown(False)
+
+        return selected_action
+
+
+ScarAnchoredPopupMenu = ScarPopupMenu
 
 def create_popup_menu(parent=None):
     """Create a standardized ScarPopupMenu instance conforming to studio design tokens."""
     return ScarPopupMenu(parent=parent)
+
+create_anchored_popup_menu = create_popup_menu
 
 
 def repolish(widget):

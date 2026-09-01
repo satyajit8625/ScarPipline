@@ -166,12 +166,15 @@ class AnimIOController(ToolController):
                 ntype = cmds.nodeType(d)
                 if ntype == "mesh":
                     has_mesh = True
-                    # Check skinClusters
-                    hist = cmds.listHistory(d, pruneDagObjects=True) or []
-                    if any(cmds.nodeType(h) == "skinCluster" for h in hist):
-                        has_skin = True
+                    # Check skinClusters with fast early exit
+                    if not has_skin:
+                        hist = cmds.listHistory(d, pruneDagObjects=True) or []
+                        if any(cmds.nodeType(h) == "skinCluster" for h in hist):
+                            has_skin = True
                 elif ntype == "joint":
                     has_joints = True
+                if has_skin and has_joints and has_mesh:
+                    break
 
             asset_type = "character" if (has_skin or has_joints) else "prop"
 
