@@ -478,6 +478,12 @@ class AlembicSettingsDialog(BaseToolDialog):
         self.lbl_attr_prefix.setEnabled(checked)
         self.edit_attr_prefix.setEnabled(checked)
 
+    def _on_bake_toggled(self, checked):
+        """Dynamically enable or disable dependent bake controls."""
+        self.chk_resample.setEnabled(checked)
+        self.chk_key_reducer.setEnabled(checked)
+        self.spin_step.setEnabled(checked)
+
     def _on_browse_output_path(self):
         cur = self.edit_output_path.text().strip() or os.getcwd()
         chosen = QtWidgets.QFileDialog.getExistingDirectory(self, "Select Alembic Output Directory", cur)
@@ -831,6 +837,12 @@ class FBXSettingsDialog(BaseToolDialog):
         self.btn_reset.clicked.connect(self._on_reset)
         self.btn_cancel.clicked.connect(self.reject)
         self.btn_save.clicked.connect(self._on_save)
+
+    def _on_bake_toggled(self, checked):
+        """Dynamically enable or disable dependent bake controls."""
+        self.chk_resample.setEnabled(checked)
+        self.chk_key_reducer.setEnabled(checked)
+        self.spin_step.setEnabled(checked)
 
     def _on_browse_output_path(self):
         cur = self.edit_output_path.text().strip() or os.getcwd()

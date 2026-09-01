@@ -176,7 +176,7 @@ class AnimIODialog(BaseToolDialog):
             "EXPORT SHOT CACHES",
             message="Ready to export shot caches.",
             parent=self,
-            include_log=False,
+            include_log=True,
         )
         self.apply_button.setMinimumWidth(PRIMARY_BUTTON_WIDTH)
         self.apply_button.setToolTip("Export shot caches to Alembic and FBX (Hotkey: Ctrl+Enter)")
@@ -197,6 +197,8 @@ class AnimIODialog(BaseToolDialog):
         self.asset_table.cellClicked.connect(self._on_cell_clicked)
         self.open_folder_btn.clicked.connect(self._open_shot_folder)
         self.apply_button.clicked.connect(self._do_export)
+        if self.view_log_button:
+            self.view_log_button.clicked.connect(self._open_log_viewer)
 
     def _on_format_changed(self, index):
         self.operation_help.setText(self.FORMAT_DESCRIPTIONS.get(index, ""))
@@ -380,6 +382,14 @@ class AnimIODialog(BaseToolDialog):
                 emit_log("Shot camera '{}' standardized.".format(fixed_cam.split("|")[-1]), level="SUCCESS", source="anim_io")
             except Exception as e:
                 emit_log("Camera fix error: {}".format(e), level="WARNING", source="anim_io")
+
+    def _open_log_viewer(self):
+        """Open the studio Global Log Viewer modal dialog."""
+        try:
+            from scartools.ui.logs import show_log_viewer
+            show_log_viewer(parent=maya_main_window())
+        except Exception as e:
+            cmds.warning("[ScarTools Anim I/O] Could not open Log Viewer: {}".format(e))
 
     def _open_shot_folder(self):
         """Open the resolved shot root directory in native OS file manager."""

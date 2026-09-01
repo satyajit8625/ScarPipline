@@ -3,6 +3,8 @@
 
 from __future__ import absolute_import, division, print_function
 
+import os
+
 from scartools.framework import SceneTransaction
 from scartools.framework.logging import emit_log
 from scartools.licensing import require_license
@@ -32,7 +34,24 @@ def export_shot_package(
     """Export shot package with atomic undo safety and license validation."""
     require_license("ScarTools_AnimExport")
 
-    emit_log("Starting shot package export for '{}'...".format(shot_name), level="INFO", source="anim_io")
+    char_count = len(character_nodes or [])
+    prop_count = len(prop_nodes or [])
+    total_assets = char_count + prop_count + (1 if camera_node else 0)
+    
+    emit_log(
+        "═" * 50 + "\n"
+        "🎬 INITIATING ANIM EXPORT PIPELINE\n"
+        "• Shot: {}\n"
+        "• Timeline: {} - {} (Handles: ±{}, Step: {}\n"
+        "• Frame Rate: {} FPS\n"
+        "• Targets: {} characters, {} props, camera={}\n"
+        "• Output Dir: {}\n".format(
+            shot_name, start_frame, end_frame, handles, step, fps, char_count, prop_count, bool(camera_node), output_dir
+        ) + "═" * 50,
+        level="INFO",
+        source="AnimExport",
+    )
+
     result = _api_export_shot(
         output_dir=output_dir,
         shot_name=shot_name,
@@ -49,7 +68,23 @@ def export_shot_package(
         step=step,
         **kwargs
     )
-    emit_log("Shot package exported successfully to '{}'.".format(result["target_dir"]), level="SUCCESS", source="anim_io")
+
+    summary_files = result.get("exported_files", [])
+    file_list_str = "\n  → ".join([""] + [os.path.basename(f) for f in summary_files])
+    
+    emit_log(
+        "✅ EXPORT COMPLETE: {} total asset caches generated successfully!\n"
+        "• Destination: {}\n"
+        "• Manifest: {}\n"
+        "• Files Written:{}\n".format(
+            len(summary_files),
+            result["target_dir"],
+            os.path.basename(result["manifest_path"]),
+            file_list_str,
+        ),
+        level="SUCCESS",
+        source="AnimExport",
+    )
     return result
 
 
