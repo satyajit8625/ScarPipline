@@ -58,9 +58,15 @@ from scartools.framework.logging import emit_log
 
 
 def _get_scene_fps():
-    """Query active Maya scene FPS cleanly."""
+    """Query active Maya scene FPS cleanly with full fractional precision."""
     try:
-        unit = cmds.currentUnit(query=True, time=True)
+        if hasattr(cmds, "currentTimeUnitToFPS"):
+            return float(cmds.currentTimeUnitToFPS())
+    except Exception:
+        pass
+
+    try:
+        unit = str(cmds.currentUnit(query=True, time=True)).strip().lower()
         fps_map = {
             "game": 15.0,
             "film": 24.0,
@@ -68,11 +74,20 @@ def _get_scene_fps():
             "ntsc": 30.0,
             "show": 48.0,
             "palf": 50.0,
+            "palfps": 50.0,
             "ntscf": 60.0,
+            "ntscfps": 60.0,
             "23.976fps": 23.976,
             "29.97fps": 29.97,
+            "29.97df": 29.97,
             "47.952fps": 47.952,
             "59.94fps": 59.94,
+            "24fps": 24.0,
+            "25fps": 25.0,
+            "30fps": 30.0,
+            "48fps": 48.0,
+            "50fps": 50.0,
+            "60fps": 60.0,
         }
         if unit in fps_map:
             return fps_map[unit]
@@ -414,7 +429,16 @@ class AnimIODialog(BaseToolDialog):
         if self.controller.state == AnimExportStateEnum.BLOCKED:
             return
 
-        out_dir = self.controller.shot_root
+        user_cfg = get_anim_export_settings()
+        abc_cfg = user_cfg.get("alembic", {})
+        fbx_cfg = user_cfg.get("fbx", {})
+
+        custom_out = str(abc_cfg.get("output_path", "")).strip() or str(fbx_cfg.get("output_path", "")).strip()
+        if custom_out and os.path.isdir(custom_out):
+            out_dir = custom_out
+        else:
+            out_dir = self.controller.shot_root
+
         if not out_dir or not os.path.isdir(out_dir):
             cur_scene = cmds.file(q=True, sceneName=True)
             if cur_scene:

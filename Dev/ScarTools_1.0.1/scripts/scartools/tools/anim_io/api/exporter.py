@@ -204,7 +204,7 @@ def export_character_cache(
 
         if mel and hasattr(mel, "eval"):
             try:
-                cmds.select(root_node, replace=True)
+                cmds.select(root_node, replace=True, hierarchy=True)
                 mel.eval("FBXResetExport")
 
                 is_ascii = "ascii" in str(fbx_file_type).lower()
@@ -340,6 +340,13 @@ def export_shot_package(
     """
     if not output_dir or not output_dir.strip():
         raise ValueError("Target output directory is required.")
+
+    prev_sel = []
+    try:
+        if hasattr(cmds, "ls"):
+            prev_sel = cmds.ls(selection=True, long=True) or []
+    except Exception:
+        pass
 
     if callbacks:
         callbacks.progress(5, "Preparing output directory structure...")
@@ -528,6 +535,17 @@ def export_shot_package(
 
     if callbacks:
         callbacks.progress(100, "Shot cache export complete!")
+
+    # Restore previous user selection
+    if prev_sel:
+        try:
+            valid_prev = [n for n in prev_sel if cmds.objExists(n)]
+            if valid_prev:
+                cmds.select(valid_prev, replace=True)
+            else:
+                cmds.select(clear=True)
+        except Exception:
+            pass
 
     return {
         "shot_name": shot_clean,

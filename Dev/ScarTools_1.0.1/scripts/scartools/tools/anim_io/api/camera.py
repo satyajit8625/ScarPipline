@@ -312,7 +312,7 @@ def export_camera(camera_node, output_file, start_frame, end_frame, export_forma
                 root=baked_cam,
                 fpath=output_file.replace("\\", "/"),
             )
-            cmds.AbcExport(job=job_str)
+            cmds.AbcExport(jobArg=job_str)
         else:
             raise ValueError("Unsupported camera format: {}".format(export_format))
 

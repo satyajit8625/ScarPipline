@@ -70,13 +70,17 @@ def import_shot_camera(package_dir, camera_record, lock_attributes=True):
             cmds.loadPlugin("AbcImport", quiet=True)
         cmds.AbcImport(cam_path.replace("\\", "/"), mode="import")
 
-    # Locate and lock camera transforms if requested
+    # Locate and lock only the newly imported shot camera transforms
     if lock_attributes:
+        default_cams = ("persp", "top", "front", "side")
         cams = cmds.ls(type="camera", long=True) or []
         for c in cams:
             parents = cmds.listRelatives(c, parent=True, fullPath=True)
             if parents:
                 t = parents[0]
+                short = t.split("|")[-1].lower().split(":")[-1]
+                if short in default_cams:
+                    continue
                 for attr in ("tx", "ty", "tz", "rx", "ry", "rz", "sx", "sy", "sz"):
                     try:
                         cmds.setAttr(t + "." + attr, lock=True)
