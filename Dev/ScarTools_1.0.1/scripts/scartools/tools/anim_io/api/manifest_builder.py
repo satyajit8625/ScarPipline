@@ -46,7 +46,7 @@ def build_shot_manifest(
         "characters": list(characters or []),
         "props": list(props or []),
         "metadata": {
-            "exported_by": str(exported_by or os.environ.get("USERNAME", "studio_animator")),
+            "exported_by": str(exported_by or os.environ.get("USERNAME") or os.environ.get("USER", "studio_animator")),
             "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
             "generator": "ScarTools Anim Export",
             "notes": str(notes or ""),

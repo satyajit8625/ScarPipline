@@ -314,8 +314,12 @@ class AnimIOController(ToolController):
             if checked_count == 0:
                 msg = "Select at least 1 asset in the table to export."
             else:
-                msg = "{} ready · 1 asset requires attention before export.".format(
-                    "{} asset".format(checked_count) if checked_count == 1 else "{} assets".format(checked_count)
+                blocked_items = [a for a in self.assets if a.checked and (a.status_variant == "error" or not a.node)]
+                b_count = len(blocked_items)
+                att_part = "1 asset requires attention" if b_count <= 1 else "{} assets require attention".format(b_count)
+                msg = "{} selected · {} before export.".format(
+                    "1 asset" if checked_count == 1 else "{} assets".format(checked_count),
+                    att_part,
                 )
             return (
                 "Blocked",
