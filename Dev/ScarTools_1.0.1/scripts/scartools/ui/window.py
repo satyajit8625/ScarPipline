@@ -24,8 +24,17 @@ class BaseToolDialog(QtWidgets.QDialog):
 
         register_window(self._scartools_tool_id, self)
 
-        # Enforce license for department tools (Modeling, Rigging, Skin, Texturing, Finalizer, Renamer)
-        if self._scartools_tool_id != "scartools":
+        # Enforce license for department tools (Modeling, Rigging, Skin, Texturing, Finalizer, Renamer, AnimExport)
+        # Never enforce license on the license dialog itself or child settings dialogs to avoid recursion.
+        exempt_tools = (
+            "scartools",
+            "scartools_license",
+            "scartools_about",
+            "scartools_log_viewer",
+            "scartools_anim_io_alembic_settings",
+            "scartools_anim_io_fbx_settings",
+        )
+        if self._scartools_tool_id not in exempt_tools and not self._scartools_tool_id.endswith("_settings"):
             from ..licensing import is_activated
             if not is_activated():
                 self.hide()

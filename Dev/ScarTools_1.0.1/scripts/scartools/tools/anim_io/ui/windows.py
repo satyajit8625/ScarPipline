@@ -250,11 +250,11 @@ class AnimIODialog(BaseToolDialog):
         }
 
         if action == act_alembic:
-            show_alembic_settings(parent=self, shot_context=shot_ctx)
+            show_alembic_settings(parent=maya_main_window(), shot_context=shot_ctx)
         elif action == act_fbx:
-            show_fbx_settings(parent=self, shot_context=shot_ctx)
+            show_fbx_settings(parent=maya_main_window(), shot_context=shot_ctx)
         elif action == act_reset:
-            if confirm_and_reset_settings(parent=self):
+            if confirm_and_reset_settings(parent=maya_main_window()):
                 self.controller.recompute_state()
                 self._update_footer_state()
 

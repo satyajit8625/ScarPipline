@@ -983,6 +983,8 @@ def show_alembic_settings(parent=None, shot_context=None):
     _ALEMBIC_DIALOG = AlembicSettingsDialog(parent=parent, shot_context=shot_context)
     register_window("scartools_anim_io_alembic_settings", _ALEMBIC_DIALOG)
     _ALEMBIC_DIALOG.show()
+    _ALEMBIC_DIALOG.raise_()
+    _ALEMBIC_DIALOG.activateWindow()
     return _ALEMBIC_DIALOG
 
 
@@ -998,6 +1000,8 @@ def show_fbx_settings(parent=None, shot_context=None):
     _FBX_DIALOG = FBXSettingsDialog(parent=parent, shot_context=shot_context)
     register_window("scartools_anim_io_fbx_settings", _FBX_DIALOG)
     _FBX_DIALOG.show()
+    _FBX_DIALOG.raise_()
+    _FBX_DIALOG.activateWindow()
     return _FBX_DIALOG
 
 
