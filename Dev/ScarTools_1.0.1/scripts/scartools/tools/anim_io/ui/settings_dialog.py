@@ -468,7 +468,7 @@ class AlembicSettingsDialog(BaseToolDialog):
         root.addWidget(footer_frame)
 
         # Signal connections
-        self.chk_bake.toggled.connect(self._on_bake_toggled)
+        self.chk_user_attrs.toggled.connect(self._on_user_attrs_toggled)
         self.btn_reset.clicked.connect(self._on_reset)
         self.btn_cancel.clicked.connect(self.reject)
         self.btn_save.clicked.connect(self._on_save)
