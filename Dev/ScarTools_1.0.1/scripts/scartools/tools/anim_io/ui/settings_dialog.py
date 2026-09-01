@@ -173,11 +173,11 @@ def confirm_and_reset_settings(parent=None):
     dialog = QtWidgets.QDialog(parent if parent is not None else maya_main_window())
     dialog.setWindowTitle("Reset Anim Export Settings?")
     dialog.setAttribute(QtCore.Qt.WA_DeleteOnClose, True)
-    dialog.setFixedWidth(380)
+    dialog.setFixedWidth(420)
     apply_theme(dialog)
 
     root = QtWidgets.QVBoxLayout(dialog)
-    root.setContentsMargins(18, 18, 18, 18)
+    root.setContentsMargins(20, 20, 20, 20)
     root.setSpacing(14)
 
     title_lbl = QtWidgets.QLabel("Reset Anim Export Settings?")
@@ -192,9 +192,10 @@ def confirm_and_reset_settings(parent=None):
     root.addWidget(msg_lbl)
 
     btn_row = QtWidgets.QHBoxLayout()
+    btn_row.setSpacing(10)
     btn_row.addStretch(1)
-    cancel_btn = create_button("Cancel", role="secondary", fixed_width=80, parent=dialog)
-    reset_btn = create_button("Reset to Defaults", role="primary", fixed_width=130, parent=dialog)
+    cancel_btn = create_button("Cancel", role="secondary", fixed_width=90, parent=dialog)
+    reset_btn = create_button("Reset to Defaults", role="primary", fixed_width=155, parent=dialog)
 
     cancel_btn.clicked.connect(dialog.reject)
     reset_btn.clicked.connect(dialog.accept)
@@ -454,11 +455,11 @@ class AlembicSettingsDialog(BaseToolDialog):
         footer_layout.setContentsMargins(10, 5, 10, 5)
         footer_layout.setSpacing(8)
 
-        self.btn_reset = create_button("Reset to Default", role="secondary", fixed_width=120, parent=self)
+        self.btn_reset = create_button("Reset to Default", role="secondary", fixed_width=130, parent=self)
         self.btn_reset.setToolTip("Reset Alembic configuration to recommended pipeline defaults")
 
-        self.btn_cancel = create_button("Cancel", role="secondary", fixed_width=75, parent=self)
-        self.btn_save = create_button("Save", role="primary", fixed_width=85, parent=self)
+        self.btn_cancel = create_button("Cancel", role="secondary", fixed_width=80, parent=self)
+        self.btn_save = create_button("Save", role="primary", fixed_width=95, parent=self)
 
         footer_layout.addWidget(self.btn_reset)
         footer_layout.addStretch(1)
@@ -813,11 +814,11 @@ class FBXSettingsDialog(BaseToolDialog):
         footer_layout.setContentsMargins(10, 5, 10, 5)
         footer_layout.setSpacing(8)
 
-        self.btn_reset = create_button("Reset to Default", role="secondary", fixed_width=120, parent=self)
+        self.btn_reset = create_button("Reset to Default", role="secondary", fixed_width=130, parent=self)
         self.btn_reset.setToolTip("Reset FBX configuration to recommended pipeline defaults")
 
-        self.btn_cancel = create_button("Cancel", role="secondary", fixed_width=75, parent=self)
-        self.btn_save = create_button("Save", role="primary", fixed_width=85, parent=self)
+        self.btn_cancel = create_button("Cancel", role="secondary", fixed_width=80, parent=self)
+        self.btn_save = create_button("Save", role="primary", fixed_width=95, parent=self)
 
         footer_layout.addWidget(self.btn_reset)
         footer_layout.addStretch(1)

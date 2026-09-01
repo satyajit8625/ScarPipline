@@ -336,8 +336,8 @@ QPushButton:disabled { background: #2A2A2A; color: #666; border-color: #333; }
 QPushButton#PrimaryButton, QPushButton[role="primary"] {
     background: #4F78B8; border: 1px solid #5C87C8; border-top: 1px solid #7BA3E0;
     border-bottom: 1px solid #36578C; color: white;
-    padding: 0 14px; font-size: 12px; font-weight: 700;
-    letter-spacing: 0.4px; border-radius: 5px;
+    padding: 0 14px; font-size: 12px; font-weight: 600;
+    border-radius: 5px;
 }
 QPushButton#PrimaryButton:hover, QPushButton[role="primary"]:hover {
     background: #5C87C8; border-color: #83A6DA; border-top-color: #9EC0F5;
