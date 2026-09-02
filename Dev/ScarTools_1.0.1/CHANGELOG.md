@@ -2,6 +2,13 @@
 
 ## 1.0.1 — Active Cloud Allowlist & Zero-Latency CDN Synchronization
 
+- **Movable Pivot Rigging Utility (`scartools.tools.rigging.movable_pivot`)**:
+  - Non-destructive matrix-based pivot manipulation engine with 100% geometric world-space vertex invariance.
+  - Multi-mode positioning: Object Center, Bounding Box matrix (Min/Center/Max per X, Y, Z axes), World Origin, Component Centroid (vertices, edges, faces), and Target Object.
+  - Directional alignment & rotation: aligns pivot coordinate axes to Face Normals, Edge Tangents, or Reference Objects with configurable Primary and Secondary axes and automatic Gram-Schmidt orthonormalization.
+  - Precision Snapping: Snap Position, Snap Rotation, and Snap Transform from reference transforms in 1 click.
+  - Persistent Node Bookmarks: stores multiple named pivot presets (`Hinge_Left`, `Wheel_FL`, `Grip_Main`) directly onto DAG nodes via non-destructive JSON attributes.
+  - Atomic Reset & Undo Rollback: 1-click restore to original captured pivot state with full `Ctrl+Z` atomic rollback via `SceneTransaction`.
 - **Anim Export Tool & Centralized Extraction Engine**:
   - Dedicated zero-complexity 1-page shot animation caching tool exporting to studio standard `Alembic/` and `FBX/` folders alongside `Maya/` files.
   - 100% automated scene parsing: auto-detects shot name (`PRT_SH_020`), active project (`PRT`), timeline range, and active shot camera (`PRT_SH_020_CAM`).

@@ -571,6 +571,9 @@
                 <div class="nav-item" onclick="showSection('anim_io', this)">
                     <span class="nav-item-icon">🎬</span> Anim Export (Alembic & FBX Cache)
                 </div>
+                <div class="nav-item" onclick="showSection('movable_pivot', this)">
+                    <span class="nav-item-icon">🎯</span> Movable Pivot
+                </div>
                 <div class="nav-item" onclick="showSection('character_finalizer', this)">
                     <span class="nav-item-icon">🎭</span> Character Finalizer
                 </div>
@@ -931,7 +934,32 @@ Shot_010/
                 </div>
 
                 <!-- 7. Character Finalizer -->
-                <div id="character_finalizer" class="doc-section">
+                <!-- Movable Pivot -->
+            <div id="movable_pivot" class="doc-section">
+                <div class="section-header">
+                    <h1>Movable Pivot</h1>
+                    <p class="subtitle">Non-destructive matrix-based pivot editing, bounding-box alignment, snapping, and node bookmarks.</p>
+                </div>
+
+                <div class="card">
+                    <h3>🎯 Overview & Non-Destructive Invariance</h3>
+                    <p>Movable Pivot provides riggers, animators, and modelers with a precision pivot editing workflow that overcomes Maya's native pivot limitations. Using OpenMaya 2.0 matrix transformations with automatic vertex and hierarchy balance compensation, pivot positions and orientations can be repositioned or rotated without ever shifting, deforming, or popping the object's geometry in world space.</p>
+                </div>
+
+                <div class="card">
+                    <h3>⚙️ Key Capabilities</h3>
+                    <ul>
+                        <li><strong>Multi-Mode Positioning:</strong> Object Center, Bounding Box matrix, World Origin, and Component Centroids (Vertices, Edges, Faces).</li>
+                        <li><strong>Bounding Box Alignment:</strong> Granular Min / Center / Max placement independently across X, Y, and Z axes (Bottom Center, Top Center, Corners).</li>
+                        <li><strong>Surface-Aligned Orientation:</strong> Align coordinate axes to Face Normals, Edge Tangents, or Reference Objects with Primary/Secondary axis Gram-Schmidt orthonormalization.</li>
+                        <li><strong>Precision Snapping:</strong> 1-Click Snap Position, Snap Rotation, or Snap Transform.</li>
+                        <li><strong>Node Pivot Bookmarks:</strong> Save, Rename, Apply, and Delete persistent named presets directly stored on DAG nodes.</li>
+                        <li><strong>Atomic Undo Rollback:</strong> Full 1-step Ctrl+Z undo safety powered by <code>SceneTransaction</code>.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div id="character_finalizer" class="doc-section">
                     <div class="breadcrumb">Department Tools &bull; Rigging</div>
                     <h1>Character Finalizer</h1>
                     <div class="doc-subtitle">Rig preflight checklist, Space Switch SMD binding, scale normalization, and scene lockdown.</div>

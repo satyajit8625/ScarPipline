@@ -143,7 +143,7 @@ class ReleaseTests(unittest.TestCase):
         cmds = sys.modules.get("maya.cmds")
         cls._orig_cmds = {}
         if cmds:
-            for fn in ("ls", "select", "undoInfo", "undo", "refresh", "about"):
+            for fn in ("ls", "select", "undoInfo", "undo", "refresh", "about", "objExists", "nodeType", "loadPlugin", "pluginInfo"):
                 cls._orig_cmds[fn] = getattr(cmds, fn, None)
         cls.maya_state = install_maya_stubs()
 
@@ -201,12 +201,13 @@ class ReleaseTests(unittest.TestCase):
         self.assertIn("scartools.tools.udim.manifest:MANIFEST", builtin)
         self.assertIn("scartools.tools.renamer.manifest:MANIFEST", builtin)
         self.assertIn("scartools.tools.anim_io.manifest:MANIFEST", builtin)
+        self.assertIn("scartools.tools.rigging.movable_pivot.manifest:MANIFEST", builtin)
 
     def test_manifests_share_contract_and_maya_floor(self):
         from scartools.catalog import manifests
 
         values = manifests()
-        self.assertEqual(len(values), 7)
+        self.assertEqual(len(values), 8)
         for manifest in values:
             self.assertEqual(manifest.version, "1.0.1")
             self.assertEqual(manifest.min_maya_version, 2023)

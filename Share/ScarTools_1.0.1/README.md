@@ -16,6 +16,7 @@ Version 1.0.1 provides a clean, centralized framework: every built-in tool lives
 - **Model & Scene Sanitizer**: Full preflight QA (26 rules), automatic viewport component selection, and atomic 1-click safe repair.
 
 ### 2. Rigging
+- **Movable Pivot**: Non-destructive matrix pivot editing engine for snapping, rotating, bounding-box alignment, and persistent node bookmarks with zero transform popping or geometry drift.
 - **Skin Tools**:
   - Symmetry-aware **Mirror Skin Weights** (with component auto-detection and label remapping)
   - **Copy Skin Weights** & **Copy SkinCluster**
