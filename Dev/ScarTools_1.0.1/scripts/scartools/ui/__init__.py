@@ -1224,6 +1224,7 @@ __all__ += [
     "SearchInput",
     "create_search_input",
     "create_key_value_row",
+    "create_subheading",
 ]
 
 
