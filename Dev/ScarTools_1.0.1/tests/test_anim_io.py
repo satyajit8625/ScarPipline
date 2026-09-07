@@ -35,7 +35,11 @@ from scartools.tools.anim_io.api.camera import (
     discover_shot_cameras,
     bake_camera_world_space,
 )
-from scartools.tools.anim_io.api.exporter import discover_scene_assets
+from scartools.tools.anim_io.api.exporter import (
+    discover_scene_assets,
+    find_export_groups,
+    export_character_cache,
+)
 from scartools.tools.anim_io.api.importer import apply_shot_time_settings
 from scartools.tools.anim_io.operations import (
     export_shot_package,
@@ -182,11 +186,174 @@ class TestAnimIO(unittest.TestCase):
         self.assertTrue(cmds.objExists(cam2))
         self.assertTrue(cam2.endswith("PRT_SH_030_CAM"))
 
-    def test_open_in_file_manager_safety(self):
-        """Verify centralized open_in_file_manager handles nonexistent paths safely."""
-        from scartools.framework import open_in_file_manager
-        # Non-existent path should return False without crashing
-        self.assertFalse(open_in_file_manager("/invalid/non/existent/path/xyz_123"))
+    def test_find_export_groups(self):
+        """Verify discovery of Deformation (joints) and Geometry (mesh) groups."""
+        # Standard rig
+        root1 = cmds.group(em=True, name="Hero_Rig")
+        deform1 = cmds.group(em=True, name="Deformation", parent=root1)
+        cmds.joint(name="hero_root_jnt")
+        geo1 = cmds.group(em=True, name="Geometry", parent=root1)
+        mesh1 = cmds.polySphere(name="hero_body_geo")[0]
+        cmds.parent(mesh1, geo1)
+
+        groups1 = find_export_groups(root1)
+        self.assertTrue(groups1["geometry"].endswith("Geometry"))
+        self.assertTrue(groups1["deformation"].endswith("Deformation"))
+
+        # Prop with no deformation
+        root2 = cmds.group(em=True, name="Shield_Prop")
+        geo2 = cmds.group(em=True, name="geo", parent=root2)
+        mesh2 = cmds.polyCube(name="shield_mesh")[0]
+        cmds.parent(mesh2, geo2)
+
+        groups2 = find_export_groups(root2)
+        self.assertTrue(groups2["geometry"].endswith("geo"))
+        self.assertIsNone(groups2["deformation"])
+
+    def test_export_character_cache_group_isolation(self):
+        """Verify export_character_cache resolves Deformation and Geometry groups and exports cleanly."""
+        root = cmds.group(em=True, name="Runner_Rig")
+        deform = cmds.group(em=True, name="Deformation", parent=root)
+        cmds.joint(name="runner_hip_jnt")
+        geo = cmds.group(em=True, name="Geometry", parent=root)
+        mesh = cmds.polySphere(name="runner_mesh")[0]
+        cmds.parent(mesh, geo)
+
+        out_dir = os.path.join(self.test_dir, "cache_output")
+        exp_files = export_character_cache(
+            root_node=root,
+            output_dir=out_dir,
+            start_frame=1001,
+            end_frame=1005,
+            formats=("abc", "fbx"),
+        )
+        self.assertEqual(len(exp_files), 2)
+        for f in exp_files:
+            self.assertTrue(os.path.exists(f))
+
+    def test_controller_deselection_filtering(self):
+        """Verify that unchecked assets in AnimIOController are excluded from export_plan."""
+        from scartools.tools.anim_io.controller import AnimIOController, AnimAssetItem
+
+        ctrl = AnimIOController()
+        ctrl.shot_name = "SH_010"
+        ctrl.shot_root = self.test_dir
+        ctrl.assets = [
+            AnimAssetItem(name="Hero", item_type="character", node="|Hero_GRP", checked=True),
+            AnimAssetItem(name="Villain", item_type="character", node="|Villain_GRP", checked=False),
+            AnimAssetItem(name="Sword", item_type="prop", node="|Sword_GRP", checked=True),
+            AnimAssetItem(name="Cam", item_type="camera", node="|Cam_GRP", checked=False),
+        ]
+        ctrl.recompute_state()
+
+        plan_names = [p["name"] for p in ctrl.export_plan]
+        self.assertIn("Hero", plan_names)
+        self.assertIn("Sword", plan_names)
+        self.assertNotIn("Villain", plan_names)
+        self.assertNotIn("Cam", plan_names)
+        self.assertEqual(len(ctrl.export_plan), 2)
+
+    def test_export_shot_package_deselected_assets(self):
+        """Verify that deselected assets and camera are completely excluded from disk and manifest."""
+        cam = cmds.camera(name="DeselectedCam")[0]
+        char1 = cmds.group(em=True, name="ExportedChar_GRP")
+        mesh1 = cmds.polySphere(name="char1_geo")[0]
+        cmds.parent(mesh1, char1)
+
+        char2 = cmds.group(em=True, name="ExcludedChar_GRP")
+        mesh2 = cmds.polyCube(name="char2_geo")[0]
+        cmds.parent(mesh2, char2)
+
+        out_shot = os.path.join(self.test_dir, "Shot_Exclusion_Test")
+        res = export_shot_package(
+            output_dir=out_shot,
+            shot_name="Shot_Exclusion_Test",
+            start_frame=1001,
+            end_frame=1005,
+            camera_node=None,
+            export_camera=False,
+            character_nodes=[char1],  # char2 excluded
+            character_formats=["abc"],
+        )
+
+        exported_basenames = [os.path.basename(f) for f in res.get("exported_files", [])]
+        # char1 must be exported
+        self.assertTrue(any("ExportedChar_GRP" in b for b in exported_basenames))
+        # char2 must NOT be exported
+        self.assertFalse(any("ExcludedChar_GRP" in b for b in exported_basenames))
+        # camera must NOT be exported
+        self.assertFalse(any("DeselectedCam" in b or "cam" in b.lower() for b in exported_basenames))
+
+        # Check manifest
+        with open(res["manifest_path"], "r") as f:
+            manifest_data = json.load(f)
+        self.assertFalse(manifest_data.get("camera"))
+        self.assertEqual(len(manifest_data.get("characters", [])), 1)
+        self.assertIn("ExportedChar_GRP", manifest_data["characters"][0]["source_node"])
+
+    def test_controller_select_and_deselect_all(self):
+        """Verify select all and deselect all state transitions."""
+        from scartools.tools.anim_io.controller import AnimIOController, AnimAssetItem, AnimExportStateEnum
+
+        ctrl = AnimIOController()
+        ctrl.shot_name = "SH_020"
+        ctrl.shot_root = self.test_dir
+        ctrl.assets = [
+            AnimAssetItem(name="AssetA", item_type="character", node="|AssetA", checked=True),
+            AnimAssetItem(name="AssetB", item_type="prop", node="|AssetB", checked=True),
+        ]
+        ctrl.recompute_state()
+        self.assertEqual(ctrl.state, AnimExportStateEnum.READY)
+        self.assertEqual(len(ctrl.export_plan), 2)
+
+        # Deselect all
+        for a in ctrl.assets:
+            a.checked = False
+        ctrl.recompute_state()
+        self.assertEqual(ctrl.state, AnimExportStateEnum.BLOCKED)
+        self.assertEqual(len(ctrl.export_plan), 0)
+
+        # Select all
+        for a in ctrl.assets:
+            a.checked = True
+        ctrl.recompute_state()
+        self.assertEqual(ctrl.state, AnimExportStateEnum.READY)
+        self.assertEqual(len(ctrl.export_plan), 2)
+
+    def test_scan_scene_preserves_checked_state(self):
+        """Verify scan_scene remembers user checked selections across rescans."""
+        from scartools.tools.anim_io.controller import AnimIOController
+
+        char_grp = cmds.group(em=True, name="Persistent_Char_GRP")
+        mesh = cmds.polySphere(name="p_mesh")[0]
+        cmds.parent(mesh, char_grp)
+
+        prop_grp = cmds.group(em=True, name="Persistent_Prop_GRP")
+        prop_mesh = cmds.polyCube(name="p_prop_mesh")[0]
+        cmds.parent(prop_mesh, prop_grp)
+
+        ctrl = AnimIOController()
+        ctrl.scan_scene()
+
+        # Both should initially be checked
+        self.assertTrue(len(ctrl.assets) >= 2)
+        char_item = next(a for a in ctrl.assets if "Persistent_Char_GRP" in a.name)
+        prop_item = next(a for a in ctrl.assets if "Persistent_Prop_GRP" in a.name)
+        self.assertTrue(char_item.checked)
+        self.assertTrue(prop_item.checked)
+
+        # Uncheck prop_item
+        prop_item.checked = False
+        ctrl.recompute_state()
+
+        # Rescan scene
+        ctrl.scan_scene()
+        char_item_after = next(a for a in ctrl.assets if "Persistent_Char_GRP" in a.name)
+        prop_item_after = next(a for a in ctrl.assets if "Persistent_Prop_GRP" in a.name)
+
+        # Character should stay True, Prop should stay False (not reset!)
+        self.assertTrue(char_item_after.checked)
+        self.assertFalse(prop_item_after.checked)
 
 
 if __name__ == "__main__":

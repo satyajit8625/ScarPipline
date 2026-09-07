@@ -22,6 +22,7 @@ def export_shot_package(
     end_frame,
     fps=24.0,
     camera_node=None,
+    export_camera=True,
     camera_format="fbx",
     character_nodes=None,
     character_formats=("abc",),
@@ -36,17 +37,21 @@ def export_shot_package(
 
     char_count = len(character_nodes or [])
     prop_count = len(prop_nodes or [])
-    total_assets = char_count + prop_count + (1 if camera_node else 0)
+    total_assets = char_count + prop_count + (1 if (camera_node and export_camera) else 0)
     
+    clean_output_dir = str(output_dir or "").replace("\\", "/")
+    if (str(output_dir).startswith("\\\\") or str(output_dir).startswith("//")) and not clean_output_dir.startswith("//"):
+        clean_output_dir = "/" + clean_output_dir
+
     emit_log(
         "═" * 50 + "\n"
         "🎬 INITIATING ANIM EXPORT PIPELINE\n"
         "• Shot: {}\n"
-        "• Timeline: {} - {} (Handles: ±{}, Step: {}\n"
+        "• Timeline: {} - {} (Handles: ±{}, Step: {})\n"
         "• Frame Rate: {} FPS\n"
         "• Targets: {} characters, {} props, camera={}\n"
         "• Output Dir: {}\n".format(
-            shot_name, start_frame, end_frame, handles, step, fps, char_count, prop_count, bool(camera_node), output_dir
+            shot_name, start_frame, end_frame, handles, step, fps, char_count, prop_count, bool(camera_node), clean_output_dir
         ) + "═" * 50,
         level="INFO",
         source="AnimExport",
@@ -59,6 +64,7 @@ def export_shot_package(
         end_frame=end_frame,
         fps=fps,
         camera_node=camera_node,
+        export_camera=export_camera,
         camera_format=camera_format,
         character_nodes=character_nodes,
         character_formats=character_formats,
@@ -71,14 +77,17 @@ def export_shot_package(
 
     summary_files = result.get("exported_files", [])
     file_list_str = "\n  → ".join([""] + [os.path.basename(f) for f in summary_files])
-    
+    clean_target_dir = str(result.get("target_dir", "")).replace("\\", "/")
+    if (str(result.get("target_dir", "")).startswith("\\\\") or str(result.get("target_dir", "")).startswith("//")) and not clean_target_dir.startswith("//"):
+        clean_target_dir = "/" + clean_target_dir
+
     emit_log(
         "✅ EXPORT COMPLETE: {} total asset caches generated successfully!\n"
         "• Destination: {}\n"
         "• Manifest: {}\n"
         "• Files Written:{}\n".format(
             len(summary_files),
-            result["target_dir"],
+            clean_target_dir,
             os.path.basename(result["manifest_path"]),
             file_list_str,
         ),

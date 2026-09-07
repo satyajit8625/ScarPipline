@@ -45,6 +45,35 @@ from .licensing import (
 )
 
 
+def reload_suite():
+    """Hot-reload all ScarTools modules in Maya without restarting Maya."""
+    import sys
+    # 1. Close active windows
+    try:
+        from .ui.lifecycle import close_all_windows
+        close_all_windows()
+    except Exception:
+        pass
+
+    # 2. Remove all cached scartools submodules from sys.modules
+    to_delete = [mod for mod in sys.modules if mod.startswith("scartools")]
+    for mod in to_delete:
+        del sys.modules[mod]
+
+    # 3. Re-import scartools and rebuild menu/shelf
+    import scartools
+    try:
+        import maya.cmds as cmds
+        if not cmds.about(batch=True):
+            scartools.unregister_menu()
+            scartools.register_menu()
+            scartools.build_shelf()
+            print("[ScarTools] Successfully reloaded ScarTools suite.")
+    except Exception as e:
+        print("[ScarTools] Reloaded modules (Maya UI update error: {})".format(e))
+    return scartools
+
+
 __all__ = [
     "VERSION",
     "__version__",
@@ -82,6 +111,7 @@ __all__ = [
     "set_brand_icon",
     "build_shelf",
     "delete_shelf",
+    "reload_suite",
     "generate_license_key",
     "validate_license_key",
     "get_installed_license",

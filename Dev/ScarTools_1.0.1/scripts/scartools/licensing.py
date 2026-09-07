@@ -326,8 +326,8 @@ def fetch_central_registry(force_refresh=False):
     return _REGISTRY_CACHE.get("data")
 
 
-# Offline Heartbeat Limit (Default: 120 seconds for testing, configurable via env)
-MAX_OFFLINE_HEARTBEAT_SECONDS = int(os.environ.get("SCARTOOLS_HEARTBEAT_SECONDS", 120))
+# Offline Heartbeat Limit (Default: 15 days, configurable via env)
+MAX_OFFLINE_HEARTBEAT_SECONDS = int(os.environ.get("SCARTOOLS_HEARTBEAT_SECONDS", 15 * 86400))
 MAX_OFFLINE_HEARTBEAT_DAYS = MAX_OFFLINE_HEARTBEAT_SECONDS / 86400.0
 
 
@@ -476,22 +476,25 @@ def execute_remote_wipe():
 
     # 5. Shred local license token file
     try:
-        lic_path = get_license_file_path()
-        _shred_and_remove_file(lic_path)
+        if "unittest" not in sys.modules and not os.environ.get("SCARTOOLS_TEST_MODE"):
+            lic_path = get_license_file_path()
+            _shred_and_remove_file(lic_path)
     except Exception:
         pass
 
     # 6. Shred installed Maya module file and local tool payload
     try:
-        import maya.cmds as cmds
-        user_app_dir = cmds.internalVar(userAppDir=True)
-        if user_app_dir:
-            modules_dir = os.path.normpath(os.path.join(user_app_dir, "modules"))
-            mod_file = os.path.join(modules_dir, "ScarTools.mod")
-            target_folder = os.path.join(modules_dir, "ScarTools")
+        # CRITICAL SAFETY GUARD: Never shred workstation Maya modules during automated unit testing!
+        if "unittest" not in sys.modules and not os.environ.get("SCARTOOLS_TEST_MODE") and not os.environ.get("SCARTOOLS_USER_DIR"):
+            import maya.cmds as cmds
+            user_app_dir = cmds.internalVar(userAppDir=True)
+            if user_app_dir:
+                modules_dir = os.path.normpath(os.path.join(user_app_dir, "modules"))
+                mod_file = os.path.join(modules_dir, "ScarTools.mod")
+                target_folder = os.path.join(modules_dir, "ScarTools")
 
-            _shred_and_remove_file(mod_file)
-            _shred_and_remove_directory(target_folder)
+                _shred_and_remove_file(mod_file)
+                _shred_and_remove_directory(target_folder)
     except Exception:
         pass
 
@@ -661,15 +664,28 @@ def get_installed_license(force_check=False):
 
     user_id = data.get("user_id", "")
     key = data.get("license_key", "")
-
     last_sync = data.get("last_online_sync", activated_epoch)
-    if last_sync > 0 and (now - last_sync) > MAX_OFFLINE_HEARTBEAT_SECONDS:
-        seconds_offline = now - last_sync
-        mins_offline = round(seconds_offline / 60.0, 1)
-        execute_remote_wipe()
-        res_details = {"deleted": True, "action": "delete", "heartbeat_expired": True}
-        _ACTIVATION_CACHE.update({"valid": False, "msg": "Online Heartbeat Expired", "details": res_details, "timestamp": now, "path": license_path, "mtime": mtime, "reg_mtime": reg_mtime})
-        return False, "Online Heartbeat Expired: Workstation has been offline / blocked for {} min(s).".format(mins_offline), res_details
+
+    # Check Central Registry Allowlist Status
+    records = fetch_central_registry(force_refresh=force_check)
+    if records is not None:
+        # Machine is ONLINE and connected to central registry! Refresh heartbeat.
+        if (now - last_sync) > 60:
+            data["last_online_sync"] = int(now)
+            try:
+                with open(license_path, "w") as fp:
+                    json.dump(data, fp, indent=2)
+            except Exception:
+                pass
+    else:
+        # Machine is OFFLINE (central registry unreachable). Check offline heartbeat limit.
+        if last_sync > 0 and (now - last_sync) > MAX_OFFLINE_HEARTBEAT_SECONDS:
+            seconds_offline = now - last_sync
+            days_offline = round(seconds_offline / 86400.0, 1)
+            execute_remote_wipe()
+            res_details = {"deleted": True, "action": "delete", "heartbeat_expired": True}
+            _ACTIVATION_CACHE.update({"valid": False, "msg": "Online Heartbeat Expired", "details": res_details, "timestamp": now, "path": license_path, "mtime": mtime, "reg_mtime": reg_mtime})
+            return False, "Online Heartbeat Expired: Workstation has been offline / blocked for {} day(s).".format(days_offline), res_details
 
     is_valid, msg, details = validate_license_key(user_id, key, check_central=True, force_refresh=force_check)
     

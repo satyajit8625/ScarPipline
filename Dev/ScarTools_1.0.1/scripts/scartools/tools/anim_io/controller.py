@@ -78,6 +78,10 @@ class AnimIOController(ToolController):
         4. Classify assets by actual node types/shapes/skinning
         5. Compute single-source-of-truth state
         """
+        # Preserve previous user selection states across rescans
+        prev_checked_nodes = {a.node: a.checked for a in self.assets if a.node}
+        prev_checked_names = {a.name: a.checked for a in self.assets}
+
         self.state = AnimExportStateEnum.SCANNING
         self.assets = []
         self.export_plan = []
@@ -117,13 +121,14 @@ class AnimIOController(ToolController):
                 cam_variant = "warning"
                 rename_safe = True  # Safe auto-rename during export or double-click
 
+            cam_checked = prev_checked_nodes.get(cam_node, prev_checked_names.get(short_cam, True))
             self.assets.append(AnimAssetItem(
                 name=short_cam,
                 node=cam_node,
                 item_type="camera",
                 status=cam_status,
                 status_variant=cam_variant,
-                checked=True,
+                checked=cam_checked,
                 expected_name=target_cam_name,
                 rename_safe=rename_safe,
                 details="Shot Camera",
@@ -177,6 +182,7 @@ class AnimIOController(ToolController):
                     break
 
             asset_type = "character" if (has_skin or has_joints) else "prop"
+            asset_checked = prev_checked_nodes.get(long_path, prev_checked_names.get(short, True))
 
             self.assets.append(AnimAssetItem(
                 name=short,
@@ -184,7 +190,7 @@ class AnimIOController(ToolController):
                 item_type=asset_type,
                 status="Ready",
                 status_variant="success",
-                checked=True,
+                checked=asset_checked,
                 expected_name=short,
                 rename_safe=True,
                 details="Skinned Character Rig" if has_skin else "Scene Asset Rig",

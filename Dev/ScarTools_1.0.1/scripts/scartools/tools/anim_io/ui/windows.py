@@ -72,8 +72,8 @@ class AnimIODialog(BaseToolDialog):
 
     FORMAT_DESCRIPTIONS = {
         0: "Geometry cache + animation/camera data",
-        1: "Geometry point cache (.abc)",
-        2: "Animation and camera data (.fbx)",
+        1: "Geometry point cache",
+        2: "Animation and camera data",
     }
 
     def __init__(self, parent=None):
@@ -120,7 +120,7 @@ class AnimIODialog(BaseToolDialog):
         lbl_mode.setObjectName("FieldLabel")
 
         self.format_combo = QtWidgets.QComboBox(self)
-        self.format_combo.addItems(["Both (Alembic + FBX)", "Alembic (.abc)", "FBX (.fbx)"])
+        self.format_combo.addItems(["Both", "Alembic", "FBX"])
         configure_field(self.format_combo, minimum_width=180)
 
         self.operation_help = QtWidgets.QLabel(self.FORMAT_DESCRIPTIONS[0], self)
@@ -159,7 +159,9 @@ class AnimIODialog(BaseToolDialog):
             extended_selection=True,
             parent=self,
         )
-        self.asset_table.setToolTip("Tip: Double-click a Camera row to automatically standardize or create it.")
+        self.asset_table.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
+        self.asset_table.horizontalHeader().setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
+        self.asset_table.setToolTip("Tip: Right-click for Select / Deselect options. Double-click a Camera row to standardize it.")
         asset_layout.addWidget(self.asset_table, 1)
         root.addWidget(asset_panel, 1)
 
@@ -193,8 +195,11 @@ class AnimIODialog(BaseToolDialog):
         self.format_combo.currentIndexChanged.connect(self._on_format_changed)
         self.settings_btn.clicked.connect(self._open_settings_menu)
         self.rescan_btn.clicked.connect(self.rescan_scene)
+        self.asset_table.itemChanged.connect(self._on_item_changed)
         self.asset_table.cellDoubleClicked.connect(self._on_table_double_clicked)
         self.asset_table.cellClicked.connect(self._on_cell_clicked)
+        self.asset_table.customContextMenuRequested.connect(self._show_table_context_menu)
+        self.asset_table.horizontalHeader().customContextMenuRequested.connect(self._show_header_context_menu)
         self.open_folder_btn.clicked.connect(self._open_shot_folder)
         self.apply_button.clicked.connect(self._do_export)
         if self.view_log_button:
@@ -260,22 +265,112 @@ class AnimIODialog(BaseToolDialog):
                 self.controller.recompute_state()
                 self._update_footer_state()
 
-    def _on_cell_clicked(self, row, col):
-        """Clicking the Export column cell toggles the checkbox cleanly."""
-        if col == 1:
-            check_item = self.asset_table.item(row, 1)
-            if check_item and row < len(self.controller.assets):
-                new_state = QtCore.Qt.Unchecked if check_item.checkState() == QtCore.Qt.Checked else QtCore.Qt.Checked
-                check_item.setCheckState(new_state)
-                self.controller.assets[row].checked = (new_state == QtCore.Qt.Checked)
+    def _on_item_changed(self, item):
+        """Live synchronization when checkbox is toggled via direct click, keyboard space, or selection."""
+        if getattr(self, "_is_populating_table", False):
+            return
+        if not item or item.column() != 1:
+            return
+        row = item.row()
+        if 0 <= row < len(self.controller.assets):
+            is_checked = (item.checkState() == QtCore.Qt.Checked)
+            if self.controller.assets[row].checked != is_checked:
+                self.controller.assets[row].checked = is_checked
+                self._checkbox_just_toggled = True
                 self.controller.recompute_state()
                 self._update_footer_state()
 
+    def _on_cell_clicked(self, row, col):
+        """Clicking anywhere in the Export column cell toggles the checkbox cleanly."""
+        if col == 1:
+            if getattr(self, "_checkbox_just_toggled", False):
+                self._checkbox_just_toggled = False
+                return
+            check_item = self.asset_table.item(row, 1)
+            if check_item and 0 <= row < len(self.controller.assets):
+                new_state = QtCore.Qt.Unchecked if check_item.checkState() == QtCore.Qt.Checked else QtCore.Qt.Checked
+                check_item.setCheckState(new_state)
+
+    def _set_assets_checked(self, rows, checked=True):
+        """Bulk update checked state for specified table rows and controller assets."""
+        if not rows:
+            return
+
+        self.asset_table.blockSignals(True)
+        try:
+            for row in rows:
+                if 0 <= row < len(self.controller.assets):
+                    self.controller.assets[row].checked = bool(checked)
+                    chk_item = self.asset_table.item(row, 1)
+                    if chk_item:
+                        chk_item.setCheckState(QtCore.Qt.Checked if checked else QtCore.Qt.Unchecked)
+        finally:
+            self.asset_table.blockSignals(False)
+
+        self.controller.recompute_state()
+        self._update_footer_state()
+
+    def _show_table_context_menu(self, pos):
+        """Right-click context menu on asset table: Select, Deselect, Select All, Deselect All."""
+        total_rows = self.asset_table.rowCount()
+        if total_rows == 0:
+            return
+
+        item = self.asset_table.itemAt(pos)
+        selected_rows = sorted(list(set(idx.row() for idx in self.asset_table.selectedIndexes())))
+        clicked_row = item.row() if item else -1
+
+        if clicked_row >= 0 and clicked_row not in selected_rows:
+            target_rows = [clicked_row]
+        elif selected_rows:
+            target_rows = selected_rows
+        else:
+            target_rows = [clicked_row] if clicked_row >= 0 else list(range(total_rows))
+
+        menu = create_popup_menu(parent=self)
+
+        act_select = menu.addAction("Select")
+        act_deselect = menu.addAction("Deselect")
+        menu.addSeparator()
+        act_select_all = menu.addAction("Select All")
+        act_deselect_all = menu.addAction("Deselect All")
+
+        global_pos = self.asset_table.viewport().mapToGlobal(pos)
+        chosen = menu.exec_(global_pos)
+
+        if chosen == act_select:
+            self._set_assets_checked(target_rows, checked=True)
+        elif chosen == act_deselect:
+            self._set_assets_checked(target_rows, checked=False)
+        elif chosen == act_select_all:
+            self._set_assets_checked(range(total_rows), checked=True)
+        elif chosen == act_deselect_all:
+            self._set_assets_checked(range(total_rows), checked=False)
+
+    def _show_header_context_menu(self, pos):
+        """Right-click context menu on table header (e.g. Export column header)."""
+        total_rows = self.asset_table.rowCount()
+        if total_rows == 0:
+            return
+
+        menu = create_popup_menu(parent=self)
+
+        act_select_all = menu.addAction("Select All")
+        act_deselect_all = menu.addAction("Deselect All")
+
+        global_pos = self.asset_table.horizontalHeader().mapToGlobal(pos)
+        chosen = menu.exec_(global_pos)
+
+        if chosen == act_select_all:
+            self._set_assets_checked(range(total_rows), checked=True)
+        elif chosen == act_deselect_all:
+            self._set_assets_checked(range(total_rows), checked=False)
+
     def _register_scene_callbacks(self):
-        """Register Maya scene scriptJobs for automatic real-time UI updates on scene open, new, save, and timing changes."""
+        """Register Maya scene scriptJobs for automatic UI refresh on scene open / new scene."""
         self._unregister_scene_callbacks()
         if hasattr(cmds, "scriptJob") and not cmds.about(batch=True):
-            for ev in ("SceneOpened", "NewSceneOpened", "SceneSaved", "playbackRangeChanged"):
+            for ev in ("SceneOpened", "NewSceneOpened"):
                 try:
                     jid = cmds.scriptJob(event=[ev, self.rescan_scene], runOnce=False)
                     self._script_job_ids.append(jid)
@@ -298,8 +393,6 @@ class AnimIODialog(BaseToolDialog):
         super(AnimIODialog, self).closeEvent(event)
 
     def changeEvent(self, event):
-        if event.type() == QtCore.QEvent.ActivationChange and self.isActiveWindow():
-            self.rescan_scene()
         super(AnimIODialog, self).changeEvent(event)
 
     def _update_footer_state(self):
@@ -328,43 +421,51 @@ class AnimIODialog(BaseToolDialog):
 
     def rescan_scene(self):
         """Inspect active Maya scene and populate table and state."""
-        self.controller.scan_scene()
+        if getattr(self, "_is_exporting", False):
+            return
+        self._is_populating_table = True
+        try:
+            self.asset_table.blockSignals(True)
+            self.controller.scan_scene()
 
-        # Update Asset Count
-        self.count_badge.setText(self.controller.get_asset_count_text())
+            # Update Asset Count
+            self.count_badge.setText(self.controller.get_asset_count_text())
 
-        # Populate Table
-        self.asset_table.setRowCount(len(self.controller.assets))
-        for row, asset_item in enumerate(self.controller.assets):
-            # Col 0: Name (Read-only, selectable)
-            name_item = QtWidgets.QTableWidgetItem(asset_item.name)
-            name_item.setFlags(QtCore.Qt.ItemIsEnabled | QtCore.Qt.ItemIsSelectable)
-            name_item.setData(QtCore.Qt.UserRole, (asset_item.item_type, asset_item.node))
-            name_item.setToolTip("{}: {}".format(asset_item.details, asset_item.node or "Not in scene"))
+            # Populate Table
+            self.asset_table.setRowCount(len(self.controller.assets))
+            for row, asset_item in enumerate(self.controller.assets):
+                # Col 0: Name (Read-only, selectable)
+                name_item = QtWidgets.QTableWidgetItem(asset_item.name)
+                name_item.setFlags(QtCore.Qt.ItemIsEnabled | QtCore.Qt.ItemIsSelectable)
+                name_item.setData(QtCore.Qt.UserRole, (asset_item.item_type, asset_item.node))
+                name_item.setToolTip("{}: {}".format(asset_item.details, asset_item.node or "Not in scene"))
 
-            # Col 1: Checkbox
-            check_item = QtWidgets.QTableWidgetItem()
-            check_item.setCheckState(QtCore.Qt.Checked if asset_item.checked else QtCore.Qt.Unchecked)
-            check_item.setTextAlignment(QtCore.Qt.AlignCenter)
-            check_item.setFlags(QtCore.Qt.ItemIsUserCheckable | QtCore.Qt.ItemIsEnabled | QtCore.Qt.ItemIsSelectable)
-            check_item.setToolTip("Include in export")
+                # Col 1: Checkbox
+                check_item = QtWidgets.QTableWidgetItem()
+                check_item.setCheckState(QtCore.Qt.Checked if asset_item.checked else QtCore.Qt.Unchecked)
+                check_item.setTextAlignment(QtCore.Qt.AlignCenter)
+                check_item.setFlags(QtCore.Qt.ItemIsUserCheckable | QtCore.Qt.ItemIsEnabled | QtCore.Qt.ItemIsSelectable)
+                check_item.setToolTip("Include in export")
 
-            # Col 2: Status (Read-only, centered)
-            if asset_item.status_variant == "success":
-                status_color = COLOR_STATUS_SUCCESS
-            elif asset_item.status_variant == "warning":
-                status_color = COLOR_STATUS_WARNING
-            elif asset_item.status_variant == "error":
-                status_color = COLOR_STATUS_ERROR
-            else:
-                status_color = COLOR_TEXT_MUTED
+                # Col 2: Status (Read-only, centered)
+                if asset_item.status_variant == "success":
+                    status_color = COLOR_STATUS_SUCCESS
+                elif asset_item.status_variant == "warning":
+                    status_color = COLOR_STATUS_WARNING
+                elif asset_item.status_variant == "error":
+                    status_color = COLOR_STATUS_ERROR
+                else:
+                    status_color = COLOR_TEXT_MUTED
 
-            status_item = self._item(asset_item.status, color=status_color, alignment=QtCore.Qt.AlignCenter)
-            status_item.setFlags(QtCore.Qt.ItemIsEnabled | QtCore.Qt.ItemIsSelectable)
+                status_item = self._item(asset_item.status, color=status_color, alignment=QtCore.Qt.AlignCenter)
+                status_item.setFlags(QtCore.Qt.ItemIsEnabled | QtCore.Qt.ItemIsSelectable)
 
-            self.asset_table.setItem(row, 0, name_item)
-            self.asset_table.setItem(row, 1, check_item)
-            self.asset_table.setItem(row, 2, status_item)
+                self.asset_table.setItem(row, 0, name_item)
+                self.asset_table.setItem(row, 1, check_item)
+                self.asset_table.setItem(row, 2, status_item)
+        finally:
+            self.asset_table.blockSignals(False)
+            self._is_populating_table = False
 
         self._update_footer_state()
 
@@ -400,6 +501,19 @@ class AnimIODialog(BaseToolDialog):
 
     def _do_export(self):
         """Execute export using internal export plan and atomic undo safety."""
+        self._is_exporting = True
+        try:
+            self._execute_export()
+        finally:
+            self._is_exporting = False
+
+    def _execute_export(self):
+        # Force-sync live checkbox states directly from table
+        for row in range(self.asset_table.rowCount()):
+            chk_item = self.asset_table.item(row, 1)
+            if chk_item and row < len(self.controller.assets):
+                self.controller.assets[row].checked = (chk_item.checkState() == QtCore.Qt.Checked)
+
         self.controller.recompute_state()
         if self.controller.state == AnimExportStateEnum.BLOCKED:
             return
@@ -531,6 +645,7 @@ class AnimIODialog(BaseToolDialog):
                 end_frame=end_f,
                 fps=fps,
                 camera_node=cam_node,
+                export_camera=bool(cam_node),
                 camera_format="fbx",
                 character_nodes=char_nodes,
                 character_formats=geo_fmts,

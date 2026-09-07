@@ -166,13 +166,14 @@ def delete_shelf():
     shelf_tab_path = top_shelf + "|" + SHELF_NAME if top_shelf else SHELF_NAME
 
     try:
-        mel.eval('if (`exists deleteShelfTab`) { catchQuiet(deleteShelfTab("' + SHELF_NAME + '")); }')
+        if cmds.shelfLayout(shelf_tab_path, exists=True):
+            cmds.deleteUI(shelf_tab_path, layout=True)
     except Exception:
         pass
 
     try:
-        if cmds.shelfLayout(shelf_tab_path, exists=True):
-            cmds.deleteUI(shelf_tab_path, layout=True)
+        if mel and top_shelf and cmds.shelfTabLayout(top_shelf, exists=True):
+            mel.eval('catchQuiet(shelfTabLayout -edit -removeTab "{tab}" "{top}");'.format(tab=SHELF_NAME, top=top_shelf))
     except Exception:
         pass
 

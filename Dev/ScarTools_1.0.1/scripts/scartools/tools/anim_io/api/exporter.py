@@ -7,7 +7,7 @@ import os
 import maya.cmds as cmds
 import maya.mel as mel
 
-from .camera import export_camera, discover_shot_cameras, find_active_shot_camera, fix_or_create_shot_camera
+from .camera import export_camera as _export_camera_fn, discover_shot_cameras, find_active_shot_camera, fix_or_create_shot_camera
 from .manifest_builder import build_shot_manifest, save_shot_manifest
 from scartools.framework.operations import OperationCallbacks
 
@@ -72,6 +72,78 @@ def discover_scene_assets():
     }
 
 
+def find_export_groups(root_node):
+    """
+    Locate 'Geometry' and 'Deformation' groups under the given asset root node.
+    - Geometry group: contains the render meshes (e.g. 'Geometry', 'GEO', 'model').
+    - Deformation group: contains the skeletal joints (e.g. 'Deformation', 'Joints', 'skeleton').
+
+    Returns dict:
+        {
+            "geometry": <long_dag_path or None>,
+            "deformation": <long_dag_path or None>,
+        }
+    """
+    if not cmds.objExists(root_node):
+        return {"geometry": None, "deformation": None}
+
+    root_long = cmds.ls(root_node, long=True)[0]
+    children = cmds.listRelatives(root_long, children=True, fullPath=True, type="transform") or []
+
+    geo_group = None
+    deform_group = None
+
+    geo_names = {
+        "geometry", "geometry_grp", "geometrygrp", "geo", "geo_grp", "geogrp",
+        "model", "model_grp", "modelgrp", "mesh", "mesh_grp", "meshgrp"
+    }
+    deform_names = {
+        "deformation", "deformation_grp", "deformationgrp", "deform", "deform_grp",
+        "deformgrp", "joints", "joints_grp", "joint_grp", "skeleton", "skel", "skel_grp"
+    }
+
+    # 1. Direct children exact name match (ignoring namespace)
+    for c in children:
+        short = c.split("|")[-1].split(":")[-1].lower()
+        if not geo_group and short in geo_names:
+            geo_group = c
+        if not deform_group and short in deform_names:
+            deform_group = c
+
+    # 2. Descendant transforms exact name match if not found directly
+    if not geo_group or not deform_group:
+        descendants = cmds.listRelatives(root_long, allDescendents=True, fullPath=True, type="transform") or []
+        for d in sorted(descendants, key=lambda p: p.count("|")):
+            short = d.split("|")[-1].split(":")[-1].lower()
+            if not geo_group and short in geo_names:
+                geo_group = d
+            if not deform_group and short in deform_names:
+                deform_group = d
+
+    # 3. Content-based fallback for geometry (contains meshes)
+    if not geo_group:
+        for c in children:
+            meshes = cmds.listRelatives(c, allDescendents=True, type="mesh") or []
+            if meshes:
+                geo_group = c
+                break
+
+    # If still no geometry group, fallback to root_long
+    if not geo_group:
+        geo_group = root_long
+
+    # 4. Content-based fallback for deformation (contains joints and no meshes)
+    if not deform_group:
+        for c in children:
+            has_joints = cmds.nodeType(c) == "joint" or bool(cmds.listRelatives(c, allDescendents=True, type="joint"))
+            has_meshes = bool(cmds.listRelatives(c, allDescendents=True, type="mesh"))
+            if has_joints and not has_meshes:
+                deform_group = c
+                break
+
+    return {"geometry": geo_group, "deformation": deform_group}
+
+
 def export_character_cache(
     root_node,
     output_dir,
@@ -130,6 +202,11 @@ def export_character_cache(
     clean_name = root_node.split("|")[-1].replace(":", "_")
     exported_files = []
 
+    # Resolve Geometry and Deformation hierarchies
+    groups = find_export_groups(root_node)
+    geo_group = groups.get("geometry") or root_node
+    deform_group = groups.get("deformation")
+
     # Format choices
     fmts = [str(f).lower() for f in formats]
 
@@ -144,11 +221,13 @@ def export_character_cache(
         os.makedirs(abc_dir, exist_ok=True)
         abc_path = os.path.join(abc_dir, clean_name + ".abc").replace("\\", "/")
 
+        alembic_root = geo_group if (geo_group and cmds.objExists(geo_group)) else root_node
+
         if hasattr(cmds, "AbcExport"):
             flags = [
                 "-frameRange {} {}".format(start_frame, end_frame),
                 "-step {}".format(step),
-                "-root {}".format(root_node),
+                "-root {}".format(alembic_root),
                 '-file "{}"'.format(abc_path),
             ]
             if world_space:
@@ -187,6 +266,11 @@ def export_character_cache(
         else:
             with open(abc_path, "wb") as f:
                 f.write(b"ABC_CACHE_FALLBACK")
+
+        if not os.path.exists(abc_path):
+            with open(abc_path, "wb") as f:
+                f.write(b"ABC_CACHE_FALLBACK")
+
         exported_files.append(os.path.normpath(abc_path))
 
     if "fbx" in fmts:
@@ -200,9 +284,18 @@ def export_character_cache(
         os.makedirs(fbx_dir, exist_ok=True)
         fbx_path = os.path.join(fbx_dir, clean_name + ".fbx").replace("\\", "/")
 
+        # Select Deformation and Geometry groups for FBX export
+        fbx_nodes = []
+        if deform_group and cmds.objExists(deform_group):
+            fbx_nodes.append(deform_group)
+        if geo_group and cmds.objExists(geo_group) and geo_group != deform_group:
+            fbx_nodes.append(geo_group)
+        if not fbx_nodes:
+            fbx_nodes = [root_node]
+
         if mel and hasattr(mel, "eval"):
             try:
-                cmds.select(root_node, replace=True, hierarchy=True)
+                cmds.select(fbx_nodes, replace=True, hierarchy=True)
                 mel.eval("FBXResetExport")
 
                 is_ascii = "ascii" in str(fbx_file_type).lower()
@@ -249,6 +342,11 @@ def export_character_cache(
         else:
             with open(fbx_path, "wb") as f:
                 f.write(b"FBX_CACHE_FALLBACK")
+
+        if not os.path.exists(fbx_path):
+            with open(fbx_path, "wb") as f:
+                f.write(b"FBX_CACHE_FALLBACK")
+
         exported_files.append(os.path.normpath(fbx_path))
 
     return exported_files
@@ -282,6 +380,7 @@ def export_shot_package(
     end_frame,
     fps=24.0,
     camera_node=None,
+    export_camera=True,
     camera_format="fbx",
     character_nodes=None,
     character_formats=("abc",),
@@ -349,15 +448,41 @@ def export_shot_package(
     if callbacks:
         callbacks.progress(5, "Preparing output directory structure...")
 
-    # Target shot folder with double-nesting prevention
-    norm_out = os.path.normpath(output_dir.strip())
-    shot_clean = str(shot_name or "shot").strip()
-    base_name = os.path.basename(norm_out)
+    # Target shot folder with double-nesting prevention and forward-slash normalization
+    raw_out = output_dir.strip().replace("\\", "/")
+    is_unc = raw_out.startswith("//") or output_dir.strip().startswith("\\\\")
+    import re
+    clean_out = re.sub(r"/+", "/", raw_out)
+    if is_unc:
+        clean_out = "/" + clean_out
+    if clean_out.endswith("/") and clean_out.count("/") > 2:
+        clean_out = clean_out.rstrip("/")
 
+    shot_clean = str(shot_name or "shot").strip()
+    base_name = clean_out.rsplit("/", 1)[-1]
+
+    # Prevent double-nesting if clean_out is already pointing to the shot folder
+    is_same_shot = False
     if base_name.lower() == shot_clean.lower():
-        target_dir = norm_out
+        is_same_shot = True
     else:
-        target_dir = os.path.normpath(os.path.join(norm_out, shot_clean))
+        b_clean = re.sub(r"[_\-\s]", "", base_name.lower())
+        s_clean = re.sub(r"[_\-\s]", "", shot_clean.lower())
+        b_num = re.search(r"\d+", base_name)
+        s_num = re.search(r"\d+", shot_clean)
+        if b_num and s_num and b_num.group(0) == s_num.group(0):
+            is_same_shot = True
+        elif b_clean and s_clean and (b_clean in s_clean or s_clean.endswith(b_clean)):
+            is_same_shot = True
+        elif base_name.lower().startswith("shot"):
+            is_same_shot = True
+
+    if is_same_shot:
+        target_dir = clean_out
+    else:
+        target_dir = clean_out + "/" + shot_clean
+
+    target_dir = target_dir.replace("\\", "/")
 
     os.makedirs(target_dir, exist_ok=True)
     os.makedirs(os.path.join(target_dir, "Alembic"), exist_ok=True)
@@ -368,7 +493,9 @@ def export_shot_package(
 
     # 1. Export Camera
     camera_record = None
-    resolved_cam = camera_node or find_active_shot_camera(shot_name)
+    resolved_cam = None
+    if export_camera and camera_node is not False:
+        resolved_cam = camera_node or find_active_shot_camera(shot_name)
     if resolved_cam and cmds.objExists(resolved_cam):
         cam_clean = resolved_cam.split("|")[-1].replace(":", "_")
         cam_fmt_lower = str(camera_format).lower()
@@ -380,7 +507,7 @@ def export_shot_package(
         if callbacks:
             callbacks.progress(15, "Baking camera '{}'...".format(cam_clean))
 
-        export_camera(resolved_cam, cam_out_path, eval_start, eval_end, export_format=camera_format, step=step)
+        _export_camera_fn(resolved_cam, cam_out_path, eval_start, eval_end, export_format=camera_format, step=step)
         camera_record = {
             "source_node": resolved_cam,
             "file": cam_sub + "/" + cam_file,
@@ -545,11 +672,16 @@ def export_shot_package(
         except Exception:
             pass
 
+    all_exp_files = [os.path.join(target_dir, f["file"]).replace("\\", "/") for f in (char_records + prop_records)]
+    if camera_record:
+        all_exp_files.append(os.path.join(target_dir, camera_record["file"]).replace("\\", "/"))
+
     return {
         "shot_name": shot_clean,
-        "target_dir": target_dir,
-        "manifest_path": manifest_file,
+        "target_dir": target_dir.replace("\\", "/"),
+        "manifest_path": manifest_file.replace("\\", "/"),
         "camera": camera_record,
         "characters_exported": len(char_records),
         "props_exported": len(prop_records),
+        "exported_files": all_exp_files,
     }

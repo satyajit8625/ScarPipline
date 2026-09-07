@@ -350,9 +350,16 @@ class GlobalLogViewer(QtWidgets.QWidget):
         badge_bg = badge_bg_map.get(entry.level, "#22252A")
         ts = time.strftime("%H:%M:%S", time.localtime(entry.timestamp))
 
+        raw_msg = entry.message
+        # Normalize Windows UNC network paths (e.g. \\server\share -> //server/share)
+        if "\\\\" in raw_msg:
+            raw_msg = re.sub(r"\\\\([a-zA-Z0-9_\-]+)\\", r"//\1/", raw_msg)
+        # Normalize remaining Windows backslashes in folder paths
+        raw_msg = re.sub(r"(?<=[a-zA-Z0-9_\-. ])\\(?=[a-zA-Z0-9_\-. ])", "/", raw_msg)
+
         # Sanitize HTML tags
         msg = (
-            entry.message.replace("&", "&amp;")
+            raw_msg.replace("&", "&amp;")
             .replace("<", "&lt;")
             .replace(">", "&gt;")
             .replace("\n", "<br>&nbsp;&nbsp;&nbsp;&nbsp;")
