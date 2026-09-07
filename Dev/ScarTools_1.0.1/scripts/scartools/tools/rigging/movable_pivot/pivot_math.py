@@ -8,6 +8,7 @@ component centroid extraction, and orthonormal basis vector alignment.
 from __future__ import absolute_import, division, print_function
 
 import math
+import re
 import maya.cmds as cmds
 
 try:
@@ -209,9 +210,9 @@ def get_component_centroid_and_vectors(node, components=None):
                         mesh_obj = e.split(".")[0]
                         fn = cmds.polyInfo("{}.f[{}]".format(mesh_obj, f_toks[0]), faceNormals=True)
                         if fn:
-                            coords = [float(c) for c in fn[0].split() if re.match(r"^-?\d+(\.\d+)?$", c)]
-                            if len(coords) >= 3:
-                                normals.append(om.MVector(coords[0], coords[1], coords[2]))
+                            parts = fn[0].split(":")[-1].split()
+                            if len(parts) >= 3:
+                                normals.append(om.MVector(float(parts[0]), float(parts[1]), float(parts[2])))
             except Exception:
                 pass
 

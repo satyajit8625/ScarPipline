@@ -209,6 +209,22 @@ class TestMovablePivot(unittest.TestCase):
         self.assertAlmostEqual(pos1[0], 0.0, places=2)
         self.assertAlmostEqual(pos2[0], 0.0, places=2)
 
+    def test_edge_component_vector_extraction(self):
+        """Verify edge component normal and tangent vector extraction."""
+        if not hasattr(cmds, "polyCube"):
+            return
+        from scartools.tools.rigging.movable_pivot.pivot_math import get_component_centroid_and_vectors
+        edge = self.cube + ".e[0]"
+        data = get_component_centroid_and_vectors(self.cube, components=[edge])
+        self.assertEqual(data["type"], "edge")
+        self.assertIn("normal", data)
+        self.assertIn("tangent", data)
+        # Normal length should be unit vector
+        nx, ny, nz = data["normal"]
+        norm_len = (nx * nx + ny * ny + nz * nz) ** 0.5
+        self.assertAlmostEqual(norm_len, 1.0, places=2)
+
 
 if __name__ == "__main__":
     unittest.main()
+

@@ -2,7 +2,7 @@
 
 from .imports import entry_point_module, load_entry_point
 from .logging import get_logger
-from .manifest import ToolManifest
+from .manifest import ToolManifest, UISpecification
 from .operations import OperationCallbacks, OperationCancelled
 from .controller import ToolController
 from .lifecycle import (
@@ -60,6 +60,7 @@ from .naming import (
 
 __all__ = [
     "ToolManifest",
+    "UISpecification",
     "OperationCallbacks",
     "OperationCancelled",
     "OperationMessage",

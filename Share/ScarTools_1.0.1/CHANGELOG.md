@@ -9,6 +9,11 @@
   - Precision Snapping: Snap Position, Snap Rotation, and Snap Transform from reference transforms in 1 click.
   - Persistent Node Bookmarks: stores multiple named pivot presets (`Hinge_Left`, `Wheel_FL`, `Grip_Main`) directly onto DAG nodes via non-destructive JSON attributes.
   - Atomic Reset & Undo Rollback: 1-click restore to original captured pivot state with full `Ctrl+Z` atomic rollback via `SceneTransaction`.
+- **Bug Fixes & Stability Polish**:
+  - Fixed edge component surface normal extraction in `movable_pivot.pivot_math`: resolved missing `import re` and standardized vector coordinate parsing.
+  - Fixed broken `UISpecification` imports in `renamer.ui_spec` and `udim.ui_spec`: standardized declarative dict contracts and exported backwards-compatible `UISpecification` in `scartools.framework`.
+  - Fixed `AttributeError` in `AlembicSettingsDialog`: removed dead/dangling `_on_bake_toggled` copy-paste reference.
+  - Resolved button text stripping/clipping under High-DPI Windows display scaling: upgraded `configure_button` to automatically expand to font metrics instead of rigid `setFixedWidth` constraints.
 - **Anim Export Tool & Centralized Extraction Engine**:
   - Dedicated zero-complexity 1-page shot animation caching tool exporting to studio standard `Alembic/` and `FBX/` folders alongside `Maya/` files.
   - 100% automated scene parsing: auto-detects shot name (`PRT_SH_020`), active project (`PRT`), timeline range, and active shot camera (`PRT_SH_020_CAM`).

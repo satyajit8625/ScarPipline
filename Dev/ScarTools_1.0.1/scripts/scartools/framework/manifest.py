@@ -97,3 +97,12 @@ class ToolManifest:
             "ui_spec_entry_point": self.ui_spec_entry_point,
             "services": [list(service) for service in self.services],
         }
+
+
+class UISpecification(dict):
+    """Declarative UI specification container supporting dict and attribute access."""
+
+    def __init__(self, *args, **kwargs):
+        super(UISpecification, self).__init__(*args, **kwargs)
+        self.__dict__ = self
+

@@ -455,10 +455,10 @@ class AlembicSettingsDialog(BaseToolDialog):
         footer_layout.setContentsMargins(10, 5, 10, 5)
         footer_layout.setSpacing(8)
 
-        self.btn_reset = create_button("Reset to Default", role="secondary", fixed_width=130, parent=self)
+        self.btn_reset = create_button("Reset to Default", role="secondary", fixed_width=140, parent=self)
         self.btn_reset.setToolTip("Reset Alembic configuration to recommended pipeline defaults")
 
-        self.btn_cancel = create_button("Cancel", role="secondary", fixed_width=80, parent=self)
+        self.btn_cancel = create_button("Cancel", role="secondary", fixed_width=85, parent=self)
         self.btn_save = create_button("Save", role="primary", fixed_width=95, parent=self)
 
         footer_layout.addWidget(self.btn_reset)
@@ -477,12 +477,6 @@ class AlembicSettingsDialog(BaseToolDialog):
         """Update dependent controls state while preserving stored prefix string."""
         self.lbl_attr_prefix.setEnabled(checked)
         self.edit_attr_prefix.setEnabled(checked)
-
-    def _on_bake_toggled(self, checked):
-        """Dynamically enable or disable dependent bake controls."""
-        self.chk_resample.setEnabled(checked)
-        self.chk_key_reducer.setEnabled(checked)
-        self.spin_step.setEnabled(checked)
 
     def _on_browse_output_path(self):
         cur = self.edit_output_path.text().strip() or os.getcwd()
@@ -820,10 +814,10 @@ class FBXSettingsDialog(BaseToolDialog):
         footer_layout.setContentsMargins(10, 5, 10, 5)
         footer_layout.setSpacing(8)
 
-        self.btn_reset = create_button("Reset to Default", role="secondary", fixed_width=130, parent=self)
+        self.btn_reset = create_button("Reset to Default", role="secondary", fixed_width=140, parent=self)
         self.btn_reset.setToolTip("Reset FBX configuration to recommended pipeline defaults")
 
-        self.btn_cancel = create_button("Cancel", role="secondary", fixed_width=80, parent=self)
+        self.btn_cancel = create_button("Cancel", role="secondary", fixed_width=85, parent=self)
         self.btn_save = create_button("Save", role="primary", fixed_width=95, parent=self)
 
         footer_layout.addWidget(self.btn_reset)

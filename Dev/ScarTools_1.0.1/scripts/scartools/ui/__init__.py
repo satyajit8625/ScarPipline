@@ -125,7 +125,13 @@ def configure_button(button, primary=False, fixed_width=None, role=None):
         PRIMARY_BUTTON_HEIGHT if role == "primary" else SECONDARY_BUTTON_HEIGHT
     )
     if fixed_width:
-        button.setFixedWidth(int(fixed_width))
+        try:
+            fm = button.fontMetrics()
+            text_width = fm.horizontalAdvance(button.text()) if hasattr(fm, "horizontalAdvance") else fm.width(button.text())
+            min_w = max(int(fixed_width), text_width + 24)
+        except Exception:
+            min_w = int(fixed_width)
+        button.setMinimumWidth(min_w)
     elif role != "primary":
         button.setMinimumWidth(SECONDARY_BUTTON_MIN_WIDTH)
     return button
