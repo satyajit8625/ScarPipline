@@ -99,24 +99,30 @@ def export_shot_package(
 
 def import_shot_package(
     package_dir_or_manifest,
+    version=None,
     import_time_settings=True,
     import_camera=True,
     import_characters=True,
     import_props=True,
     lock_camera=True,
+    preferred_format="abc",
+    callbacks=None,
 ):
     """Import and assemble shot package inside atomic undo transaction."""
     require_license("ScarTools_AnimImport")
 
     with SceneTransaction("ScarTools_AssembleShot"):
-        emit_log("Assembling shot scene from '{}'...".format(package_dir_or_manifest), level="INFO", source="anim_io")
+        emit_log("Assembling shot scene from '{}' (version: {})...".format(package_dir_or_manifest, version or "latest"), level="INFO", source="anim_io")
         result = _api_import_shot(
             package_dir_or_manifest=package_dir_or_manifest,
+            version=version,
             import_time_settings=import_time_settings,
             import_camera=import_camera,
             import_characters=import_characters,
             import_props=import_props,
             lock_camera=lock_camera,
+            preferred_format=preferred_format,
+            callbacks=callbacks,
         )
         emit_log(
             "Shot assembled: {} characters, {} props, camera={}".format(

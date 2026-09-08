@@ -53,7 +53,7 @@ DEFAULT_ALEMBIC_SETTINGS = {
     "face_sets": True,
     "color_sets": False,
     "auto_subd": False,
-    "renderable_only": False,
+    "renderable_only": True,
 
     # Transform
     "world_space": True,
@@ -89,7 +89,7 @@ DEFAULT_FBX_SETTINGS = {
 
     # Geometry
     "smoothing_groups": True,
-    "tangents_binormals": True,
+    "tangents_binormals": False,
     "smooth_mesh": False,
     "triangulate": False,
 
@@ -524,8 +524,10 @@ class AlembicSettingsDialog(BaseToolDialog):
         if idx >= 0:
             self.combo_data_format.setCurrentIndex(idx)
 
-        out_path = cfg.get("output_path") or (os.path.join(ctx_root, "Alembic").replace("\\", "/") if ctx_root else "")
+        out_path = str(cfg.get("output_path") or "").strip()
         self.edit_output_path.setText(out_path)
+        placeholder = os.path.join(ctx_root, "Alembic").replace("\\", "/") if ctx_root else "Default shot Alembic directory"
+        self.edit_output_path.setPlaceholderText(placeholder)
 
         f_name = cfg.get("file_name") or ctx_name
         self.edit_file_name.setText(f_name)
@@ -905,8 +907,10 @@ class FBXSettingsDialog(BaseToolDialog):
 
         self.chk_embed_media.setChecked(bool(cfg.get("embed_media", False)))
 
-        out_path = cfg.get("output_path") or (os.path.join(ctx_root, "FBX").replace("\\", "/") if ctx_root else "")
+        out_path = str(cfg.get("output_path") or "").strip()
         self.edit_output_path.setText(out_path)
+        placeholder = os.path.join(ctx_root, "FBX").replace("\\", "/") if ctx_root else "Default shot FBX directory"
+        self.edit_output_path.setPlaceholderText(placeholder)
 
         f_name = cfg.get("file_name") or ctx_name
         self.edit_file_name.setText(f_name)

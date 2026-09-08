@@ -396,8 +396,8 @@ class MovablePivotDialog(BaseToolDialog):
 
     def _open_log_viewer(self):
         try:
-            from scartools.ui.logs import show_log_viewer
-            show_log_viewer(parent=maya_main_window())
+            from scartools.ui.logs import show_global_log
+            show_global_log(source="Movable Pivot", parent=self)
         except Exception:
             pass
 

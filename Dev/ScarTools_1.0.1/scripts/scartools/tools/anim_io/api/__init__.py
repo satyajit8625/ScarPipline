@@ -3,7 +3,15 @@
 
 from __future__ import absolute_import, division, print_function
 
-from .manifest_builder import build_shot_manifest, save_shot_manifest, load_shot_manifest
+from .manifest_builder import (
+    build_version_record,
+    build_shot_manifest,
+    save_shot_manifest,
+    load_shot_manifest,
+    update_shot_manifest,
+    resolve_next_version,
+    get_all_shot_versions,
+)
 from .camera import discover_shot_cameras, bake_camera_world_space, export_camera
 from .exporter import (
     export_shot_package,
@@ -15,9 +23,13 @@ from .exporter import (
 from .importer import import_shot_package, assemble_shot_scene
 
 __all__ = [
+    "build_version_record",
     "build_shot_manifest",
     "save_shot_manifest",
     "load_shot_manifest",
+    "update_shot_manifest",
+    "resolve_next_version",
+    "get_all_shot_versions",
     "discover_shot_cameras",
     "bake_camera_world_space",
     "export_camera",

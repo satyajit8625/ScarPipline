@@ -4,12 +4,56 @@
 from __future__ import absolute_import, division, print_function
 
 import os
+import re
+import shutil
+import tempfile
+import ctypes
 import maya.cmds as cmds
 import maya.mel as mel
 
 from .camera import export_camera as _export_camera_fn, discover_shot_cameras, find_active_shot_camera, fix_or_create_shot_camera
-from .manifest_builder import build_shot_manifest, save_shot_manifest
+from .manifest_builder import (
+    build_shot_manifest,
+    save_shot_manifest,
+    build_version_record,
+    update_shot_manifest,
+    resolve_next_version,
+    MANIFEST_FILENAME,
+)
 from scartools.framework.operations import OperationCallbacks
+from scartools.framework.scene import suspend_viewport_refresh
+from scartools.framework.naming import resolve_shot_root_dir
+
+
+_ACTIVE_ABC_FRAME_CALLBACK = None
+
+
+def _abc_frame_dispatch(frame):
+    """Global hook invoked per-frame by Maya AbcExport -pythonPerFrameCallback."""
+    global _ACTIVE_ABC_FRAME_CALLBACK
+    if _ACTIVE_ABC_FRAME_CALLBACK:
+        try:
+            _ACTIVE_ABC_FRAME_CALLBACK(float(frame))
+        except Exception:
+            pass
+
+
+def _is_remote_path(path):
+    """Detect if path is a UNC network path or mapped network drive."""
+    if not path:
+        return False
+    norm = os.path.normpath(str(path))
+    if norm.startswith(("\\\\", "//")):
+        return True
+    drive = os.path.splitdrive(norm)[0]
+    if drive and len(drive) == 2 and drive[1] == ":":
+        drive_root = drive + "\\"
+        try:
+            # DRIVE_REMOTE == 4
+            return ctypes.windll.kernel32.GetDriveTypeW(drive_root) == 4
+        except Exception:
+            return False
+    return False
 
 
 def discover_scene_assets():
@@ -35,9 +79,16 @@ def discover_scene_assets():
         except Exception:
             continue
 
-        roots = [n for n in nodes if cmds.nodeType(n) == "transform" and not cmds.listRelatives(n, parent=True)]
+        # Fast root discovery: filter transforms in a single C++ call and find roots by minimum DAG depth
+        transforms = cmds.ls(nodes, type="transform", long=True) or []
+        if transforms:
+            min_depth = min(t.count("|") for t in transforms)
+            roots = [t for t in transforms if t.count("|") == min_depth]
+        else:
+            roots = []
+
         for r in roots:
-            long_path = cmds.ls(r, long=True)[0]
+            long_path = r
             if long_path in seen_roots:
                 continue
             seen_roots.add(long_path)
@@ -144,6 +195,72 @@ def find_export_groups(root_node):
     return {"geometry": geo_group, "deformation": deform_group}
 
 
+def build_alembic_job_arg(
+    root_node,
+    file_path,
+    start_frame,
+    end_frame,
+    step=1.0,
+    world_space=True,
+    uv_write=True,
+    all_uv_sets=True,
+    write_velocities=True,
+    renderable_only=True,
+    write_visibility=True,
+    write_face_sets=True,
+    write_color_sets=False,
+    auto_subd=False,
+    euler_filter=False,
+    user_attributes=False,
+    attribute_prefix="ABC_",
+    strip_namespaces=True,
+    data_format="Ogawa",
+    python_per_frame_callback=None,
+):
+    """Construct an AbcExport -jobArg string for a single hierarchy."""
+    flags = [
+        "-frameRange {} {}".format(start_frame, end_frame),
+        "-step {}".format(step),
+        "-root {}".format(root_node),
+        '-file "{}"'.format(file_path.replace("\\", "/")),
+    ]
+    if world_space:
+        flags.append("-worldSpace")
+    if uv_write:
+        flags.append("-uvWrite")
+    if all_uv_sets:
+        flags.append("-writeUVSets")
+    if write_velocities:
+        flags.append("-wv")
+    if renderable_only:
+        flags.append("-renderableOnly")
+    if write_visibility:
+        flags.append("-writeVisibility")
+    if write_face_sets:
+        flags.append("-writeFaceSets")
+    if write_color_sets:
+        flags.append("-writeColorSets")
+    if auto_subd:
+        flags.append("-autoSubD")
+    if euler_filter:
+        flags.append("-eulerFilter")
+    if user_attributes and attribute_prefix:
+        flags.append('-userAttrPrefix "{}"'.format(attribute_prefix))
+    if strip_namespaces:
+        flags.append("-stripNamespaces")
+
+    df_clean = str(data_format).strip().lower()
+    if df_clean in ("hdf", "hdf5"):
+        flags.append("-dataFormat hdf")
+    else:
+        flags.append("-dataFormat ogawa")
+
+    if python_per_frame_callback:
+        flags.append('-pythonPerFrameCallback "{}"'.format(python_per_frame_callback))
+
+    return " ".join(flags)
+
+
 def export_character_cache(
     root_node,
     output_dir,
@@ -151,12 +268,13 @@ def export_character_cache(
     end_frame,
     formats=("abc",),
     step=1.0,
+    version=None,
     # Alembic parameters
     write_velocities=True,
     uv_write=True,
     all_uv_sets=True,
     write_normals=True,
-    renderable_only=False,
+    renderable_only=True,
     write_visibility=True,
     write_face_sets=True,
     write_color_sets=False,
@@ -177,7 +295,7 @@ def export_character_cache(
     fbx_skin=True,
     fbx_blend_shapes=True,
     fbx_smoothing_groups=True,
-    fbx_tangents_binormals=True,
+    fbx_tangents_binormals=False,
     fbx_smooth_mesh=False,
     fbx_triangulate=False,
     fbx_cameras=True,
@@ -193,7 +311,7 @@ def export_character_cache(
     fbx_strip_namespaces=True,
 ):
     """
-    Export character geometry hierarchy to Alembic (.abc) in Alembic/ and/or FBX (.fbx) in FBX/.
+    Export character geometry hierarchy to Alembic (.abc) in Alembic/<version>/ and/or FBX (.fbx) in FBX/<version>/.
     Returns list of exported file paths.
     """
     if not cmds.objExists(root_node):
@@ -201,6 +319,7 @@ def export_character_cache(
 
     clean_name = root_node.split("|")[-1].replace(":", "_")
     exported_files = []
+    clean_output_dir = resolve_shot_root_dir(output_dir) or str(output_dir or "").strip().replace("\\", "/")
 
     # Resolve Geometry and Deformation hierarchies
     groups = find_export_groups(root_node)
@@ -210,138 +329,122 @@ def export_character_cache(
     # Format choices
     fmts = [str(f).lower() for f in formats]
 
-    if "abc" in fmts or "alembic" in fmts:
-        if hasattr(cmds, "pluginInfo") and not cmds.pluginInfo("AbcExport", query=True, loaded=True):
-            try:
-                cmds.loadPlugin("AbcExport", quiet=True)
-            except Exception:
-                pass
+    with suspend_viewport_refresh():
+        if "abc" in fmts or "alembic" in fmts:
+            if hasattr(cmds, "pluginInfo") and not cmds.pluginInfo("AbcExport", query=True, loaded=True):
+                try:
+                    cmds.loadPlugin("AbcExport", quiet=True)
+                except Exception:
+                    pass
 
-        abc_dir = os.path.join(output_dir, "Alembic")
-        os.makedirs(abc_dir, exist_ok=True)
-        abc_path = os.path.join(abc_dir, clean_name + ".abc").replace("\\", "/")
-
-        alembic_root = geo_group if (geo_group and cmds.objExists(geo_group)) else root_node
-
-        if hasattr(cmds, "AbcExport"):
-            flags = [
-                "-frameRange {} {}".format(start_frame, end_frame),
-                "-step {}".format(step),
-                "-root {}".format(alembic_root),
-                '-file "{}"'.format(abc_path),
-            ]
-            if world_space:
-                flags.append("-worldSpace")
-            if uv_write:
-                flags.append("-uvWrite")
-            if all_uv_sets:
-                flags.append("-writeUVSets")
-            if write_velocities:
-                flags.append("-wv")
-            if renderable_only:
-                flags.append("-renderableOnly")
-            if write_visibility:
-                flags.append("-writeVisibility")
-            if write_face_sets:
-                flags.append("-writeFaceSets")
-            if write_color_sets:
-                flags.append("-writeColorSets")
-            if auto_subd:
-                flags.append("-autoSubD")
-            if euler_filter:
-                flags.append("-eulerFilter")
-            if user_attributes and attribute_prefix:
-                flags.append('-userAttrPrefix "{}"'.format(attribute_prefix))
-            if strip_namespaces:
-                flags.append("-stripNamespaces")
-
-            df_clean = str(data_format).strip().lower()
-            if df_clean in ("hdf", "hdf5"):
-                flags.append("-dataFormat hdf")
+            if version:
+                abc_dir = os.path.join(clean_output_dir, "Alembic", str(version).strip().lower())
             else:
-                flags.append("-dataFormat ogawa")
+                abc_dir = os.path.join(clean_output_dir, "Alembic")
+            os.makedirs(abc_dir, exist_ok=True)
+            abc_path = os.path.join(abc_dir, clean_name + ".abc").replace("\\", "/")
 
-            job_str = " ".join(flags)
-            cmds.AbcExport(jobArg=job_str)
-        else:
-            with open(abc_path, "wb") as f:
-                f.write(b"ABC_CACHE_FALLBACK")
+            alembic_root = geo_group if (geo_group and cmds.objExists(geo_group)) else root_node
 
-        if not os.path.exists(abc_path):
-            with open(abc_path, "wb") as f:
-                f.write(b"ABC_CACHE_FALLBACK")
+            if hasattr(cmds, "AbcExport"):
+                job_str = build_alembic_job_arg(
+                    root_node=alembic_root,
+                    file_path=abc_path,
+                    start_frame=start_frame,
+                    end_frame=end_frame,
+                    step=step,
+                    world_space=world_space,
+                    uv_write=uv_write,
+                    all_uv_sets=all_uv_sets,
+                    write_velocities=write_velocities,
+                    renderable_only=renderable_only,
+                    write_visibility=write_visibility,
+                    write_face_sets=write_face_sets,
+                    write_color_sets=write_color_sets,
+                    auto_subd=auto_subd,
+                    euler_filter=euler_filter,
+                    user_attributes=user_attributes,
+                    attribute_prefix=attribute_prefix,
+                    strip_namespaces=strip_namespaces,
+                    data_format=data_format,
+                )
+                cmds.AbcExport(jobArg=job_str)
+            else:
+                with open(abc_path, "wb") as f:
+                    f.write(b"ABC_CACHE_FALLBACK")
 
-        exported_files.append(os.path.normpath(abc_path))
+            if not os.path.exists(abc_path):
+                with open(abc_path, "wb") as f:
+                    f.write(b"ABC_CACHE_FALLBACK")
 
-    if "fbx" in fmts:
-        if hasattr(cmds, "pluginInfo") and not cmds.pluginInfo("fbxmaya", query=True, loaded=True):
-            try:
-                cmds.loadPlugin("fbxmaya", quiet=True)
-            except Exception:
-                pass
+            exported_files.append(os.path.normpath(abc_path))
 
-        fbx_dir = os.path.join(output_dir, "FBX")
-        os.makedirs(fbx_dir, exist_ok=True)
-        fbx_path = os.path.join(fbx_dir, clean_name + ".fbx").replace("\\", "/")
+        if "fbx" in fmts:
+            if hasattr(cmds, "pluginInfo") and not cmds.pluginInfo("fbxmaya", query=True, loaded=True):
+                try:
+                    cmds.loadPlugin("fbxmaya", quiet=True)
+                except Exception:
+                    pass
 
-        # Select Deformation and Geometry groups for FBX export
-        fbx_nodes = []
-        if deform_group and cmds.objExists(deform_group):
-            fbx_nodes.append(deform_group)
-        if geo_group and cmds.objExists(geo_group) and geo_group != deform_group:
-            fbx_nodes.append(geo_group)
-        if not fbx_nodes:
-            fbx_nodes = [root_node]
+            if version:
+                fbx_dir = os.path.join(clean_output_dir, "FBX", str(version).strip().lower())
+            else:
+                fbx_dir = os.path.join(clean_output_dir, "FBX")
+            os.makedirs(fbx_dir, exist_ok=True)
+            fbx_path = os.path.join(fbx_dir, clean_name + ".fbx").replace("\\", "/")
 
-        if mel and hasattr(mel, "eval"):
-            try:
-                cmds.select(fbx_nodes, replace=True, hierarchy=True)
-                mel.eval("FBXResetExport")
+            # Select Deformation and Geometry groups for FBX export
+            fbx_nodes = []
+            if deform_group and cmds.objExists(deform_group):
+                fbx_nodes.append(deform_group)
+            if geo_group and cmds.objExists(geo_group) and geo_group != deform_group:
+                fbx_nodes.append(geo_group)
+            if not fbx_nodes:
+                fbx_nodes = [root_node]
 
-                is_ascii = "ascii" in str(fbx_file_type).lower()
-                mel.eval("FBXExportInAscii -v {}".format("true" if is_ascii else "false"))
+            if mel and hasattr(mel, "eval"):
+                try:
+                    cmds.select(fbx_nodes, replace=True, hierarchy=True)
+                    is_ascii = "ascii" in str(fbx_file_type).lower()
+                    norm_path = fbx_path.replace("\\", "/")
 
-                mel.eval("FBXExportSmoothingGroups -v {}".format("true" if fbx_smoothing_groups else "false"))
-                mel.eval("FBXExportTangents -v {}".format("true" if fbx_tangents_binormals else "false"))
-                mel.eval("FBXExportSmoothMesh -v {}".format("true" if fbx_smooth_mesh else "false"))
-                mel.eval("FBXExportTriangulate -v {}".format("true" if fbx_triangulate else "false"))
-
-                if str(fbx_up_axis).strip().lower().startswith("z"):
-                    mel.eval("FBXExportUpAxis z")
-                else:
-                    mel.eval("FBXExportUpAxis y")
-
-                if fbx_version:
-                    v_clean = str(fbx_version).replace("FBX", "").strip()
-                    try:
-                        mel.eval('FBXExportFileVersion -v "FBX{}00"'.format(v_clean))
-                    except Exception:
-                        pass
-
-                mel.eval("FBXExportBakeComplexAnimation -v {}".format("true" if fbx_bake_animation else "false"))
-                mel.eval("FBXExportBakeComplexStart -v {}".format(start_frame))
-                mel.eval("FBXExportBakeComplexEnd -v {}".format(end_frame))
-                mel.eval("FBXExportBakeComplexStep -v {}".format(fbx_step))
-                mel.eval("FBXExportBakeResampleAnimation -v {}".format("true" if fbx_resample else "false"))
-                mel.eval("FBXExportApplyConstantKeyReducer -v {}".format("true" if fbx_constant_key_reducer else "false"))
-
-                mel.eval("FBXExportAnimationOnly -v false")
-                mel.eval("FBXExportSkins -v {}".format("true" if fbx_skin else "false"))
-                mel.eval("FBXExportShapes -v {}".format("true" if fbx_blend_shapes else "false"))
-                mel.eval("FBXExportCameras -v {}".format("true" if fbx_cameras else "false"))
-                mel.eval("FBXExportLights -v {}".format("true" if fbx_lights else "false"))
-                mel.eval("FBXExportConstraints -v {}".format("true" if fbx_constraints else "false"))
-                mel.eval("FBXExportInputConnections -v {}".format("true" if fbx_input_connections else "false"))
-                mel.eval("FBXExportInstances -v {}".format("true" if fbx_preserve_instances else "false"))
-                mel.eval("FBXExportEmbeddedTextures -v {}".format("true" if fbx_embed_media else "false"))
-
-                mel.eval('FBXExport -f "{}" -s'.format(fbx_path))
-            except Exception:
+                    fbx_mel = [
+                        "FBXResetExport;",
+                        "FBXExportInAscii -v {};".format("true" if is_ascii else "false"),
+                        "FBXExportSmoothingGroups -v {};".format("true" if fbx_smoothing_groups else "false"),
+                        "FBXExportTangents -v {};".format("true" if fbx_tangents_binormals else "false"),
+                        "FBXExportSmoothMesh -v {};".format("true" if fbx_smooth_mesh else "false"),
+                        "FBXExportTriangulate -v {};".format("true" if fbx_triangulate else "false"),
+                        "FBXExportUpAxis {};".format("z" if str(fbx_up_axis).strip().lower().startswith("z") else "y"),
+                    ]
+                    if fbx_version:
+                        v_clean = str(fbx_version).replace("FBX", "").strip()
+                        fbx_mel.append('catchQuiet(eval("FBXExportFileVersion -v \\"FBX{}00\\""));'.format(v_clean))
+                    fbx_mel.extend([
+                        "FBXExportBakeComplexAnimation -v {};".format("true" if fbx_bake_animation else "false"),
+                        "FBXExportBakeComplexStart -v {};".format(start_frame),
+                        "FBXExportBakeComplexEnd -v {};".format(end_frame),
+                        "FBXExportBakeComplexStep -v {};".format(int(fbx_step)),
+                        "FBXExportBakeResampleAnimation -v {};".format("true" if fbx_resample else "false"),
+                        "FBXExportApplyConstantKeyReducer -v {};".format("true" if fbx_constant_key_reducer else "false"),
+                        "FBXExportAnimationOnly -v false;",
+                        "FBXExportSkins -v {};".format("true" if fbx_skin else "false"),
+                        "FBXExportShapes -v {};".format("true" if fbx_blend_shapes else "false"),
+                        "FBXExportCameras -v false;",
+                        "FBXExportLights -v false;",
+                        "FBXExportConstraints -v {};".format("true" if fbx_constraints else "false"),
+                        "FBXExportInputConnections -v false;",
+                        "FBXExportInstances -v {};".format("true" if fbx_preserve_instances else "false"),
+                        "FBXExportEmbeddedTextures -v {};".format("true" if fbx_embed_media else "false"),
+                        'FBXExport -f "{}" -s;'.format(norm_path),
+                    ])
+                    mel.eval("\n".join(fbx_mel))
+                except Exception:
+                    with open(fbx_path, "wb") as f:
+                        f.write(b"FBX_CACHE_FALLBACK")
+            else:
                 with open(fbx_path, "wb") as f:
                     f.write(b"FBX_CACHE_FALLBACK")
-        else:
-            with open(fbx_path, "wb") as f:
-                f.write(b"FBX_CACHE_FALLBACK")
 
         if not os.path.exists(fbx_path):
             with open(fbx_path, "wb") as f:
@@ -379,6 +482,7 @@ def export_shot_package(
     start_frame,
     end_frame,
     fps=24.0,
+    version=None,
     camera_node=None,
     export_camera=True,
     camera_format="fbx",
@@ -393,7 +497,7 @@ def export_shot_package(
     uv_write=True,
     all_uv_sets=True,
     write_normals=True,
-    renderable_only=False,
+    renderable_only=True,
     write_visibility=True,
     write_face_sets=True,
     write_color_sets=False,
@@ -414,7 +518,7 @@ def export_shot_package(
     fbx_skin=True,
     fbx_blend_shapes=True,
     fbx_smoothing_groups=True,
-    fbx_tangents_binormals=True,
+    fbx_tangents_binormals=False,
     fbx_smooth_mesh=False,
     fbx_triangulate=False,
     fbx_cameras=True,
@@ -432,8 +536,8 @@ def export_shot_package(
     callbacks=None,
 ):
     """
-    Master pipeline entry point: exports shot camera, characters, props into Alembic/ and FBX/ folders,
-    and builds shot_manifest.json.
+    Master pipeline entry point: exports shot camera, characters, props into Alembic/<version>/ and FBX/<version>/ folders,
+    and updates root shot_manifest.json.
     """
     if not output_dir or not output_dir.strip():
         raise ValueError("Target output directory is required.")
@@ -449,204 +553,381 @@ def export_shot_package(
         callbacks.progress(5, "Preparing output directory structure...")
 
     # Target shot folder with double-nesting prevention and forward-slash normalization
-    raw_out = output_dir.strip().replace("\\", "/")
-    is_unc = raw_out.startswith("//") or output_dir.strip().startswith("\\\\")
-    import re
-    clean_out = re.sub(r"/+", "/", raw_out)
-    if is_unc:
-        clean_out = "/" + clean_out
-    if clean_out.endswith("/") and clean_out.count("/") > 2:
-        clean_out = clean_out.rstrip("/")
-
+    target_dir = resolve_shot_root_dir(output_dir, shot_name=shot_name)
     shot_clean = str(shot_name or "shot").strip()
-    base_name = clean_out.rsplit("/", 1)[-1]
 
-    # Prevent double-nesting if clean_out is already pointing to the shot folder
-    is_same_shot = False
-    if base_name.lower() == shot_clean.lower():
-        is_same_shot = True
+    # Resolve target version string (e.g. 'v001', 'v002')
+    if not version or str(version).strip().lower() in ("next", "auto"):
+        version_name, version_num = resolve_next_version(target_dir)
     else:
-        b_clean = re.sub(r"[_\-\s]", "", base_name.lower())
-        s_clean = re.sub(r"[_\-\s]", "", shot_clean.lower())
-        b_num = re.search(r"\d+", base_name)
-        s_num = re.search(r"\d+", shot_clean)
-        if b_num and s_num and b_num.group(0) == s_num.group(0):
-            is_same_shot = True
-        elif b_clean and s_clean and (b_clean in s_clean or s_clean.endswith(b_clean)):
-            is_same_shot = True
-        elif base_name.lower().startswith("shot"):
-            is_same_shot = True
+        v_str = str(version).strip().lower()
+        if not v_str.startswith("v"):
+            v_str = "v" + v_str
+        version_name = v_str
+        m = re.search(r"\d+", version_name)
+        version_num = int(m.group(0)) if m else 1
 
-    if is_same_shot:
-        target_dir = clean_out
-    else:
-        target_dir = clean_out + "/" + shot_clean
-
-    target_dir = target_dir.replace("\\", "/")
+    target_abc_dir = os.path.join(target_dir, "Alembic", version_name).replace("\\", "/")
+    target_fbx_dir = os.path.join(target_dir, "FBX", version_name).replace("\\", "/")
 
     os.makedirs(target_dir, exist_ok=True)
-    os.makedirs(os.path.join(target_dir, "Alembic"), exist_ok=True)
-    os.makedirs(os.path.join(target_dir, "FBX"), exist_ok=True)
+    os.makedirs(target_abc_dir, exist_ok=True)
+    os.makedirs(target_fbx_dir, exist_ok=True)
+
+    is_remote = _is_remote_path(target_dir)
+    if is_remote:
+        work_dir = os.path.join(tempfile.gettempdir(), "scartools_staging", shot_clean).replace("\\", "/")
+        os.makedirs(work_dir, exist_ok=True)
+        work_abc_dir = os.path.join(work_dir, "Alembic", version_name).replace("\\", "/")
+        work_fbx_dir = os.path.join(work_dir, "FBX", version_name).replace("\\", "/")
+        os.makedirs(work_abc_dir, exist_ok=True)
+        os.makedirs(work_fbx_dir, exist_ok=True)
+    else:
+        work_dir = target_dir
+        work_abc_dir = target_abc_dir
+        work_fbx_dir = target_fbx_dir
 
     eval_start = int(start_frame) - int(handles)
     eval_end = int(end_frame) + int(handles)
 
-    # 1. Export Camera
+    # 1. Resolve Camera
     camera_record = None
     resolved_cam = None
     if export_camera and camera_node is not False:
         resolved_cam = camera_node or find_active_shot_camera(shot_name)
-    if resolved_cam and cmds.objExists(resolved_cam):
-        cam_clean = resolved_cam.split("|")[-1].replace(":", "_")
-        cam_fmt_lower = str(camera_format).lower()
-        cam_sub = "FBX" if cam_fmt_lower == "fbx" else "Alembic"
-        cam_ext = ".fbx" if cam_fmt_lower == "fbx" else ".abc"
-        cam_file = "{}{}".format(cam_clean, cam_ext)
-        cam_out_path = os.path.join(target_dir, cam_sub, cam_file).replace("\\", "/")
+    has_cam = bool(resolved_cam and cmds.objExists(resolved_cam))
 
-        if callbacks:
-            callbacks.progress(15, "Baking camera '{}'...".format(cam_clean))
-
-        _export_camera_fn(resolved_cam, cam_out_path, eval_start, eval_end, export_format=camera_format, step=step)
-        camera_record = {
-            "source_node": resolved_cam,
-            "file": cam_sub + "/" + cam_file,
-            "format": cam_fmt_lower,
-        }
-
-    # 2. Export Characters
-    char_records = []
+    # 2. Gather All Asset Export Targets
     chars_to_export = [c for c in (character_nodes or []) if cmds.objExists(c)]
-    total_chars = len(chars_to_export)
-
-    for i, c_node in enumerate(chars_to_export):
-        c_clean = c_node.split("|")[-1]
-        if callbacks:
-            pct = 20 + int(45 * (i + 1) / max(1, total_chars))
-            callbacks.progress(pct, "Exporting character '{}' ({}/{})...".format(c_clean, i + 1, total_chars))
-
-        exp_files = export_character_cache(
-            root_node=c_node,
-            output_dir=target_dir,
-            start_frame=eval_start,
-            end_frame=eval_end,
-            formats=character_formats,
-            step=step,
-            write_velocities=write_velocities,
-            uv_write=uv_write,
-            all_uv_sets=all_uv_sets,
-            write_normals=write_normals,
-            renderable_only=renderable_only,
-            write_visibility=write_visibility,
-            write_face_sets=write_face_sets,
-            write_color_sets=write_color_sets,
-            auto_subd=auto_subd,
-            world_space=world_space,
-            euler_filter=euler_filter,
-            user_attributes=user_attributes,
-            attribute_prefix=attribute_prefix,
-            strip_namespaces=strip_namespaces,
-            data_format=data_format,
-            fbx_bake_animation=fbx_bake_animation,
-            fbx_step=fbx_step,
-            fbx_resample=fbx_resample,
-            fbx_euler_filter=fbx_euler_filter,
-            fbx_constant_key_reducer=fbx_constant_key_reducer,
-            fbx_quaternion_mode=fbx_quaternion_mode,
-            fbx_skin=fbx_skin,
-            fbx_blend_shapes=fbx_blend_shapes,
-            fbx_smoothing_groups=fbx_smoothing_groups,
-            fbx_tangents_binormals=fbx_tangents_binormals,
-            fbx_smooth_mesh=fbx_smooth_mesh,
-            fbx_triangulate=fbx_triangulate,
-            fbx_cameras=fbx_cameras,
-            fbx_lights=fbx_lights,
-            fbx_constraints=fbx_constraints,
-            fbx_input_connections=fbx_input_connections,
-            fbx_preserve_instances=fbx_preserve_instances,
-            fbx_units=fbx_units,
-            fbx_up_axis=fbx_up_axis,
-            fbx_file_type=fbx_file_type,
-            fbx_version=fbx_version,
-            fbx_embed_media=fbx_embed_media,
-            fbx_strip_namespaces=fbx_strip_namespaces,
-        )
-        for fpath in exp_files:
-            rel_path = os.path.relpath(fpath, target_dir).replace("\\", "/")
-            char_records.append({
-                "source_node": c_node,
-                "file": rel_path,
-                "format": os.path.splitext(fpath)[1].replace(".", "").lower(),
-            })
-
-    # 3. Export Props
-    prop_records = []
     props_to_export = [p for p in (prop_nodes or []) if cmds.objExists(p)]
-    total_props = len(props_to_export)
 
-    for i, p_node in enumerate(props_to_export):
-        p_clean = p_node.split("|")[-1]
-        if callbacks:
-            pct = 65 + int(30 * (i + 1) / max(1, total_props))
-            callbacks.progress(pct, "Exporting prop '{}' ({}/{})...".format(p_clean, i + 1, total_props))
+    all_export_items = []
+    for c in chars_to_export:
+        all_export_items.append((c, "character", [str(f).lower() for f in character_formats]))
+    for p in props_to_export:
+        all_export_items.append((p, "prop", [str(f).lower() for f in prop_formats]))
 
-        exp_files = export_prop_cache(
-            root_node=p_node,
-            output_dir=target_dir,
-            start_frame=eval_start,
-            end_frame=eval_end,
-            formats=prop_formats,
-            step=step,
-            write_velocities=write_velocities,
-            uv_write=uv_write,
-            all_uv_sets=all_uv_sets,
-            write_normals=write_normals,
-            renderable_only=renderable_only,
-            write_visibility=write_visibility,
-            write_face_sets=write_face_sets,
-            write_color_sets=write_color_sets,
-            auto_subd=auto_subd,
-            world_space=world_space,
-            euler_filter=euler_filter,
-            user_attributes=user_attributes,
-            attribute_prefix=attribute_prefix,
-            strip_namespaces=strip_namespaces,
-            data_format=data_format,
-            fbx_bake_animation=fbx_bake_animation,
-            fbx_step=fbx_step,
-            fbx_resample=fbx_resample,
-            fbx_euler_filter=fbx_euler_filter,
-            fbx_constant_key_reducer=fbx_constant_key_reducer,
-            fbx_quaternion_mode=fbx_quaternion_mode,
-            fbx_skin=fbx_skin,
-            fbx_blend_shapes=fbx_blend_shapes,
-            fbx_smoothing_groups=fbx_smoothing_groups,
-            fbx_tangents_binormals=fbx_tangents_binormals,
-            fbx_smooth_mesh=fbx_smooth_mesh,
-            fbx_triangulate=fbx_triangulate,
-            fbx_cameras=fbx_cameras,
-            fbx_lights=fbx_lights,
-            fbx_constraints=fbx_constraints,
-            fbx_input_connections=fbx_input_connections,
-            fbx_preserve_instances=fbx_preserve_instances,
-            fbx_units=fbx_units,
-            fbx_up_axis=fbx_up_axis,
-            fbx_file_type=fbx_file_type,
-            fbx_version=fbx_version,
-            fbx_embed_media=fbx_embed_media,
-            fbx_strip_namespaces=fbx_strip_namespaces,
+    char_records = []
+    prop_records = []
+
+    # 3. Categorize items by format
+    abc_items = []
+    for node, item_type, fmts in all_export_items:
+        if "abc" in fmts or "alembic" in fmts:
+            abc_items.append((node, item_type))
+
+    fbx_items = []
+    for node, item_type, fmts in all_export_items:
+        if "fbx" in fmts:
+            fbx_items.append((node, item_type))
+
+    # Total assets count matching user selection
+    total_assets = (1 if has_cam else 0) + len(all_export_items)
+    if total_assets == 0:
+        total_assets = 1
+
+    # Total timeline passes: Camera (1), Alembic batch (1), FBX bakes (len(fbx_items))
+    num_cam_passes = 1 if has_cam else 0
+    num_abc_passes = 1 if abc_items else 0
+    num_fbx_passes = len(fbx_items)
+    total_passes = num_cam_passes + num_abc_passes + num_fbx_passes
+
+    step_pct = (90.0 / total_passes) if total_passes > 0 else 90.0
+    current_pct = 5.0
+    completed_assets = 0
+
+    if callbacks:
+        callbacks.progress(
+            5,
+            "Preparing scene and directories...",
+            current=0,
+            total=total_assets,
+            current_item="Preparing...",
         )
-        for fpath in exp_files:
-            rel_path = os.path.relpath(fpath, target_dir).replace("\\", "/")
-            prop_records.append({
-                "source_node": p_node,
-                "file": rel_path,
-                "format": os.path.splitext(fpath)[1].replace(".", "").lower(),
-            })
 
-    # 4. Build and Save JSON Manifest
-    manifest_data = build_shot_manifest(
-        shot_name=shot_clean,
+    prev_eval_mode = None
+    try:
+        if hasattr(cmds, "evaluationManager") and not cmds.about(batch=True):
+            curr_modes = cmds.evaluationManager(query=True, mode=True)
+            if curr_modes and curr_modes[0] != "parallel":
+                prev_eval_mode = curr_modes[0]
+                cmds.evaluationManager(mode="parallel")
+    except Exception:
+        prev_eval_mode = None
+
+    with suspend_viewport_refresh():
+        # 1. Export Camera
+        if has_cam:
+            cam_clean = resolved_cam.split("|")[-1].replace(":", "_")
+            cam_fmt_lower = str(camera_format).lower()
+            cam_sub = "FBX" if cam_fmt_lower == "fbx" else "Alembic"
+            cam_ext = ".fbx" if cam_fmt_lower == "fbx" else ".abc"
+            cam_file = "{}{}".format(cam_clean, cam_ext)
+            cam_dest_dir = os.path.join(work_dir, cam_sub, version_name).replace("\\", "/")
+            os.makedirs(cam_dest_dir, exist_ok=True)
+            cam_out_path = os.path.join(cam_dest_dir, cam_file).replace("\\", "/")
+
+            if callbacks:
+                callbacks.progress(
+                    max(5, int(current_pct)),
+                    "Baking camera '{}'...".format(cam_clean),
+                    current=completed_assets,
+                    total=total_assets,
+                    current_item="Camera: {}".format(cam_clean),
+                )
+
+            _export_camera_fn(resolved_cam, cam_out_path, eval_start, eval_end, export_format=camera_format, step=step)
+            if is_remote and os.path.exists(cam_out_path):
+                dest_cam_dir = os.path.join(target_dir, cam_sub, version_name).replace("\\", "/")
+                os.makedirs(dest_cam_dir, exist_ok=True)
+                shutil.copy2(cam_out_path, os.path.join(dest_cam_dir, cam_file))
+
+            camera_record = {
+                "source_node": resolved_cam,
+                "file": cam_sub + "/" + version_name + "/" + cam_file,
+                "format": cam_fmt_lower,
+                "name": cam_clean,
+            }
+            completed_assets += 1
+            current_pct += step_pct
+            if callbacks:
+                callbacks.progress(
+                    int(current_pct),
+                    "Camera '{}' baked successfully".format(cam_clean),
+                    current=completed_assets,
+                    total=total_assets,
+                    current_item="Camera: {}".format(cam_clean),
+                )
+
+        # 3. Batch Alembic Export (Single-Pass Multi-Job Evaluation with Per-Frame Progress)
+        if abc_items:
+            if hasattr(cmds, "pluginInfo") and not cmds.pluginInfo("AbcExport", query=True, loaded=True):
+                try:
+                    cmds.loadPlugin("AbcExport", quiet=True)
+                except Exception:
+                    pass
+
+            abc_dir = work_abc_dir
+            os.makedirs(abc_dir, exist_ok=True)
+
+            abc_jobs = []
+            abc_meta = []
+
+            abc_start_pct = current_pct
+            abc_end_pct = current_pct + step_pct
+            total_frames = max(1.0, float(eval_end - eval_start))
+
+            def _handle_abc_frame(current_frame):
+                frame_progress = (current_frame - eval_start) / total_frames
+                frame_progress = max(0.0, min(1.0, frame_progress))
+                pct = abc_start_pct + frame_progress * (abc_end_pct - abc_start_pct)
+                if callbacks:
+                    callbacks.progress(
+                        int(pct),
+                        "Extracting Alembic: Frame {} / {} ({}%)...".format(
+                            int(current_frame), eval_end, int(pct)
+                        ),
+                        current=completed_assets,
+                        total=total_assets,
+                        current_item="Alembic Frame {}/{}".format(int(current_frame), eval_end),
+                    )
+
+            global _ACTIVE_ABC_FRAME_CALLBACK
+            _ACTIVE_ABC_FRAME_CALLBACK = _handle_abc_frame
+            pfc_cmd = "import scartools.tools.anim_io.api.exporter as _exp; _exp._abc_frame_dispatch(#FRAME#)"
+
+            for j_idx, (node, item_type) in enumerate(abc_items):
+                clean_name = node.split("|")[-1].replace(":", "_")
+                abc_path = os.path.join(abc_dir, clean_name + ".abc").replace("\\", "/")
+
+                groups = find_export_groups(node)
+                geo_group = groups.get("geometry") or node
+                alembic_root = geo_group if (geo_group and cmds.objExists(geo_group)) else node
+
+                job_pfc = pfc_cmd if j_idx == 0 else None
+
+                job_str = build_alembic_job_arg(
+                    root_node=alembic_root,
+                    file_path=abc_path,
+                    start_frame=eval_start,
+                    end_frame=eval_end,
+                    step=step,
+                    world_space=world_space,
+                    uv_write=uv_write,
+                    all_uv_sets=all_uv_sets,
+                    write_velocities=write_velocities,
+                    renderable_only=renderable_only,
+                    write_visibility=write_visibility,
+                    write_face_sets=write_face_sets,
+                    write_color_sets=write_color_sets,
+                    auto_subd=auto_subd,
+                    euler_filter=euler_filter,
+                    user_attributes=user_attributes,
+                    attribute_prefix=attribute_prefix,
+                    strip_namespaces=strip_namespaces,
+                    data_format=data_format,
+                    python_per_frame_callback=job_pfc,
+                )
+                abc_jobs.append(job_str)
+                abc_meta.append((node, item_type, abc_path))
+
+            try:
+                if callbacks:
+                    callbacks.progress(
+                        max(5, int(current_pct)),
+                        "Extracting Alembic caches for {} assets (1 timeline pass)...".format(len(abc_jobs)),
+                        current=completed_assets,
+                        total=total_assets,
+                        current_item="Alembic ({} assets)".format(len(abc_jobs)),
+                    )
+
+                if hasattr(cmds, "AbcExport") and abc_jobs:
+                    try:
+                        cmds.AbcExport(jobArg=abc_jobs)
+                    except Exception:
+                        # Fallback to single job sequential execution if batch raises error
+                        for j in abc_jobs:
+                            try:
+                                cmds.AbcExport(jobArg=j)
+                            except Exception:
+                                pass
+                else:
+                    for _, _, apath in abc_meta:
+                        with open(apath, "wb") as f:
+                            f.write(b"ABC_CACHE_FALLBACK")
+            finally:
+                _ACTIVE_ABC_FRAME_CALLBACK = None
+
+            if is_remote:
+                target_abc_ver_dir = os.path.join(target_dir, "Alembic", version_name).replace("\\", "/")
+                os.makedirs(target_abc_ver_dir, exist_ok=True)
+                for node, item_type, apath in abc_meta:
+                    if os.path.exists(apath):
+                        dest_abc = os.path.join(target_abc_ver_dir, os.path.basename(apath)).replace("\\", "/")
+                        shutil.copy2(apath, dest_abc)
+
+            for node, item_type, apath in abc_meta:
+                final_path = os.path.join(target_dir, "Alembic", version_name, os.path.basename(apath)).replace("\\", "/")
+                if not os.path.exists(final_path) and not os.path.exists(apath):
+                    with open(final_path, "wb") as f:
+                        f.write(b"ABC_CACHE_FALLBACK")
+                rel_path = "Alembic/" + version_name + "/" + os.path.basename(apath)
+                rec = {
+                    "source_node": node,
+                    "file": rel_path,
+                    "format": "abc",
+                    "name": os.path.splitext(os.path.basename(apath))[0],
+                }
+                if item_type == "character":
+                    char_records.append(rec)
+                else:
+                    prop_records.append(rec)
+
+            abc_only_count = sum(1 for node, _ in abc_items if node not in [fn for fn, _ in fbx_items])
+            completed_assets += abc_only_count
+            current_pct += step_pct
+            if callbacks:
+                callbacks.progress(
+                    int(current_pct),
+                    "Alembic caches extracted for {} assets".format(len(abc_jobs)),
+                    current=completed_assets,
+                    total=total_assets,
+                    current_item="Alembic Complete",
+                )
+
+        # 4. FBX Export for Characters and Props
+        total_fbx = len(fbx_items)
+        if total_fbx > 0:
+            if hasattr(cmds, "pluginInfo") and not cmds.pluginInfo("fbxmaya", query=True, loaded=True):
+                try:
+                    cmds.loadPlugin("fbxmaya", quiet=True)
+                except Exception:
+                    pass
+
+            fbx_work_dir = work_fbx_dir
+            os.makedirs(fbx_work_dir, exist_ok=True)
+            target_fbx_dir = os.path.join(target_dir, "FBX", version_name).replace("\\", "/")
+            os.makedirs(target_fbx_dir, exist_ok=True)
+
+            for idx, (node, item_type) in enumerate(fbx_items):
+                short_clean = node.split("|")[-1].replace(":", "_")
+                if callbacks:
+                    callbacks.progress(
+                        max(5, int(current_pct)),
+                        "Baking FBX for '{}' ({}/{})...".format(short_clean, idx + 1, total_fbx),
+                        current=completed_assets,
+                        total=total_assets,
+                        current_item="Baking FBX: {}".format(short_clean),
+                    )
+
+                # Use export_character_cache with formats=("fbx",) and version=version_name
+                exp_files = export_character_cache(
+                    root_node=node,
+                    output_dir=work_dir,
+                    start_frame=eval_start,
+                    end_frame=eval_end,
+                    formats=("fbx",),
+                    step=step,
+                    version=version_name,
+                    fbx_bake_animation=fbx_bake_animation,
+                    fbx_step=fbx_step,
+                    fbx_resample=fbx_resample,
+                    fbx_euler_filter=fbx_euler_filter,
+                    fbx_constant_key_reducer=fbx_constant_key_reducer,
+                    fbx_quaternion_mode=fbx_quaternion_mode,
+                    fbx_skin=fbx_skin,
+                    fbx_blend_shapes=fbx_blend_shapes,
+                    fbx_smoothing_groups=fbx_smoothing_groups,
+                    fbx_tangents_binormals=fbx_tangents_binormals,
+                    fbx_smooth_mesh=fbx_smooth_mesh,
+                    fbx_triangulate=fbx_triangulate,
+                    fbx_cameras=False,
+                    fbx_lights=False,
+                    fbx_constraints=fbx_constraints,
+                    fbx_input_connections=False,
+                    fbx_preserve_instances=fbx_preserve_instances,
+                    fbx_units=fbx_units,
+                    fbx_up_axis=fbx_up_axis,
+                    fbx_file_type=fbx_file_type,
+                    fbx_version=fbx_version,
+                    fbx_embed_media=fbx_embed_media,
+                    fbx_strip_namespaces=fbx_strip_namespaces,
+                )
+                for fpath in exp_files:
+                    if is_remote and os.path.exists(fpath):
+                        dest_fbx = os.path.join(target_fbx_dir, os.path.basename(fpath)).replace("\\", "/")
+                        shutil.copy2(fpath, dest_fbx)
+                    rel_path = "FBX/" + version_name + "/" + os.path.basename(fpath)
+                    rec = {
+                        "source_node": node,
+                        "file": rel_path,
+                        "format": "fbx",
+                        "name": os.path.splitext(os.path.basename(fpath))[0],
+                    }
+                    if item_type == "character":
+                        char_records.append(rec)
+                    else:
+                        prop_records.append(rec)
+
+                completed_assets += 1
+                current_pct += step_pct
+                if callbacks:
+                    callbacks.progress(
+                        min(95, int(current_pct)),
+                        "Finished FBX for '{}' ({}/{})".format(short_clean, idx + 1, total_fbx),
+                        current=completed_assets,
+                        total=total_assets,
+                        current_item="Baking FBX: {}".format(short_clean),
+                    )
+    if prev_eval_mode:
+        try:
+            cmds.evaluationManager(mode=prev_eval_mode)
+        except Exception:
+            pass
+
+    # 4. Build Version Record and Update Master JSON Manifest
+    ver_record = build_version_record(
+        version_name=version_name,
         start_frame=start_frame,
         end_frame=end_frame,
         fps=fps,
@@ -654,12 +935,27 @@ def export_shot_package(
         characters=char_records,
         props=prop_records,
         handles=handles,
+        step=step,
         notes=notes,
     )
-    manifest_file = save_shot_manifest(manifest_data, target_dir)
+    update_shot_manifest(target_dir, version_name, ver_record, shot_name=shot_clean)
+    manifest_file = os.path.join(target_dir, MANIFEST_FILENAME).replace("\\", "/")
+
+    # Clean up local staging directory if remote
+    if is_remote and os.path.exists(work_dir):
+        try:
+            shutil.rmtree(work_dir, ignore_errors=True)
+        except Exception:
+            pass
 
     if callbacks:
-        callbacks.progress(100, "Shot cache export complete!")
+        callbacks.progress(
+            100,
+            "Shot cache export complete (Version {})!".format(version_name),
+            current=total_assets,
+            total=total_assets,
+            current_item="Export Finished",
+        )
 
     # Restore previous user selection
     if prev_sel:
@@ -678,7 +974,10 @@ def export_shot_package(
 
     return {
         "shot_name": shot_clean,
+        "version": version_name,
+        "version_number": version_num,
         "target_dir": target_dir.replace("\\", "/"),
+        "output_dir": target_dir.replace("\\", "/"),
         "manifest_path": manifest_file.replace("\\", "/"),
         "camera": camera_record,
         "characters_exported": len(char_records),

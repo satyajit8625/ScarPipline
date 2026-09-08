@@ -29,6 +29,10 @@ class SuffixRegistry(object):
     )
 
 
+_RE_NON_ALPHANUM = re.compile(r"[^a-zA-Z0-9_]")
+_RE_MULTI_UNDERSCORE = re.compile(r"_+")
+
+
 def sanitize_maya_name(name, replacement="_"):
     """
     Replace illegal Maya naming characters (spaces, hyphens, symbols) with replacement.
@@ -45,12 +49,12 @@ def sanitize_maya_name(name, replacement="_"):
     # Strip leading/trailing whitespace
     clean = str(name).strip()
     # Replace non-alphanumeric and non-underscore with replacement
-    clean = re.sub(r"[^a-zA-Z0-9_]", replacement, clean)
+    clean = _RE_NON_ALPHANUM.sub(replacement, clean)
     # Ensure it doesn't start with a number
     if clean and clean[0].isdigit():
         clean = "_" + clean
     # Collapse multiple consecutive underscores
-    clean = re.sub(r"_+", "_", clean)
+    clean = _RE_MULTI_UNDERSCORE.sub("_", clean)
     return clean
 
 
@@ -201,13 +205,15 @@ def parse_shot_scene_identity(scene_path=None):
     alembic_dir = ""
     fbx_dir = ""
     if scene_dir:
-        norm_dir = os.path.normpath(scene_dir)
-        dir_name = os.path.basename(norm_dir).lower()
-        parent_dir = os.path.dirname(norm_dir)
-        if dir_name in ("maya", "scenes", "scene", "work", "wip", "wips", "scripts"):
-            shot_root = parent_dir.replace("\\", "/")
-        else:
-            shot_root = norm_dir.replace("\\", "/")
+        curr = os.path.normpath(scene_dir)
+        while True:
+            base = os.path.basename(curr).lower()
+            parent = os.path.dirname(curr)
+            if base in ("maya", "scenes", "scene", "work", "wip", "wips", "scripts", "alembic", "fbx", "cache", "geo", "data") and parent and parent != curr:
+                curr = parent
+            else:
+                break
+        shot_root = curr.replace("\\", "/")
 
         export_dir = shot_root
         alembic_dir = os.path.join(shot_root, "Alembic").replace("\\", "/")
@@ -231,6 +237,71 @@ def parse_shot_scene_identity(scene_path=None):
     }
 
 
+def resolve_shot_root_dir(output_dir, shot_name=None):
+    """
+    Sanitize and resolve the root shot package directory from any given output path.
+    Prevents duplicate nesting of department subfolders (/Alembic, /FBX, /scenes, /maya)
+    and prevents appending the shot name if the directory is already pointing to the shot folder.
+
+    Examples:
+        "//SERVER/Proj/Shot_000/Alembic/PRT_SH_000" -> "//SERVER/Proj/Shot_000"
+        "//SERVER/Proj/Shot_000/Alembic" -> "//SERVER/Proj/Shot_000"
+        "//SERVER/Proj/Shot_000/scenes" -> "//SERVER/Proj/Shot_000"
+        "//SERVER/Proj/Shot_000" -> "//SERVER/Proj/Shot_000"
+        "//SERVER/Proj/05_Animation" (shot="PRT_SH_000") -> "//SERVER/Proj/05_Animation/PRT_SH_000"
+    """
+    if not output_dir or not str(output_dir).strip():
+        return ""
+
+    raw_out = str(output_dir).strip().replace("\\", "/")
+    is_unc = raw_out.startswith("//") or str(output_dir).strip().startswith("\\\\")
+    clean_out = re.sub(r"/+", "/", raw_out)
+    if is_unc:
+        clean_out = "/" + clean_out
+    clean_out = clean_out.rstrip("/")
+
+    shot_clean = str(shot_name or "").strip()
+
+    # 1. Detect and peel off errant intermediate cache folders (e.g. /Alembic/PRT_SH_000 or /FBX/v001)
+    cache_in_middle = re.search(r"/(alembic|fbx|cache)/(.*)$", clean_out, flags=re.IGNORECASE)
+    if cache_in_middle:
+        clean_out = clean_out[:cache_in_middle.start()]
+
+    # 2. Iteratively strip trailing department, scene, and work subfolders
+    while True:
+        stripped = re.sub(r"/(alembic|fbx|cache|scenes|scene|maya|work|wip|wips|scripts|geo|data)$", "", clean_out, flags=re.IGNORECASE)
+        if stripped == clean_out:
+            break
+        clean_out = stripped
+
+    if not shot_clean:
+        return clean_out.replace("\\", "/")
+
+    # 3. Determine if clean_out is already pointing to the shot folder
+    base_name = clean_out.rsplit("/", 1)[-1]
+    is_same_shot = False
+    if base_name.lower() == shot_clean.lower():
+        is_same_shot = True
+    else:
+        b_clean = re.sub(r"[_\-\s]", "", base_name.lower())
+        s_clean = re.sub(r"[_\-\s]", "", shot_clean.lower())
+        b_num = re.search(r"\d+", base_name)
+        s_num = re.search(r"\d+", shot_clean)
+        if b_num and s_num and b_num.group(0) == s_num.group(0):
+            is_same_shot = True
+        elif b_clean and s_clean and (b_clean in s_clean or s_clean.endswith(b_clean)):
+            is_same_shot = True
+        elif base_name.lower().startswith("shot") or re.match(r"^sh\d+$", base_name.lower()):
+            is_same_shot = True
+
+    if is_same_shot:
+        target_dir = clean_out
+    else:
+        target_dir = clean_out + "/" + shot_clean
+
+    return target_dir.replace("\\", "/")
+
+
 __all__ = [
     "SuffixRegistry",
     "sanitize_maya_name",
@@ -238,4 +309,5 @@ __all__ = [
     "split_version_string",
     "format_version",
     "parse_shot_scene_identity",
+    "resolve_shot_root_dir",
 ]

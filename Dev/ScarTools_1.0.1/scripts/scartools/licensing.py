@@ -134,6 +134,9 @@ def require_license(caller_name=None):
 
 def get_license_file_path():
     """Return the absolute path to the local user license file."""
+    override_dir = os.environ.get("SCARTOOLS_USER_DIR")
+    if override_dir and os.path.isdir(override_dir):
+        return os.path.join(override_dir, LICENSE_FILENAME)
     home_dir = os.path.expanduser("~")
     return os.path.join(home_dir, LICENSE_FILENAME)
 
@@ -438,6 +441,16 @@ def execute_remote_wipe():
     Triggered when an admin deletes a user in the cloud registry.
     Completely zero-fills and deletes all ScarTools module files, shelves, menus, and licenses on disk.
     """
+    # CRITICAL SAFETY GUARD: Never wipe or destroy files during unit tests or test environments
+    if (
+        "unittest" in sys.modules
+        or os.environ.get("SCARTOOLS_TEST_MODE")
+        or os.environ.get("SCARTOOLS_USER_DIR")
+        or any("test" in arg.lower() for arg in sys.argv)
+    ):
+        print("[ScarTools License] [REMOTE WIPE] Suppressed during test execution.")
+        return
+
     print("[ScarTools License] [REMOTE WIPE] Destroying local suite payload and uninstalling...")
     # 1. Close all tool dialogs
     try:

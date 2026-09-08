@@ -66,7 +66,12 @@ def install_maya_stubs():
         if clear:
             state["selection"] = []
         elif replace:
-            state["selection"] = list(items or [])
+            if isinstance(items, (list, tuple)):
+                state["selection"] = list(items)
+            elif items:
+                state["selection"] = [items]
+            else:
+                state["selection"] = []
         state["events"].append(("select", tuple(state["selection"])))
 
     def undo_info(openChunk=False, closeChunk=False, chunkName="", **_):
@@ -136,6 +141,15 @@ def install_maya_stubs():
 
 
 class ReleaseTests(unittest.TestCase):
+    @classmethod
+    def tearDownClass(cls):
+        cmds = sys.modules.get("maya.cmds")
+        if cmds:
+            for name in ("ls", "select", "undoInfo", "undo", "refresh", "about", "file", "objExists", "nodeType", "playbackOptions"):
+                real_attr = "_real_" + name
+                if hasattr(cmds, real_attr):
+                    setattr(cmds, name, getattr(cmds, real_attr))
+
     @classmethod
     def setUpClass(cls):
         cls._old_path = list(sys.path)

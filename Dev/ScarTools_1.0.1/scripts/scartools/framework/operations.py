@@ -19,13 +19,16 @@ class OperationCallbacks:
         if self.log_callback:
             self.log_callback(str(message))
 
-    def progress(self, value, message=""):
+    def progress(self, value, message="", **kwargs):
         if not self.progress_callback:
             return
         try:
-            self.progress_callback(int(value), str(message))
+            self.progress_callback(int(value), str(message), **kwargs)
         except TypeError:
-            self.progress_callback(int(value))
+            try:
+                self.progress_callback(int(value), str(message))
+            except TypeError:
+                self.progress_callback(int(value))
 
     def check_cancelled(self):
         if self.cancelled_callback and self.cancelled_callback():

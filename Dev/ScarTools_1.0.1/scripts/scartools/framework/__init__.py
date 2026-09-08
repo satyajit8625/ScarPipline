@@ -41,6 +41,7 @@ from .scene import (
     get_connected_nodes,
     get_scene_fps,
     get_scene_frame_range,
+    suspend_viewport_refresh,
 )
 from .preflight import (
     PreflightSeverity,
@@ -56,6 +57,7 @@ from .naming import (
     split_version_string,
     format_version,
     parse_shot_scene_identity,
+    resolve_shot_root_dir,
 )
 
 __all__ = [
@@ -111,8 +113,10 @@ __all__ = [
     "split_version_string",
     "format_version",
     "parse_shot_scene_identity",
+    "resolve_shot_root_dir",
     "open_in_file_manager",
     "is_valid_filename",
     "get_scene_fps",
     "get_scene_frame_range",
+    "suspend_viewport_refresh",
 ]

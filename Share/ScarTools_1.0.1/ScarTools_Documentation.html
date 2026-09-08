@@ -1200,10 +1200,10 @@ print("Saved skin snapshot to:", pkg_path)</code></pre>
 
                     <div class="api-method-header">
                         <span class="badge badge-purple">FUNCTION</span>
-                        <span class="api-method-name">import_shot_package(package_dir_or_manifest, import_time_settings=True, ...)</span>
+                        <span class="api-method-name">import_shot_package(package_dir_or_manifest, import_time_settings=True, preferred_format="abc", ...)</span>
                     </div>
-                    <div class="api-signature">import_shot_package(package_dir_or_manifest: str, import_time_settings: bool = True, import_camera: bool = True, import_characters: bool = True, import_props: bool = True, lock_camera: bool = True) -> dict</div>
-                    <p>1-Click shot assembly: reads manifest data, configures Maya timeline and FPS, and connects camera and asset caches.</p>
+                    <div class="api-signature">import_shot_package(package_dir_or_manifest: str, import_time_settings: bool = True, import_camera: bool = True, import_characters: bool = True, import_props: bool = True, lock_camera: bool = True, preferred_format: str = "abc") -> dict</div>
+                    <p>1-Click shot assembly: reads manifest data, configures Maya timeline and FPS, and connects camera and asset caches with Viewport 2.0 acceleration and format deduplication.</p>
 
                     <pre><code>from scartools.tools.anim_io.api import export_shot_package, import_shot_package
 

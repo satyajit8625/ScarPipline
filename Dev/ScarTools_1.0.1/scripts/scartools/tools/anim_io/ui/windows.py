@@ -71,9 +71,9 @@ class AnimIODialog(BaseToolDialog):
     WINDOW_TITLE = "Anim Export"
 
     FORMAT_DESCRIPTIONS = {
-        0: "Geometry cache + animation/camera data",
-        1: "Geometry point cache",
-        2: "Animation and camera data",
+        0: "Alembic geometry point cache (Fast, recommended for high-poly deformation)",
+        1: "FBX skeletal animation & camera data (Game/Engine)",
+        2: "Geometry cache (Alembic) + animation/rig (FBX)",
     }
 
     def __init__(self, parent=None):
@@ -87,6 +87,13 @@ class AnimIODialog(BaseToolDialog):
         self.setAttribute(QtCore.Qt.WA_DeleteOnClose, True)
         configure_window(self, (760, 560), (850, 650))
         apply_window_icon(self)
+
+        # Clear any lingering Viewport 2.0 pause state so red box is removed
+        try:
+            if hasattr(cmds, "ogs") and not cmds.about(batch=True):
+                cmds.ogs(pause=False)
+        except Exception:
+            pass
 
         self._progress_popup = None
         self._script_job_ids = []
@@ -120,7 +127,7 @@ class AnimIODialog(BaseToolDialog):
         lbl_mode.setObjectName("FieldLabel")
 
         self.format_combo = QtWidgets.QComboBox(self)
-        self.format_combo.addItems(["Both", "Alembic", "FBX"])
+        self.format_combo.addItems(["Alembic", "FBX", "Both"])
         configure_field(self.format_combo, minimum_width=180)
 
         self.operation_help = QtWidgets.QLabel(self.FORMAT_DESCRIPTIONS[0], self)
@@ -131,6 +138,27 @@ class AnimIODialog(BaseToolDialog):
         op_row.addWidget(self.format_combo)
         op_row.addWidget(self.operation_help, 1)
         op_layout.addLayout(op_row)
+
+        ver_row = QtWidgets.QHBoxLayout()
+        ver_row.setContentsMargins(0, 0, 0, 0)
+        ver_row.setSpacing(INLINE_SPACING)
+
+        lbl_ver = QtWidgets.QLabel("Version", self)
+        lbl_ver.setFixedWidth(FORM_LABEL_WIDTH)
+        lbl_ver.setObjectName("FieldLabel")
+
+        self.version_combo = QtWidgets.QComboBox(self)
+        self.version_combo.setEditable(True)
+        configure_field(self.version_combo, minimum_width=180)
+
+        self.browse_versions_btn = create_button("Browse Versions...", role="secondary", parent=self)
+        self.browse_versions_btn.setToolTip("Open Shot Versions Browser to inspect and assemble exported shot versions.")
+
+        ver_row.addWidget(lbl_ver)
+        ver_row.addWidget(self.version_combo)
+        ver_row.addWidget(self.browse_versions_btn)
+        ver_row.addStretch(1)
+        op_layout.addLayout(ver_row)
         root.addWidget(op_panel)
 
         # 3. Meshes & Assets Table Panel (matches Shader Tools) [UI-03, UI-05]
@@ -143,12 +171,16 @@ class AnimIODialog(BaseToolDialog):
         self.rescan_btn = create_button("Rescan Scene", role="secondary", parent=self)
         self.rescan_btn.setToolTip("Scan active Maya scene for rigs and cameras (Hotkey: F5)")
 
+        self.import_btn = create_button("Import Shot...", role="secondary", parent=self)
+        self.import_btn.setToolTip("Assemble a shot scene by importing shot camera and asset caches from a shot folder.")
+
         self.settings_btn = create_button("Settings ▾", role="secondary", parent=self)
         self.settings_btn.setToolTip("Configure Alembic & FBX export parameters")
 
         top_bar.addWidget(self.count_badge)
         top_bar.addStretch(1)
         top_bar.addWidget(self.rescan_btn)
+        top_bar.addWidget(self.import_btn)
         top_bar.addWidget(self.settings_btn)
         asset_layout.addLayout(top_bar)
 
@@ -195,11 +227,13 @@ class AnimIODialog(BaseToolDialog):
         self.format_combo.currentIndexChanged.connect(self._on_format_changed)
         self.settings_btn.clicked.connect(self._open_settings_menu)
         self.rescan_btn.clicked.connect(self.rescan_scene)
+        self.import_btn.clicked.connect(self._do_import_shot)
         self.asset_table.itemChanged.connect(self._on_item_changed)
         self.asset_table.cellDoubleClicked.connect(self._on_table_double_clicked)
         self.asset_table.cellClicked.connect(self._on_cell_clicked)
         self.asset_table.customContextMenuRequested.connect(self._show_table_context_menu)
         self.asset_table.horizontalHeader().customContextMenuRequested.connect(self._show_header_context_menu)
+        self.browse_versions_btn.clicked.connect(self._open_shot_versions)
         self.open_folder_btn.clicked.connect(self._open_shot_folder)
         self.apply_button.clicked.connect(self._do_export)
         if self.view_log_button:
@@ -207,8 +241,8 @@ class AnimIODialog(BaseToolDialog):
 
     def _on_format_changed(self, index):
         self.operation_help.setText(self.FORMAT_DESCRIPTIONS.get(index, ""))
-        fmt_map = {0: "both", 1: "abc", 2: "fbx"}
-        self.controller.format_mode = fmt_map.get(index, "both")
+        fmt_map = {0: "abc", 1: "fbx", 2: "both"}
+        self.controller.format_mode = fmt_map.get(index, "abc")
         self.controller.recompute_state()
         self._update_footer_state()
 
@@ -240,6 +274,8 @@ class AnimIODialog(BaseToolDialog):
         act_alembic = menu.addAction("Alembic Settings...")
         act_fbx = menu.addAction("FBX Settings...")
         menu.addSeparator()
+        act_standalone = menu.addAction("Launch Standalone Batch Queue...")
+        menu.addSeparator()
         act_reset = menu.addAction("Reset to Default")
 
         def _on_about_to_hide():
@@ -260,6 +296,10 @@ class AnimIODialog(BaseToolDialog):
             show_alembic_settings(parent=maya_main_window(), shot_context=shot_ctx)
         elif action == act_fbx:
             show_fbx_settings(parent=maya_main_window(), shot_context=shot_ctx)
+        elif action == act_standalone:
+            from .standalone_app import AnimExportStandaloneApp
+            dlg = AnimExportStandaloneApp(parent=maya_main_window())
+            dlg.show()
         elif action == act_reset:
             if confirm_and_reset_settings(parent=maya_main_window()):
                 self.controller.recompute_state()
@@ -468,6 +508,37 @@ class AnimIODialog(BaseToolDialog):
             self._is_populating_table = False
 
         self._update_footer_state()
+        self._update_version_options()
+
+    def _open_shot_versions(self):
+        """Open the Shot Versions Browser dialog for current shot."""
+        from .version_browser import show_shot_versions
+        from scartools.framework import resolve_shot_root_dir
+        shot_dir = resolve_shot_root_dir(self.controller.shot_root) if self.controller.shot_root else ""
+        show_shot_versions(shot_dir=shot_dir, parent=self)
+
+    def _update_version_options(self):
+        """Populate version combo with next auto-version and all existing versions."""
+        if not hasattr(self, "version_combo"):
+            return
+        self.version_combo.blockSignals(True)
+        self.version_combo.clear()
+        shot_dir = self.controller.shot_root
+        if shot_dir and os.path.isdir(shot_dir):
+            from ..api.manifest_builder import resolve_next_version, get_all_shot_versions
+            next_ver, _ = resolve_next_version(shot_dir)
+            self.version_combo.addItem("Next ({})".format(next_ver), next_ver)
+            versions = get_all_shot_versions(shot_dir)
+            for v in reversed(versions):
+                v_name = v.get("version", "")
+                t_str = v.get("timestamp", "")
+                user = v.get("exported_by", "")
+                label = "{} ({} - {})".format(v_name, t_str, user) if (t_str and user) else v_name
+                self.version_combo.addItem(label, v_name)
+        else:
+            self.version_combo.addItem("Next (v001)", "v001")
+        self.version_combo.setCurrentIndex(0)
+        self.version_combo.blockSignals(False)
 
     def _on_table_double_clicked(self, row, col):
         """Double clicking a camera row standardizes or creates the shot camera."""
@@ -487,8 +558,8 @@ class AnimIODialog(BaseToolDialog):
     def _open_log_viewer(self):
         """Open the studio Global Log Viewer modal dialog."""
         try:
-            from scartools.ui.logs import show_log_viewer
-            show_log_viewer(parent=maya_main_window())
+            from scartools.ui.logs import show_global_log
+            show_global_log(source="anim_io", parent=self)
         except Exception as e:
             cmds.warning("[ScarTools Anim I/O] Could not open Log Viewer: {}".format(e))
 
@@ -498,6 +569,101 @@ class AnimIODialog(BaseToolDialog):
             opened = open_in_file_manager(self.controller.shot_root)
             if not opened:
                 emit_log("Could not open directory: {}".format(self.controller.shot_root), level="WARNING", source="anim_io")
+
+    def _do_import_shot(self):
+        """Open Shot Versions Browser to inspect and assemble shot versions."""
+        from .version_browser import show_shot_versions
+        from scartools.framework import resolve_shot_root_dir
+        shot_dir = resolve_shot_root_dir(self.controller.shot_root) if self.controller.shot_root else ""
+        if not shot_dir or not os.path.isdir(shot_dir):
+            chosen = QtWidgets.QFileDialog.getExistingDirectory(
+                self,
+                "Select Shot Package Directory to Import",
+                "",
+                QtWidgets.QFileDialog.ShowDirsOnly,
+            )
+            if chosen:
+                shot_dir = resolve_shot_root_dir(chosen)
+        if shot_dir and os.path.isdir(shot_dir):
+            show_shot_versions(shot_dir=shot_dir, parent=self)
+            return
+
+        from ..operations import import_shot_package
+
+        import_popup = OperationProgressPopup(
+            title="Shot Importer - Assembling Shot",
+            parent=self.window(),
+            unit="pct",
+        )
+        import_popup.start("Importing Shot Package", total=100)
+
+        # Maya Main Progress Bar integration
+        g_main_progress_bar = None
+        try:
+            import maya.mel as mel
+            g_main_progress_bar = mel.eval('$tmp = $gMainProgressBar')
+            if g_main_progress_bar:
+                cmds.progressBar(g_main_progress_bar, edit=True, beginProgress=True, isInterruptable=False, maxValue=100)
+        except Exception:
+            pass
+
+        def _on_import_progress(pct, msg, **kwargs):
+            p = max(0, min(100, int(pct)))
+            custom_count = kwargs.get("custom_count")
+            current_item = kwargs.get("current_item")
+            import_popup.update_progress(
+                p,
+                message=str(msg),
+                current=p,
+                total=100,
+                current_item=current_item,
+                custom_count=custom_count,
+            )
+            if g_main_progress_bar:
+                try:
+                    cmds.progressBar(g_main_progress_bar, edit=True, progress=p, status=str(msg))
+                except Exception:
+                    pass
+            QtWidgets.QApplication.processEvents(QtCore.QEventLoop.AllEvents, 50)
+
+        callbacks = OperationCallbacks(
+            progress_callback=_on_import_progress,
+            log_callback=lambda m: emit_log(m, level="INFO", source="anim_io"),
+        )
+
+        try:
+            res = import_shot_package(
+                package_dir_or_manifest=shot_dir,
+                import_time_settings=True,
+                import_camera=True,
+                import_characters=True,
+                import_props=True,
+                lock_camera=True,
+                preferred_format="abc",
+                callbacks=callbacks,
+            )
+            emit_log(
+                "✅ Shot assembled successfully: {} characters, {} props, camera={}".format(
+                    res.get("characters_imported", 0),
+                    res.get("props_imported", 0),
+                    res.get("camera_imported", False),
+                ),
+                level="SUCCESS",
+                source="anim_io",
+            )
+            self.status_dot.set_status("success", "Shot imported successfully")
+            self.message_label.setText("Imported shot from: {}".format(os.path.basename(shot_dir)))
+        except Exception as err:
+            emit_log("Shot import failed: {}".format(err), level="ERROR", source="anim_io")
+            self.status_dot.set_status("error", "Import failed")
+            self.message_label.setText("Import error: {}".format(err))
+        finally:
+            if g_main_progress_bar:
+                try:
+                    cmds.progressBar(g_main_progress_bar, edit=True, endProgress=True)
+                except Exception:
+                    pass
+            import_popup.finish(success=True)
 
     def _do_export(self):
         """Execute export using internal export plan and atomic undo safety."""
@@ -522,19 +688,23 @@ class AnimIODialog(BaseToolDialog):
         abc_cfg = user_cfg.get("alembic", {})
         fbx_cfg = user_cfg.get("fbx", {})
 
+        from scartools.framework import resolve_shot_root_dir, parse_shot_scene_identity
         custom_out = str(abc_cfg.get("output_path", "")).strip() or str(fbx_cfg.get("output_path", "")).strip()
-        if custom_out and os.path.isdir(custom_out):
-            out_dir = custom_out
+        if custom_out:
+            sanitized_custom = resolve_shot_root_dir(custom_out, shot_name=self.controller.shot_name)
+            out_dir = sanitized_custom if os.path.isdir(sanitized_custom) else custom_out
         else:
             out_dir = self.controller.shot_root
 
         if not out_dir or not os.path.isdir(out_dir):
             cur_scene = cmds.file(q=True, sceneName=True)
             if cur_scene:
-                from scartools.framework import parse_shot_scene_identity
                 identity = parse_shot_scene_identity(cur_scene)
                 out_dir = identity.get("export_dir")
                 self.controller.shot_root = out_dir
+
+        if out_dir:
+            out_dir = resolve_shot_root_dir(out_dir, shot_name=self.controller.shot_name)
 
         if not out_dir or not os.path.isdir(out_dir):
             emit_log("Invalid shot directory. Please save the scene.", level="ERROR", source="anim_io")
@@ -544,6 +714,15 @@ class AnimIODialog(BaseToolDialog):
         start_f = self.controller.start_frame
         end_f = self.controller.end_frame
         fps = _get_scene_fps()
+
+        # Resolve target version
+        ver_text = str(self.version_combo.currentText()).strip() if hasattr(self, "version_combo") else "next"
+        if ver_text.lower().startswith("next"):
+            target_ver = "next"
+        elif ver_text:
+            target_ver = ver_text.split()[0].strip().lower()
+        else:
+            target_ver = "next"
 
         # Build export parameters from export plan
         plan = self.controller.export_plan
@@ -627,14 +806,43 @@ class AnimIODialog(BaseToolDialog):
         )
         self._progress_popup.start("Exporting Shot Caches", total=len(plan))
         self.controller.state = AnimExportStateEnum.EXPORTING
-        self._update_footer_state()
 
-        def _on_progress(pct, msg):
+        # Maya Main Progress Bar integration
+        g_main_progress_bar = None
+        try:
+            import maya.mel as mel
+            g_main_progress_bar = mel.eval('$tmp = $gMainProgressBar')
+            if g_main_progress_bar:
+                cmds.progressBar(g_main_progress_bar, edit=True, beginProgress=True, isInterruptable=False, maxValue=100)
+        except Exception:
+            g_main_progress_bar = None
+
+        def _on_progress(pct, msg, **kwargs):
+            p = int(pct)
+            custom_count = kwargs.get("custom_count")
+            current = kwargs.get("current")
+            total = kwargs.get("total", len(plan))
+            current_item = kwargs.get("current_item")
             if self._progress_popup:
-                self._progress_popup.update_progress(pct, message=str(msg))
-            QtWidgets.QApplication.processEvents()
+                self._progress_popup.update_progress(
+                    p,
+                    message=str(msg),
+                    current=current,
+                    total=total,
+                    current_item=current_item,
+                    custom_count=custom_count,
+                )
+            if g_main_progress_bar:
+                try:
+                    cmds.progressBar(g_main_progress_bar, edit=True, progress=p, status=str(msg))
+                except Exception:
+                    pass
+            QtWidgets.QApplication.processEvents(QtCore.QEventLoop.AllEvents, 50)
 
-        callbacks = OperationCallbacks(progress_callback=_on_progress)
+        callbacks = OperationCallbacks(
+            progress_callback=_on_progress,
+            log_callback=lambda m: emit_log(m, level="INFO", source="anim_io"),
+        )
 
         try:
             from ..operations import export_shot_package
@@ -644,6 +852,7 @@ class AnimIODialog(BaseToolDialog):
                 start_frame=start_f,
                 end_frame=end_f,
                 fps=fps,
+                version=target_ver,
                 camera_node=cam_node,
                 export_camera=bool(cam_node),
                 camera_format="fbx",
@@ -701,8 +910,9 @@ class AnimIODialog(BaseToolDialog):
             self.controller.last_export_result = res
             self.controller.state = AnimExportStateEnum.SUCCESS
             self._update_footer_state()
+            self._update_version_options()
             self.open_folder_btn.setVisible(True)
-            emit_log("Anim Export completed successfully.", level="SUCCESS", source="anim_io")
+            emit_log("Anim Export completed successfully (Version: {}).".format(res.get("version", "v001")), level="SUCCESS", source="anim_io")
         except Exception as e:
             if self._progress_popup:
                 popup = self._progress_popup
@@ -711,6 +921,12 @@ class AnimIODialog(BaseToolDialog):
             self.controller.state = AnimExportStateEnum.FAILED
             self._update_footer_state()
             emit_log("Anim Export failed: {}".format(e), level="ERROR", source="anim_io")
+        finally:
+            if g_main_progress_bar:
+                try:
+                    cmds.progressBar(g_main_progress_bar, edit=True, endProgress=True)
+                except Exception:
+                    pass
 
 
 _ACTIVE_DIALOG = None

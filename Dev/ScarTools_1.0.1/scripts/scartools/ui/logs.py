@@ -470,6 +470,9 @@ def show_global_log(source=None, parent=None):
     return window
 
 
+show_log_viewer = show_global_log
+
+
 class LogDialog(GlobalLogWindow):
     """Legacy backward-compatible LogDialog alias."""
     pass
@@ -481,4 +484,5 @@ __all__ = [
     "GlobalLogWindow",
     "LogDialog",
     "show_global_log",
+    "show_log_viewer",
 ]

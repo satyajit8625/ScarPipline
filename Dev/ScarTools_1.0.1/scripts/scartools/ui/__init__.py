@@ -409,6 +409,18 @@ def create_status_bar(text="Ready", parent=None, include_log=False):
     label = QtWidgets.QLabel(str(text))
     label.setObjectName("Status")
     label.setProperty("state", "idle")
+
+    def _set_status(state, status_text=None):
+        dot.setProperty("state", str(state))
+        repolish(dot)
+        if status_text is not None:
+            label.setText(str(status_text))
+            label.setProperty("state", str(state))
+            repolish(label)
+
+    dot.set_status = _set_status
+    dot.setState = lambda s: _set_status(s)
+
     layout.addWidget(dot)
     layout.addWidget(label, 1)
 
@@ -909,6 +921,7 @@ class OperationProgressPopup(QtWidgets.QDialog):
         root.addLayout(status_row)
 
     def start(self, title, total=0):
+        self._total = int(total or 0)
         self.title_label.setText(title)
         self.current_label.setText("Preparing...")
         self.count_label.setText(
@@ -923,15 +936,29 @@ class OperationProgressPopup(QtWidgets.QDialog):
     def set_current(self, text):
         self.current_label.setText(text or "Processing...")
 
-    def update_progress(self, value, message=None, current=None, total=None):
+    def update_progress(self, value, message=None, current=None, total=None, current_item=None, custom_count=None):
         self.progress.setValue(max(0, min(100, int(value))))
-        if current is not None and total is not None:
-            self.count_label.setText(
-                "{} / {} {}".format(current, total, self._unit)
-            )
+        if custom_count is not None:
+            self.count_label.setText(str(custom_count))
+        else:
+            eff_total = total if total is not None else getattr(self, "_total", 0)
+            if current is not None and eff_total:
+                self.count_label.setText(
+                    "{} / {} {}".format(current, eff_total, self._unit)
+                )
+        if current_item is not None:
+            self.set_current(str(current_item))
         if message:
             self.set_status(message, "running")
-        QtWidgets.QApplication.processEvents()
+        try:
+            self.progress.repaint()
+            self.status_label.repaint()
+            self.current_label.repaint()
+            self.count_label.repaint()
+            self.repaint()
+        except Exception:
+            pass
+        QtWidgets.QApplication.processEvents(QtCore.QEventLoop.AllEvents, 50)
 
     def set_status(self, text, state="running"):
         self.status_label.setText(str(text))
@@ -942,6 +969,9 @@ class OperationProgressPopup(QtWidgets.QDialog):
 
     def finish(self, message=None, state="success"):
         self.progress.setValue(100)
+        eff_total = getattr(self, "_total", 0)
+        if eff_total:
+            self.count_label.setText("{} / {} {}".format(eff_total, eff_total, self._unit))
         if message:
             self.set_status(message, state)
         QtWidgets.QApplication.processEvents()
@@ -1113,7 +1143,7 @@ __all__ = [
 # Imported last so the base can reuse the completed component surface without
 from .window import AboutDialog, BaseToolDialog, close_windows, show_about_dialog
 from .license_dialog import LicenseActivationDialog, show_license_dialog
-from .logs import FilterChipButton, GlobalLogViewer, GlobalLogWindow, show_global_log
+from .logs import FilterChipButton, GlobalLogViewer, GlobalLogWindow, show_global_log, show_log_viewer
 from .toast import ToastWidget, show_toast
 from .controls import (
     SegmentedControl,
@@ -1185,6 +1215,7 @@ __all__ += [
     "GlobalLogViewer",
     "GlobalLogWindow",
     "show_global_log",
+    "show_log_viewer",
     "ToastWidget",
     "show_toast",
     "SegmentedControl",

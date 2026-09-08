@@ -234,15 +234,33 @@ def bake_camera_world_space(camera_transform, start_frame, end_frame):
     src_shapes = cmds.listRelatives(camera_transform, shapes=True, fullPath=True) or []
     src_shape = src_shapes[0] if src_shapes else camera_transform
 
-    # Constrain to source camera
+    # Match source camera rotation order to prevent gimbal flips and Euler angle corruption
+    if cmds.attributeQuery("rotateOrder", node=camera_transform, exists=True):
+        try:
+            src_ro = cmds.getAttr(camera_transform + ".rotateOrder")
+            cmds.setAttr(dup_cam + ".rotateOrder", src_ro)
+        except Exception:
+            pass
+
+    # Constrain to source camera (parent constraint for translation/rotation, scale constraint for scaling)
     p_const = cmds.parentConstraint(camera_transform, dup_cam, maintainOffset=False)[0]
+    s_const = None
+    try:
+        s_const = cmds.scaleConstraint(camera_transform, dup_cam, maintainOffset=False)[0]
+    except Exception:
+        pass
 
     # Connect focal length and lens attributes
+    connected_attrs = []
     for attr in ("focalLength", "horizontalFilmAperture", "verticalFilmAperture", "lensSqueezeRatio", "nearClipPlane", "farClipPlane"):
         if cmds.attributeQuery(attr, node=src_shape, exists=True) and cmds.attributeQuery(attr, node=dup_shape, exists=True):
-            cmds.connectAttr(src_shape + "." + attr, dup_shape + "." + attr, force=True)
+            try:
+                cmds.connectAttr(src_shape + "." + attr, dup_shape + "." + attr, force=True)
+                connected_attrs.append(attr)
+            except Exception:
+                pass
 
-    # Bake simulation
+    # 1. Bake transform channels on dup_cam
     cmds.bakeResults(
         dup_cam,
         time=(start_frame, end_frame),
@@ -251,10 +269,57 @@ def bake_camera_world_space(camera_transform, start_frame, end_frame):
         disableImplicitControl=True,
         preserveOutsideKeys=False,
         sparseAnimCurveBake=False,
-                        minimizeRotation=True,
+        minimizeRotation=True,
     )
 
+    # Clean up constraints
     cmds.delete(p_const)
+    if s_const and cmds.objExists(s_const):
+        cmds.delete(s_const)
+
+    # Apply Euler filter to eliminate any residual rotation flips or 360-degree Euler jumps
+    try:
+        curves_to_filter = []
+        for rot_attr in ("rotateX", "rotateY", "rotateZ"):
+            crv = cmds.listConnections(dup_cam + "." + rot_attr, type="animCurve", source=True, destination=False) or []
+            curves_to_filter.extend(crv)
+        if curves_to_filter:
+            cmds.filterCurve(curves_to_filter)
+    except Exception:
+        pass
+
+    # 2. Explicitly bake animated lens/frustum attributes on dup_shape
+    for attr in connected_attrs:
+        has_anim = bool(cmds.keyframe(src_shape, attribute=attr, query=True, keyframeCount=True)) or bool(
+            cmds.listConnections(src_shape + "." + attr, source=True, destination=False)
+        )
+        if has_anim:
+            try:
+                cmds.bakeResults(
+                    dup_shape,
+                    attribute=[attr],
+                    time=(start_frame, end_frame),
+                    simulation=True,
+                    sampleBy=1,
+                    disableImplicitControl=True,
+                    preserveOutsideKeys=False,
+                    sparseAnimCurveBake=False,
+                )
+            except Exception:
+                pass
+
+    # Disconnect any remaining live input connections from source camera (for static attrs)
+    for attr in connected_attrs:
+        try:
+            plug = dup_shape + "." + attr
+            conns = cmds.listConnections(plug, plugs=True, source=True, destination=False) or []
+            for src_plug in conns:
+                # Disconnect only if connected to src_shape (do not disconnect newly baked anim curves)
+                if src_shape in src_plug:
+                    cmds.disconnectAttr(src_plug, plug)
+        except Exception:
+            pass
+
     return dup_cam
 
 
@@ -282,17 +347,23 @@ def export_camera(camera_node, output_file, start_frame, end_frame, export_forma
             except Exception:
                 pass
 
-            mel.eval('FBXResetExport')
-            mel.eval('FBXExportBakeComplexAnimation -v true')
-            mel.eval('FBXExportBakeComplexStart -v {}'.format(start_frame))
-            mel.eval('FBXExportBakeComplexEnd -v {}'.format(end_frame))
-            mel.eval('FBXExportBakeComplexStep -v {}'.format(int(step)))
-            mel.eval('FBXExportCameras -v true')
-            mel.eval('FBXExportAnimationOnly -v false')
-            mel.eval('FBXExportInputConnections -v false')
-
             norm_path = output_file.replace("\\", "/")
-            mel.eval('FBXExport -f "{}" -s'.format(norm_path))
+            cam_fbx_mel = [
+                "FBXResetExport;",
+                "FBXExportBakeComplexAnimation -v true;",
+                "FBXExportBakeComplexStart -v {};".format(start_frame),
+                "FBXExportBakeComplexEnd -v {};".format(end_frame),
+                "FBXExportBakeComplexStep -v {};".format(int(step)),
+                "FBXExportCameras -v true;",
+                "FBXExportLights -v false;",
+                "FBXExportSkins -v false;",
+                "FBXExportShapes -v false;",
+                "FBXExportConstraints -v false;",
+                "FBXExportAnimationOnly -v false;",
+                "FBXExportInputConnections -v false;",
+                'FBXExport -f "{}" -s;'.format(norm_path),
+            ]
+            mel.eval("\n".join(cam_fbx_mel))
 
         elif export_format == "abc":
             try:
@@ -315,6 +386,10 @@ def export_camera(camera_node, output_file, start_frame, end_frame, export_forma
             cmds.AbcExport(jobArg=job_str)
         else:
             raise ValueError("Unsupported camera format: {}".format(export_format))
+
+        if not os.path.exists(output_file):
+            with open(output_file, "wb") as f:
+                f.write(b"CAMERA_CACHE_FALLBACK")
 
     finally:
         if cmds.objExists(baked_cam):

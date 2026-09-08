@@ -225,3 +225,117 @@ def get_scene_frame_range():
     except Exception:
         pass
     return (1001, 1100)
+
+
+class suspend_viewport_refresh(object):
+    """
+    Context manager that silently pauses 3D viewport drawing, suspends undo logging,
+    disables Cached Playback, and restores selection during heavy operations.
+    - Achieves fast export/import evaluation speed without GPU redraw overhead.
+    - Does NOT trigger Maya's red outline box or 'Paused' watermark.
+    - Does NOT suppress Qt dialogs or live progress popups.
+    - Prevents undo memory bloat and background cache contention.
+    - Restores scene selection state on exit to eliminate post-operation wireframe lag.
+    """
+
+    def __enter__(self):
+        self._panel_states = {}
+        self._prev_undo_state = None
+        self._prev_cache_state = None
+        self._prev_selection = None
+
+        # 1. Snapshot active selection
+        try:
+            if hasattr(cmds, "ls"):
+                self._prev_selection = cmds.ls(selection=True, long=True) or []
+        except Exception:
+            self._prev_selection = None
+
+        # 2. Suspend Maya Undo Queue logging (preserves existing undo stack without memory bloat)
+        try:
+            if hasattr(cmds, "undoInfo"):
+                self._prev_undo_state = cmds.undoInfo(query=True, stateWithoutFlush=True)
+                cmds.undoInfo(stateWithoutFlush=False)
+        except Exception:
+            self._prev_undo_state = None
+
+        # 3. Temporarily suspend Cached Playback (Maya 2020+) to free RAM and eliminate CPU contention
+        try:
+            if hasattr(cmds, "evaluator") and not cmds.about(batch=True):
+                self._prev_cache_state = cmds.evaluator(query=True, enable=True, name="cache")
+                if self._prev_cache_state:
+                    cmds.evaluator(enable=False, name="cache")
+        except Exception:
+            self._prev_cache_state = None
+
+        # 4. Silent Viewport Pause (disables modelPanel object display, zero red box)
+        try:
+            # Clear any lingering OGS pause state so no red border remains
+            if hasattr(cmds, "ogs") and not cmds.about(batch=True):
+                try:
+                    cmds.ogs(pause=False)
+                except Exception:
+                    pass
+
+            if hasattr(cmds, "getPanel") and hasattr(cmds, "modelEditor") and not cmds.about(batch=True):
+                panels = cmds.getPanel(type="modelPanel") or []
+                for p in panels:
+                    try:
+                        if cmds.modelEditor(p, query=True, exists=True):
+                            was_visible = cmds.modelEditor(p, query=True, allObjects=True)
+                            self._panel_states[p] = was_visible
+                            cmds.modelEditor(p, edit=True, allObjects=False)
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        # 1. Restore Viewport 3D model panels
+        if self._panel_states:
+            for p, was_vis in self._panel_states.items():
+                try:
+                    if cmds.modelEditor(p, query=True, exists=True):
+                        cmds.modelEditor(p, edit=True, allObjects=was_vis)
+                except Exception:
+                    pass
+        try:
+            if hasattr(cmds, "ogs") and not cmds.about(batch=True):
+                cmds.ogs(pause=False)
+        except Exception:
+            pass
+
+        # 2. Restore Cached Playback
+        if self._prev_cache_state is not None:
+            try:
+                if hasattr(cmds, "evaluator") and not cmds.about(batch=True):
+                    cmds.evaluator(enable=bool(self._prev_cache_state), name="cache")
+            except Exception:
+                pass
+
+        # 3. Restore Maya Undo Queue state
+        if self._prev_undo_state is not None:
+            try:
+                if hasattr(cmds, "undoInfo"):
+                    cmds.undoInfo(stateWithoutFlush=self._prev_undo_state)
+            except Exception:
+                pass
+
+        # 4. Restore original viewport selection (avoids dense wireframe highlight lag)
+        try:
+            if hasattr(cmds, "select") and hasattr(cmds, "objExists"):
+                if self._prev_selection:
+                    valid_sel = [n for n in self._prev_selection if cmds.objExists(n)]
+                    if valid_sel:
+                        cmds.select(valid_sel, replace=True)
+                    else:
+                        cmds.select(clear=True)
+                else:
+                    cmds.select(clear=True)
+        except Exception:
+            pass
+
+        return False
+
+
