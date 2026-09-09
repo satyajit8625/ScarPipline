@@ -108,12 +108,37 @@ def install_maya_stubs():
     def refresh(suspend=False, force=False, **_):
         state["events"].append(("refresh", bool(suspend), bool(force)))
 
+    state["options"] = {}
+
+    def stub_option_var(**kwargs):
+        if kwargs.get("exists"):
+            return kwargs["exists"] in state["options"]
+        if kwargs.get("remove"):
+            state["options"].pop(kwargs["remove"], None)
+            return None
+        if kwargs.get("query"):
+            return state["options"].get(kwargs["query"], None)
+        if kwargs.get("stringValue"):
+            opt = kwargs["stringValue"]
+            if isinstance(opt, (list, tuple)):
+                state["options"][opt[0]] = opt[1]
+            else:
+                return state["options"].get(opt, "")
+        if kwargs.get("intValue"):
+            opt = kwargs["intValue"]
+            if isinstance(opt, (list, tuple)):
+                state["options"][opt[0]] = opt[1]
+            else:
+                return state["options"].get(opt, 0)
+        return None
+
     cmds.about = stub_about
     cmds.ls = stub_ls
     cmds.select = stub_select
     cmds.undoInfo = undo_info
     cmds.undo = undo
     cmds.refresh = refresh
+    cmds.optionVar = stub_option_var
     cmds.objExists = lambda node: True
     cmds.nodeType = lambda node: "mesh"
     cmds.loadPlugin = lambda *a, **kw: None

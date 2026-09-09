@@ -22,6 +22,7 @@ from .validation import (
 )
 from .paths import icons_root, package_root, scripts_root, resolve_icon, open_in_file_manager, is_valid_filename
 from .crash_reporter import generate_crash_report, get_environment_info
+from .presets import PresetManager
 from .snapshots import (
     SnapshotError,
     asset_directory,
@@ -140,4 +141,5 @@ __all__ = [
     "suspend_viewport_refresh",
     "generate_crash_report",
     "get_environment_info",
+    "PresetManager",
 ]

@@ -94,7 +94,6 @@ class TestUIExtensions(unittest.TestCase):
         set_active_theme("dark_studio")
         self.assertEqual(get_active_theme(), "dark_studio")
 
-    @unittest.skipUnless(QT_AVAILABLE, "Qt is not available in standalone Python")
     def test_preset_manager(self):
         pm = PresetManager("test_tool")
         data = {"tolerance": 0.05, "mode": "mirror"}

@@ -19,6 +19,7 @@ PREFIX = "ScarTools_"
 SETTINGS_DIR = os.path.join(os.path.expanduser("~"), ".scartools")
 SETTINGS_FILE = os.path.join(SETTINGS_DIR, "settings.json")
 _FALLBACK_STORE = {}
+_DISK_CACHE = {"mtime": 0, "data": {}}
 
 
 def _name(key):
@@ -38,13 +39,19 @@ def _ensure_dir():
 
 
 def _load_disk_store():
-    """Load settings dictionary from ~/.scartools/settings.json."""
+    """Load settings dictionary from ~/.scartools/settings.json with mtime caching."""
     if not os.path.isfile(SETTINGS_FILE):
         return {}
     try:
+        mtime = os.path.getmtime(SETTINGS_FILE)
+        if _DISK_CACHE["mtime"] == mtime and _DISK_CACHE["data"]:
+            return dict(_DISK_CACHE["data"])
         with open(SETTINGS_FILE, "r", encoding="utf-8") as f:
             data = json.load(f)
-            return data if isinstance(data, dict) else {}
+            parsed = data if isinstance(data, dict) else {}
+            _DISK_CACHE["mtime"] = mtime
+            _DISK_CACHE["data"] = parsed
+            return dict(parsed)
     except Exception:
         return {}
 
