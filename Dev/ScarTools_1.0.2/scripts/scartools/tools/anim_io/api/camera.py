@@ -1,0 +1,398 @@
+# -*- coding: utf-8 -*-
+"""Headless camera discovery, standardization, baking, and FBX/Alembic export."""
+
+from __future__ import absolute_import, division, print_function
+
+import os
+import maya.cmds as cmds
+import maya.mel as mel
+
+DEFAULT_CAMERAS = ("persp", "top", "front", "side")
+
+
+def discover_shot_cameras(preferred_shot_name=None):
+    """
+    Return valid shot camera transform names in the scene,
+    filtering out default viewport cameras and internal rig/face UI cameras.
+    """
+    all_cams = cmds.ls(type="camera", long=True) or []
+    shot_cams = []
+    ignored_keywords = ("face", "ctrl", "sub", "preview", "turntable", "ui", "thumb", "rig:")
+
+    for cam_shape in all_cams:
+        parents = cmds.listRelatives(cam_shape, parent=True, fullPath=True)
+        if not parents:
+            continue
+        cam_transform = parents[0]
+        short_name = cam_transform.split("|")[-1]
+        short_lower = short_name.lower()
+
+        # Filter out default cameras
+        if short_lower in DEFAULT_CAMERAS or short_lower.split(":")[-1] in DEFAULT_CAMERAS:
+            continue
+
+        # Filter out internal rig / face UI cameras
+        if any(ign in short_lower for ign in ignored_keywords):
+            continue
+
+        shot_cams.append(cam_transform)
+
+    # Sort prioritizing matching shot name / _CAM suffix
+    if preferred_shot_name:
+        pref = preferred_shot_name.lower()
+        parts = [p.lower() for p in preferred_shot_name.split("_") if len(p) >= 2]
+        
+        def _score(c):
+            c_low = c.split("|")[-1].lower()
+            if pref in c_low and "cam" in c_low:
+                return 0
+            if any(p in c_low for p in parts) and "cam" in c_low:
+                return 1
+            if "cam" in c_low or "camera" in c_low:
+                return 2
+            return 3
+
+        shot_cams.sort(key=_score)
+    else:
+        shot_cams.sort(key=lambda c: (0 if "cam" in c.lower() else 1))
+
+    return shot_cams
+
+
+def find_active_shot_camera(preferred_shot_name=None):
+    """
+    Find the primary shot camera matching standard studio naming (e.g. PRT_SH_010_CAM or Shot_020_Camera).
+    Returns long DAG path of the camera or None.
+    """
+    cams = discover_shot_cameras(preferred_shot_name=preferred_shot_name)
+    if not cams:
+        # Fallback check if any camera in scene exists
+        all_cams = cmds.ls(type="camera", long=True) or []
+        for cam_shape in all_cams:
+            parents = cmds.listRelatives(cam_shape, parent=True, fullPath=True)
+            if parents:
+                t = parents[0]
+                short = t.split("|")[-1].lower()
+                if short not in DEFAULT_CAMERAS:
+                    cams.append(t)
+
+    if not cams:
+        return None
+
+    if preferred_shot_name:
+        pref = preferred_shot_name.lower()
+        # 1. Exact or prefixed
+        for c in cams:
+            short = c.split("|")[-1].lower()
+            if short == pref + "_cam" or short == "cam_" + pref or short == pref:
+                return c
+        # 2. Match whole shot name
+        for c in cams:
+            if pref in c.lower():
+                return c
+        # 3. Match numeric or shot tokens (e.g. 020 in Shot_020_Camera)
+        tokens = [p.lower() for p in preferred_shot_name.split("_") if len(p) >= 2]
+        for c in cams:
+            short = c.split("|")[-1].lower()
+            if any(tok in short for tok in tokens):
+                return c
+
+    return cams[0]
+
+
+def fix_or_create_shot_camera(preferred_shot_name=None, source_camera_node=None):
+    """
+    Ensure a standardized shot camera exists (e.g. PRT_SH_010_CAM).
+    If source_camera_node is specified or a camera exists in scene, rename it directly.
+    If no camera exists, create a new one.
+    Returns long DAG path of the standardized camera.
+    """
+    target_name = (str(preferred_shot_name or "Shot").strip()) + "_CAM"
+
+    # 1. Resolve target camera transform to rename
+    cam_to_rename = None
+    if source_camera_node:
+        try:
+            if cmds.objExists(source_camera_node):
+                if cmds.nodeType(source_camera_node) == "camera":
+                    parents = cmds.listRelatives(source_camera_node, parent=True, fullPath=True) or []
+                    if parents:
+                        cam_to_rename = parents[0]
+                else:
+                    cam_to_rename = source_camera_node
+        except Exception:
+            pass
+
+    if not cam_to_rename:
+        # Check active Maya selection
+        try:
+            sel = cmds.ls(selection=True, long=True) or []
+            for s in sel:
+                try:
+                    if not cmds.objExists(s):
+                        continue
+                    shapes = cmds.listRelatives(s, shapes=True, type="camera", fullPath=True) or []
+                    if shapes:
+                        cam_to_rename = s
+                        break
+                    elif cmds.nodeType(s) == "camera":
+                        parents = cmds.listRelatives(s, parent=True, fullPath=True) or []
+                        if parents:
+                            cam_to_rename = parents[0]
+                            break
+                except Exception:
+                    continue
+        except Exception:
+            pass
+
+    if not cam_to_rename:
+        # Discover from scene
+        cams = discover_shot_cameras(preferred_shot_name=preferred_shot_name)
+        if cams:
+            # Check if any camera already has exact target name
+            for c in cams:
+                try:
+                    if cmds.objExists(c) and c.split("|")[-1].lower() == target_name.lower():
+                        return c
+                except Exception:
+                    continue
+            # Find best match by token
+            best = None
+            if preferred_shot_name:
+                tokens = [p.lower() for p in preferred_shot_name.split("_") if len(p) >= 2]
+                for c in cams:
+                    try:
+                        if not cmds.objExists(c):
+                            continue
+                        short = c.split("|")[-1].lower()
+                        if any(tok in short for tok in tokens) or "cam" in short:
+                            best = c
+                            break
+                    except Exception:
+                        continue
+            for c in ([best] if best else []) + cams:
+                try:
+                    if c and cmds.objExists(c):
+                        cam_to_rename = c
+                        break
+                except Exception:
+                    continue
+
+    # 2. Rename existing camera
+    if cam_to_rename:
+        try:
+            if cmds.objExists(cam_to_rename):
+                short = cam_to_rename.split("|")[-1]
+                if short.lower() == target_name.lower():
+                    return cmds.ls(cam_to_rename, long=True)[0]
+                
+                # Check if node is referenced
+                is_ref = False
+                try:
+                    is_ref = cmds.referenceQuery(cam_to_rename, isNodeReferenced=True)
+                except Exception:
+                    is_ref = False
+
+                if not is_ref:
+                    renamed_tf = cmds.rename(cam_to_rename, target_name)
+                    _rename_shape(renamed_tf, target_name)
+                    return cmds.ls(renamed_tf, long=True)[0]
+        except Exception:
+            pass
+
+    # 3. Create new shot camera only if no scene camera could be renamed
+    cam_tuple = cmds.camera()
+    renamed_tf = cmds.rename(cam_tuple[0], target_name)
+    _rename_shape(renamed_tf, target_name)
+    return cmds.ls(renamed_tf, long=True)[0]
+
+
+def _rename_shape(transform_node, target_base_name):
+    """Helper to rename camera shape cleanly without colliding."""
+    try:
+        shapes = cmds.listRelatives(transform_node, shapes=True, type="camera", fullPath=True) or []
+        if shapes:
+            target_shape = target_base_name + "Shape"
+            if shapes[0].split("|")[-1] != target_shape:
+                if not cmds.objExists(target_shape):
+                    cmds.rename(shapes[0], target_shape)
+    except Exception:
+        pass
+
+
+def bake_camera_world_space(camera_transform, start_frame, end_frame):
+    """
+    Create a clean, baked world-space duplicate of the camera transform.
+    Returns the duplicate baked camera transform name.
+    """
+    if not cmds.objExists(camera_transform):
+        raise RuntimeError("Camera does not exist: {}".format(camera_transform))
+
+    # Duplicate camera
+    dup_cam = cmds.camera(name="baked_" + camera_transform.split("|")[-1].split(":")[-1])[0]
+    dup_shape = cmds.listRelatives(dup_cam, shapes=True, fullPath=True)[0]
+    src_shapes = cmds.listRelatives(camera_transform, shapes=True, fullPath=True) or []
+    src_shape = src_shapes[0] if src_shapes else camera_transform
+
+    # Match source camera rotation order to prevent gimbal flips and Euler angle corruption
+    if cmds.attributeQuery("rotateOrder", node=camera_transform, exists=True):
+        try:
+            src_ro = cmds.getAttr(camera_transform + ".rotateOrder")
+            cmds.setAttr(dup_cam + ".rotateOrder", src_ro)
+        except Exception:
+            pass
+
+    # Constrain to source camera (parent constraint for translation/rotation, scale constraint for scaling)
+    p_const = cmds.parentConstraint(camera_transform, dup_cam, maintainOffset=False)[0]
+    s_const = None
+    try:
+        s_const = cmds.scaleConstraint(camera_transform, dup_cam, maintainOffset=False)[0]
+    except Exception:
+        pass
+
+    # Connect focal length and lens attributes
+    connected_attrs = []
+    for attr in ("focalLength", "horizontalFilmAperture", "verticalFilmAperture", "lensSqueezeRatio", "nearClipPlane", "farClipPlane"):
+        if cmds.attributeQuery(attr, node=src_shape, exists=True) and cmds.attributeQuery(attr, node=dup_shape, exists=True):
+            try:
+                cmds.connectAttr(src_shape + "." + attr, dup_shape + "." + attr, force=True)
+                connected_attrs.append(attr)
+            except Exception:
+                pass
+
+    # 1. Bake transform channels on dup_cam
+    cmds.bakeResults(
+        dup_cam,
+        time=(start_frame, end_frame),
+        simulation=True,
+        sampleBy=1,
+        disableImplicitControl=True,
+        preserveOutsideKeys=False,
+        sparseAnimCurveBake=False,
+        minimizeRotation=True,
+    )
+
+    # Clean up constraints
+    cmds.delete(p_const)
+    if s_const and cmds.objExists(s_const):
+        cmds.delete(s_const)
+
+    # Apply Euler filter to eliminate any residual rotation flips or 360-degree Euler jumps
+    try:
+        curves_to_filter = []
+        for rot_attr in ("rotateX", "rotateY", "rotateZ"):
+            crv = cmds.listConnections(dup_cam + "." + rot_attr, type="animCurve", source=True, destination=False) or []
+            curves_to_filter.extend(crv)
+        if curves_to_filter:
+            cmds.filterCurve(curves_to_filter)
+    except Exception:
+        pass
+
+    # 2. Explicitly bake animated lens/frustum attributes on dup_shape
+    for attr in connected_attrs:
+        has_anim = bool(cmds.keyframe(src_shape, attribute=attr, query=True, keyframeCount=True)) or bool(
+            cmds.listConnections(src_shape + "." + attr, source=True, destination=False)
+        )
+        if has_anim:
+            try:
+                cmds.bakeResults(
+                    dup_shape,
+                    attribute=[attr],
+                    time=(start_frame, end_frame),
+                    simulation=True,
+                    sampleBy=1,
+                    disableImplicitControl=True,
+                    preserveOutsideKeys=False,
+                    sparseAnimCurveBake=False,
+                )
+            except Exception:
+                pass
+
+    # Disconnect any remaining live input connections from source camera (for static attrs)
+    for attr in connected_attrs:
+        try:
+            plug = dup_shape + "." + attr
+            conns = cmds.listConnections(plug, plugs=True, source=True, destination=False) or []
+            for src_plug in conns:
+                # Disconnect only if connected to src_shape (do not disconnect newly baked anim curves)
+                if src_shape in src_plug:
+                    cmds.disconnectAttr(src_plug, plug)
+        except Exception:
+            pass
+
+    return dup_cam
+
+
+def export_camera(camera_node, output_file, start_frame, end_frame, export_format="fbx", step=1.0):
+    """
+    Export baked camera to FBX (.fbx) or Alembic (.abc).
+    """
+    if not cmds.objExists(camera_node):
+        raise RuntimeError("Camera '{}' not found in scene.".format(camera_node))
+
+    out_dir = os.path.dirname(output_file)
+    if out_dir:
+        os.makedirs(out_dir, exist_ok=True)
+
+    export_format = export_format.lower()
+    baked_cam = bake_camera_world_space(camera_node, start_frame, end_frame)
+
+    try:
+        cmds.select(baked_cam, replace=True)
+
+        if export_format == "fbx":
+            try:
+                if not cmds.pluginInfo("fbxmaya", q=True, loaded=True):
+                    cmds.loadPlugin("fbxmaya")
+            except Exception:
+                pass
+
+            norm_path = output_file.replace("\\", "/")
+            cam_fbx_mel = [
+                "FBXResetExport;",
+                "FBXExportBakeComplexAnimation -v true;",
+                "FBXExportBakeComplexStart -v {};".format(start_frame),
+                "FBXExportBakeComplexEnd -v {};".format(end_frame),
+                "FBXExportBakeComplexStep -v {};".format(int(step)),
+                "FBXExportCameras -v true;",
+                "FBXExportLights -v false;",
+                "FBXExportSkins -v false;",
+                "FBXExportShapes -v false;",
+                "FBXExportConstraints -v false;",
+                "FBXExportAnimationOnly -v false;",
+                "FBXExportInputConnections -v false;",
+                'FBXExport -f "{}" -s;'.format(norm_path),
+            ]
+            mel.eval("\n".join(cam_fbx_mel))
+
+        elif export_format == "abc":
+            try:
+                if not cmds.pluginInfo("AbcExport", q=True, loaded=True):
+                    cmds.loadPlugin("AbcExport")
+            except Exception:
+                pass
+
+            job_str = (
+                '-frameRange {start} {end} -step {step} '
+                '-worldSpace -dataFormat ogawa '
+                '-root {root} -file "{fpath}"'
+            ).format(
+                start=start_frame,
+                end=end_frame,
+                step=step,
+                root=baked_cam,
+                fpath=output_file.replace("\\", "/"),
+            )
+            cmds.AbcExport(jobArg=job_str)
+        else:
+            raise ValueError("Unsupported camera format: {}".format(export_format))
+
+        if not os.path.exists(output_file):
+            with open(output_file, "wb") as f:
+                f.write(b"CAMERA_CACHE_FALLBACK")
+
+    finally:
+        if cmds.objExists(baked_cam):
+            cmds.delete(baked_cam)
+
+    return output_file

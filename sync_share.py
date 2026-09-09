@@ -161,8 +161,14 @@ def run_sync(target_version_dir=None):
         print("\n[1/3] Running Maya Unit Tests (mayapy)...")
         runner_code = (
             "import unittest, sys, os\n"
+            "try:\n"
+            "    import maya.standalone\n"
+            "    maya.standalone.initialize(name='python')\n"
+            "except Exception:\n"
+            "    pass\n"
             "loader = unittest.TestLoader()\n"
-            "suite = loader.discover('tests', pattern='test_*.py')\n"
+            "test_dir = os.path.join('tests', 'maya') if os.path.isdir(os.path.join('tests', 'maya')) else 'tests'\n"
+            "suite = loader.discover(test_dir, pattern='test_*.py')\n"
             "runner = unittest.TextTestRunner(verbosity=2, stream=sys.stdout)\n"
             "res = runner.run(suite)\n"
             "if not res.wasSuccessful():\n"
@@ -171,7 +177,11 @@ def run_sync(target_version_dir=None):
             "        print('FAIL:', t, e)\n"
             "    for t, e in res.errors:\n"
             "        print('ERROR:', t, e)\n"
-            "os._exit(0 if res.wasSuccessful() else 1)\n"
+            "try:\n"
+            "    maya.standalone.uninitialize()\n"
+            "except Exception:\n"
+            "    pass\n"
+            "sys.exit(0 if res.wasSuccessful() else 1)\n"
         )
         cmd = [MAYAPY_PATH, "-c", runner_code]
         res = subprocess.call(cmd, cwd=target_version_dir)
