@@ -123,11 +123,37 @@ def discover_scene_assets():
     }
 
 
+def extract_asset_export_name(node):
+    """
+    Extract clean export file and asset name from node.
+    If the node has a namespace (e.g. 'hero:rig_GRP' or 'enemy_01:character'),
+    use the namespace as the primary file identifier ('hero', 'enemy_01')
+    to prevent duplicate file collisions across assets with identical rig node names.
+    If no namespace exists, returns leaf node name with illegal characters sanitized.
+    """
+    if not node:
+        return "asset"
+    leaf = str(node).split("|")[-1].strip()
+    if ":" in leaf:
+        parts = [p for p in leaf.split(":") if p]
+        if len(parts) > 1:
+            # Join all namespace prefixes with underscore if nested (e.g. seq:hero -> seq_hero)
+            ns = "_".join(parts[:-1]).strip()
+            if ns:
+                return re.sub(r"[^a-zA-Z0-9_]", "_", ns)
+        elif len(parts) == 1:
+            return re.sub(r"[^a-zA-Z0-9_]", "_", parts[0])
+    return re.sub(r"[^a-zA-Z0-9_]", "_", leaf)
+
+
 def find_export_groups(root_node):
     """
     Locate 'Geometry' and 'Deformation' groups under the given asset root node.
     - Geometry group: contains the render meshes (e.g. 'Geometry', 'GEO', 'model').
     - Deformation group: contains the skeletal joints (e.g. 'Deformation', 'Joints', 'skeleton').
+
+    Supports namespaced assets (e.g. 'hero:Geometry', 'hero:Deformation') as well as
+    direct descendant meshes and joint hierarchies.
 
     Returns dict:
         {
@@ -317,7 +343,7 @@ def export_character_cache(
     if not cmds.objExists(root_node):
         raise RuntimeError("Character root node does not exist: {}".format(root_node))
 
-    clean_name = root_node.split("|")[-1].replace(":", "_")
+    clean_name = extract_asset_export_name(root_node)
     exported_files = []
     clean_output_dir = resolve_shot_root_dir(output_dir) or str(output_dir or "").strip().replace("\\", "/")
 
@@ -737,7 +763,7 @@ def export_shot_package(
             pfc_cmd = "import scartools.tools.anim_io.api.exporter as _exp; _exp._abc_frame_dispatch(#FRAME#)"
 
             for j_idx, (node, item_type) in enumerate(abc_items):
-                clean_name = node.split("|")[-1].replace(":", "_")
+                clean_name = extract_asset_export_name(node)
                 abc_path = os.path.join(abc_dir, clean_name + ".abc").replace("\\", "/")
 
                 groups = find_export_groups(node)
@@ -850,7 +876,7 @@ def export_shot_package(
             os.makedirs(target_fbx_dir, exist_ok=True)
 
             for idx, (node, item_type) in enumerate(fbx_items):
-                short_clean = node.split("|")[-1].replace(":", "_")
+                short_clean = extract_asset_export_name(node)
                 if callbacks:
                     callbacks.progress(
                         max(5, int(current_pct)),

@@ -2,20 +2,18 @@
 
 ## 1.0.1 — Active Cloud Allowlist & Zero-Latency CDN Synchronization
 
+- **Anim I/O Namespace-Aware Cache Export**:
+  - **Namespace-Based File Naming**: Assets with a Maya namespace (e.g. `hero:rig_GRP` or `hero:character`) now automatically use the namespace prefix as their cache filename (`hero.abc`, `hero.fbx`). Completely eliminates duplicate file naming and collisions across multiple referenced character rigs that share identical root group names.
+  - **Namespaced Geometry & Mesh Detection**: `find_export_groups()` enhanced to locate namespaced geometry groups (e.g. `hero:Geometry`, `hero:geo_GRP`) and meshes without manual un-namespacing.
+  - **Streamlined UI & Direct Workflow**:
+    - Removed Version dropdown and "Browse Versions..." button from the UI to provide a clean, uncluttered export experience.
+    - Removed "Import Shot..." button from the asset table header.
+    - **Always-Accessible "Open Export Folder"**: Placed directly in the action footer, always visible and active for instant 1-click access to the shot output folder at any time.
 - **Anim I/O Shot Versioning & Multi-Version Manifest System (Schema 2.0.0)**:
-  - **Organized Versioned Directory Hierarchy**: Alembic and FBX caches are now systematically organized into dedicated version subdirectories (`Alembic/v001/`, `Alembic/v002/`, `FBX/v001/`, `FBX/v002/`).
-  - **Unified Root Shot Manifest (`shot_manifest.json`)**: Tracks comprehensive version history (`manifest["versions"]`), latest active version pointer (`latest_version`), total count (`total_versions`), and detailed artist metadata (author, workstation, frame range, camera settings, asset counts, export timestamp).
+  - **Organized Versioned Directory Hierarchy**: Alembic and FBX caches are systematically organized into dedicated version subdirectories (`Alembic/v001/`, `Alembic/v002/`, `FBX/v001/`, `FBX/v002/`).
+  - **Unified Root Shot Manifest (`shot_manifest.json`)**: Tracks comprehensive version history (`manifest["versions"]`), latest active version pointer (`latest_version`), total count (`total_versions`), and detailed artist metadata.
   - **100% Backward Compatibility**: Mirrored root fields for legacy downstream tools and automated scripts while maintaining the complete version database.
-  - **Automatic Incremental Version Resolution**: `resolve_next_version()` auto-detects existing versions on disk and automatically increments to the next sequential version (`v001`, `v002`, ...).
-  - **Visual Shot Versions Browser (`ShotVersionsDialog`)**:
-    - Dedicated studio window to inspect all previously exported versions for any shot directory.
-    - View author, machine, date, duration, active camera, character list, and prop counts in an interactive data table.
-    - 1-Click "Import Version" button with live progress popup to pull any specific version directly into the active Maya scene.
-    - 1-Click "Open in Explorer" directly opens the selected version directory in Windows File Explorer.
-  - **Anim Export Window Integration**:
-    - Added interactive Version Selector dropdown (`Next (v###)` + existing versions).
-    - Added "Browse Versions..." button directly on the Export panel.
-    - Updated "Import Shot..." flow to open the Shot Versions Dialog for intuitive version selection.
+  - **Automatic Incremental Version Resolution**: `resolve_next_version()` auto-detects existing versions on disk and automatically increments to sequential versions (`v001`, `v002`, ...).
 - **Standalone Background Anim Export Tool (Headless Batch Queue)**:
   - **Zero Maya GUI Overhead**: Artists can batch export heavy animation scenes without opening the Maya GUI, freeing workstation resources and running in the background.
   - **Headless Worker Subprocess (`standalone_worker.py`)**: Runs headlessly via Autodesk Maya's native Python interpreter (`mayapy.exe`), executing full scene inspection, camera validation, Alembic, and FBX export pipelines.

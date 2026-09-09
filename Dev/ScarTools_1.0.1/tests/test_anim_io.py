@@ -41,6 +41,7 @@ from scartools.tools.anim_io.api.exporter import (
     discover_scene_assets,
     find_export_groups,
     export_character_cache,
+    extract_asset_export_name,
 )
 from scartools.tools.anim_io.api.importer import apply_shot_time_settings
 from scartools.tools.anim_io.operations import (
@@ -730,6 +731,53 @@ class TestAnimIO(unittest.TestCase):
         # Must NEVER create nested Alembic inside Alembic:
         nested_bad = os.path.join(self.test_dir, "Shot_000", "Alembic", "PRT_SH_000")
         self.assertFalse(os.path.exists(nested_bad))
+
+    def test_extract_asset_export_name_with_namespace(self):
+        """Verify extract_asset_export_name uses namespace prefix when available to prevent collisions."""
+        self.assertEqual(extract_asset_export_name("hero:rig_GRP"), "hero")
+        self.assertEqual(extract_asset_export_name("|seq:shot_hero:rig_GRP"), "seq_shot_hero")
+        self.assertEqual(extract_asset_export_name("villain:character"), "villain")
+        self.assertEqual(extract_asset_export_name("unnamespaced_GRP"), "unnamespaced_GRP")
+        self.assertEqual(extract_asset_export_name("|world|char_prop"), "char_prop")
+
+    def test_namespace_export_cache_naming_and_geo_group(self):
+        """Verify an asset with namespace exports to <namespace>.abc and <namespace>.fbx and finds namespaced geo."""
+        # Create namespace
+        cmds.namespace(add="hero_pirate")
+        cmds.namespace(set="hero_pirate")
+        char_grp = cmds.group(em=True, name="rig_GRP")
+        geo_grp = cmds.group(em=True, name="Geometry", parent=char_grp)
+        mesh = cmds.polySphere(name="body_GEO")[0]
+        cmds.parent(mesh, geo_grp)
+        cmds.namespace(set=":")
+
+        full_char = "|hero_pirate:rig_GRP"
+        self.assertTrue(cmds.objExists(full_char))
+
+        # Test find_export_groups with namespace
+        groups = find_export_groups(full_char)
+        self.assertIsNotNone(groups["geometry"])
+        self.assertTrue(groups["geometry"].endswith("Geometry"))
+
+        # Test export
+        out_shot = os.path.join(self.test_dir, "Shot_Namespace_Test")
+        res = export_shot_package(
+            output_dir=out_shot,
+            shot_name="Shot_Namespace_Test",
+            start_frame=1001,
+            end_frame=1005,
+            character_nodes=[full_char],
+            character_formats=["abc", "fbx"],
+            export_camera=False,
+            version="v001",
+        )
+
+        expected_root = res["output_dir"]
+        abc_file = os.path.join(expected_root, "Alembic", "v001", "hero_pirate.abc")
+        fbx_file = os.path.join(expected_root, "FBX", "v001", "hero_pirate.fbx")
+
+        self.assertTrue(os.path.isfile(abc_file))
+        self.assertTrue(os.path.isfile(fbx_file))
 
 
 if __name__ == "__main__":

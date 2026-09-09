@@ -12,7 +12,6 @@ from .settings_dialog import (
     save_anim_export_settings,
     reset_anim_export_settings,
 )
-from .version_browser import show_shot_versions, ShotVersionsDialog
 
 __all__ = [
     "show_window",
@@ -26,6 +25,4 @@ __all__ = [
     "get_anim_export_settings",
     "save_anim_export_settings",
     "reset_anim_export_settings",
-    "show_shot_versions",
-    "ShotVersionsDialog",
 ]
