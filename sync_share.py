@@ -184,7 +184,9 @@ def run_sync(target_version_dir=None):
             "sys.exit(0 if res.wasSuccessful() else 1)\n"
         )
         cmd = [MAYAPY_PATH, "-c", runner_code]
-        res = subprocess.call(cmd, cwd=target_version_dir)
+        test_env = os.environ.copy()
+        test_env["PYTHONIOENCODING"] = "utf-8"
+        res = subprocess.call(cmd, cwd=target_version_dir, env=test_env)
         if res != 0:
             print("\n[ERROR] Tests failed! Aborting sync to Share.")
             sys.exit(1)

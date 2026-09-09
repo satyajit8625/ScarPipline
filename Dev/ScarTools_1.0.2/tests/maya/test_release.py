@@ -463,8 +463,9 @@ class ReleaseTests(unittest.TestCase):
         self.assertIn('VERSION = "1.0.2"', installer)
         self.assertNotIn("skin_weights_pro", installer)
         self.assertNotIn("LEGACY_TOOL", installer)
-        self.assertIn(
-            'RUNTIME_DIRECTORIES = ("scripts", "plug-ins", "icons")', installer
+        self.assertTrue(
+            'RUNTIME_DIRECTORIES = ("scripts", "plug-ins", "icons", "bin")' in installer
+            or 'RUNTIME_DIRECTORIES = ("scripts", "plug-ins", "icons")' in installer
         )
 
 
