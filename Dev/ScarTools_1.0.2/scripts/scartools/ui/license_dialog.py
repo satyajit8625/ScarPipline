@@ -122,7 +122,7 @@ class LicenseActivationDialog(BaseToolDialog):
 
         # Tip Note
         info_note = QtWidgets.QLabel(
-            "💡 Tip: If registered in the studio cloud, click '☁️ Sync from Cloud' to activate automatically without typing a key."
+            "💡 Tip: ScarTools operates in Pure Cloud Mode. Click '☁️ Sync from Cloud' to authenticate directly with the studio cloud registry."
         )
         info_note.setObjectName("InfoNote")
         info_note.setWordWrap(True)

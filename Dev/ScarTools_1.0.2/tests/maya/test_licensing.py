@@ -46,6 +46,7 @@ from scartools.licensing import (
 class TestLicensing(unittest.TestCase):
 
     def setUp(self):
+        revoke_license()
         self.test_dir = tempfile.mkdtemp()
         self.original_home = os.environ.get("USERPROFILE") or os.environ.get("HOME")
         if "USERPROFILE" in os.environ:
@@ -54,6 +55,7 @@ class TestLicensing(unittest.TestCase):
             os.environ["HOME"] = self.test_dir
 
     def tearDown(self):
+        revoke_license()
         if self.original_home:
             if "USERPROFILE" in os.environ:
                 os.environ["USERPROFILE"] = self.original_home
@@ -175,17 +177,9 @@ class TestLicensing(unittest.TestCase):
         key = generate_license_key(user_id=user_id, hardware_id=hwid, days_valid=30)
         save_license(user_id, key)
 
-        # Manually alter the activation timestamp to simulate system clock being set backwards in time
-        lic_file = self.test_dir + "/.scartools_license.json"
-        with open(lic_file, "r") as f:
-            data = json.load(f)
-        data["activated_at_epoch"] = int(time.time()) + 100000  # Set future activation date
-        with open(lic_file, "w") as f:
-            json.dump(data, f)
-
-        is_valid, msg, _ = get_installed_license()
-        self.assertFalse(is_valid)
-        self.assertIn("clock", msg.lower())
+        # In pure cloud mode, no local license file is created on disk
+        lic_file = os.path.join(self.test_dir, ".scartools_license.json")
+        self.assertFalse(os.path.isfile(lic_file))
 
     def test_tool_controller_blocks_when_unlicensed(self):
         from scartools.framework.controller import ToolController
@@ -263,12 +257,12 @@ class TestLicensing(unittest.TestCase):
                 }], fp)
 
             # Verification must now FAIL with revoked status
-            is_valid, msg, details = get_installed_license()
+            is_valid, msg, details = get_installed_license(force_check=True)
             self.assertFalse(is_valid)
             self.assertTrue(details.get("revoked", False))
             self.assertIn("revoked", msg.lower())
 
-            # 3. Local token must be auto-purged
+            # 3. In-memory token must be deactivated
             self.assertFalse(is_activated())
 
             # 4. Reinstate back to Active in central registry
@@ -323,27 +317,17 @@ class TestLicensing(unittest.TestCase):
         finally:
             os.environ.pop("SCARTOOLS_LICENSE_REGISTRY", None)
 
-    def test_15_day_offline_heartbeat_expiration(self):
-        user_id = "heartbeat_user"
+    def test_zero_disk_footprint(self):
+        """Verify that pure cloud licensing NEVER writes .scartools_license.json to disk."""
+        user_id = "cloud_artist"
         hwid = get_machine_hardware_id()
         key = generate_license_key(user_id, hwid)
+
         save_license(user_id, key)
         self.assertTrue(is_activated())
 
-        # Simulate 16 days offline (last sync 16 days ago)
         lic_file = os.path.join(self.test_dir, ".scartools_license.json")
-        with open(lic_file, "r") as f:
-            data = json.load(f)
-        data["last_online_sync"] = int(time.time()) - (16 * 86400)
-        data["activated_at_epoch"] = int(time.time()) - (20 * 86400)
-        with open(lic_file, "w") as f:
-            json.dump(data, f)
-
-        # Must fail and trigger wipe due to offline heartbeat limit
-        is_valid, msg, details = get_installed_license(force_check=True)
-        self.assertFalse(is_valid)
-        self.assertTrue(details.get("heartbeat_expired", False))
-        self.assertIn("heartbeat", msg.lower())
+        self.assertFalse(os.path.isfile(lic_file))
 
     def test_expiration_is_soft_disable_without_file_wipe(self):
         """Verify that license expiration cleanly disables access but NEVER triggers a file wipe."""
@@ -366,7 +350,7 @@ class TestLicensing(unittest.TestCase):
         self.assertNotEqual(details.get("action"), "delete")
 
     def test_zero_touch_cloud_discovery(self):
-        """Verify that a user without a local license file automatically activates from cloud registry."""
+        """Verify that a user without local file automatically activates directly from cloud registry."""
         import getpass
         current_user = getpass.getuser()
         hwid = get_machine_hardware_id()
@@ -389,11 +373,11 @@ class TestLicensing(unittest.TestCase):
             if os.path.isfile(lic_file):
                 os.remove(lic_file)
 
-            # get_installed_license should autonomously discover cloud license and activate!
+            # get_installed_license should discover cloud license and activate in RAM with NO disk files!
             is_valid, msg, details = get_installed_license(force_check=True)
             self.assertTrue(is_valid, msg)
             self.assertEqual(details.get("user_id"), current_user)
-            self.assertTrue(os.path.isfile(lic_file))
+            self.assertFalse(os.path.isfile(lic_file))
         finally:
             os.environ.pop("SCARTOOLS_LICENSE_REGISTRY", None)
 

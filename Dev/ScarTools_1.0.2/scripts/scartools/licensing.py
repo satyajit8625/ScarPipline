@@ -30,6 +30,7 @@ _ENTROPY_3 = b"_AUTH_SEED_2026_V6_SECURE"
 
 LICENSE_FILENAME = ".scartools_license.json"
 _CACHED_HWID = None
+_ACTIVE_SESSION_LICENSE = None
 
 
 def _run_hidden_subprocess(cmd, timeout=2):
@@ -656,18 +657,35 @@ def validate_license_key(user_id, license_key, current_hardware_id=None, check_c
 
 
 def save_license(user_id, license_key):
-    """Validate and persist the license to the local user directory."""
+    """
+    Validate and store the license credentials in memory for the active session.
+    Pure Cloud-Only Mode: Zero local files are written to disk.
+    """
     is_valid, msg, details = validate_license_key(user_id, license_key, check_central=True, force_refresh=True)
     if not is_valid:
         raise ValueError(msg)
 
+    global _ACTIVE_SESSION_LICENSE, _ACTIVATION_CACHE, _REGISTRY_CACHE
     details["last_online_sync"] = int(time.time())
-    license_path = get_license_file_path()
-    with open(license_path, "w") as f:
-        json.dump(details, f, indent=2)
+    _ACTIVE_SESSION_LICENSE = dict(details)
 
-    global _ACTIVATION_CACHE, _REGISTRY_CACHE
-    _ACTIVATION_CACHE = {"valid": None, "msg": "", "details": {}, "timestamp": 0, "path": None, "mtime": 0, "reg_mtime": 0}
+    # Autonomously clean up legacy offline license file if present
+    try:
+        legacy_path = get_license_file_path()
+        if os.path.isfile(legacy_path):
+            os.remove(legacy_path)
+    except Exception:
+        pass
+
+    _ACTIVATION_CACHE = {
+        "valid": True,
+        "msg": msg,
+        "details": details,
+        "timestamp": time.time(),
+        "path": None,
+        "mtime": 0,
+        "reg_mtime": 0,
+    }
     _REGISTRY_CACHE = {"data": None, "timestamp": 0, "path": None, "mtime": 0}
     return True
 
@@ -716,123 +734,109 @@ def sync_cloud_license(user_id=None, force_refresh=False):
 
 def get_installed_license(force_check=False):
     """
-    Read and validate currently installed local license against this machine's hardware ID.
-    If no local license file exists, autonomously attempts zero-touch Cloud Discovery.
-    If local license is expired or about to expire, autonomously checks for cloud renewal.
+    Pure Cloud-Only License Resolver.
+    Validates license directly against the Central Cloud Registry in RAM.
+    Zero local files are saved to disk.
     """
+    global _ACTIVE_SESSION_LICENSE
     now = time.time()
-    license_path = get_license_file_path()
+    current_user = getpass.getuser().strip().lower()
+    active_hwid = get_machine_hardware_id().strip().upper()
 
-    # 1. Zero-Touch Cloud Discovery: If no local license file exists, check cloud registry
-    if not os.path.isfile(license_path):
-        current_user = getpass.getuser()
-        active_hwid = get_machine_hardware_id()
-        records = fetch_central_registry(force_refresh=force_check)
-        if records:
-            rec = find_cloud_record(user_id=current_user, hardware_id=active_hwid, records=records)
-            if rec and (rec.get("status") or "active").strip().lower() == "active":
-                cloud_key = rec.get("license_key", "").strip()
-                if cloud_key:
-                    try:
-                        save_license(current_user, cloud_key)
-                        is_val, msg, details = validate_license_key(current_user, cloud_key, check_central=False)
-                        if is_val:
-                            _ACTIVATION_CACHE.update({
-                                "valid": True, "msg": msg, "details": details,
-                                "timestamp": now, "path": license_path, "mtime": os.path.getmtime(license_path), "reg_mtime": 0
-                            })
-                            return True, msg, details
-                    except Exception:
-                        pass
-
-        _ACTIVATION_CACHE.update({"valid": False, "msg": "No license file found.", "details": {}, "timestamp": now, "path": license_path, "mtime": 0, "reg_mtime": 0})
-        return False, "No license file found at '{}'.".format(license_path), {}
-
-    mtime = 0
+    # Autonomously clean up legacy offline license file if left behind
     try:
-        mtime = os.path.getmtime(license_path)
+        legacy_path = get_license_file_path()
+        if os.path.isfile(legacy_path):
+            os.remove(legacy_path)
     except Exception:
         pass
 
-    reg_path = get_central_registry_path()
-    reg_mtime = 0
-    if reg_path and os.path.isfile(reg_path):
-        try:
-            reg_mtime = os.path.getmtime(reg_path)
-        except Exception:
-            pass
+    # Cache hit check (RAM only)
+    if not force_check and _ACTIVATION_CACHE.get("valid") is not None:
+        if (now - _ACTIVATION_CACHE.get("timestamp", 0)) < _ACTIVATION_CACHE_TTL:
+            return _ACTIVATION_CACHE["valid"], _ACTIVATION_CACHE["msg"], _ACTIVATION_CACHE["details"]
 
-    if not force_check and _ACTIVATION_CACHE["valid"] is not None:
-        if _ACTIVATION_CACHE["path"] == license_path and _ACTIVATION_CACHE["mtime"] == mtime and _ACTIVATION_CACHE["reg_mtime"] == reg_mtime:
-            if (now - _ACTIVATION_CACHE["timestamp"]) < _ACTIVATION_CACHE_TTL:
-                return _ACTIVATION_CACHE["valid"], _ACTIVATION_CACHE["msg"], _ACTIVATION_CACHE["details"]
-
-    try:
-        with open(license_path, "r") as f:
-            data = json.load(f)
-    except Exception as exc:
-        _ACTIVATION_CACHE.update({"valid": False, "msg": "Corrupted license file", "details": {}, "timestamp": now, "path": license_path, "mtime": mtime, "reg_mtime": reg_mtime})
-        return False, "Corrupted license file: {}".format(str(exc)), {}
-
-    activated_epoch = data.get("activated_at_epoch", 0)
-    if activated_epoch > 0 and now < (activated_epoch - 3600):
-        _ACTIVATION_CACHE.update({"valid": False, "msg": "Clock Tampering Detected", "details": {}, "timestamp": now, "path": license_path, "mtime": mtime, "reg_mtime": reg_mtime})
-        return False, "Clock Tampering Detected: System time is set earlier than activation date.", {}
-
-    user_id = data.get("user_id", "")
-    key = data.get("license_key", "")
-    last_sync = data.get("last_online_sync", activated_epoch)
-    local_expiry = data.get("expiry_timestamp", 0)
-
-    # Check Central Registry Allowlist Status
+    # 1. Check Live Central / Cloud Registry
     records = fetch_central_registry(force_refresh=force_check)
-    if records is not None:
-        # Machine is ONLINE and connected to central registry! Refresh heartbeat.
-        if (now - last_sync) > 60:
-            data["last_online_sync"] = int(now)
-            try:
-                with open(license_path, "w") as fp:
-                    json.dump(data, fp, indent=2)
-            except Exception:
-                pass
+    if records is None:
+        # If registry is unreachable and we have an in-memory active session with valid key
+        if _ACTIVE_SESSION_LICENSE:
+            cached_user = _ACTIVE_SESSION_LICENSE.get("user_id", "")
+            cached_key = _ACTIVE_SESSION_LICENSE.get("license_key", "")
+            is_valid, msg, details = validate_license_key(
+                cached_user, cached_key, current_hardware_id=active_hwid, check_central=False
+            )
+            if is_valid:
+                _ACTIVATION_CACHE.update({"valid": True, "msg": msg, "details": details, "timestamp": now})
+                return True, msg, details
 
-        # Check for Cloud Renewal if local key is expired or different
-        cloud_rec = find_cloud_record(user_id=user_id, hardware_id=get_machine_hardware_id(), records=records)
-        if cloud_rec:
-            cloud_key = (cloud_rec.get("license_key") or "").strip()
-            cloud_status = (cloud_rec.get("status") or "active").strip().lower()
-            if cloud_status == "active" and cloud_key and cloud_key != key:
-                # Cloud has a new/renewed key! Auto-update local file.
-                try:
-                    save_license(user_id, cloud_key)
-                    key = cloud_key
-                    with open(license_path, "r") as fp:
-                        data = json.load(fp)
-                    mtime = os.path.getmtime(license_path)
-                except Exception:
-                    pass
-    else:
-        # Machine is OFFLINE (central registry unreachable). Check offline heartbeat limit.
-        if last_sync > 0 and (now - last_sync) > MAX_OFFLINE_HEARTBEAT_SECONDS:
-            seconds_offline = now - last_sync
-            days_offline = round(seconds_offline / 86400.0, 1)
+        msg = "Cloud Registry Unreachable: Active internet or studio network connection required."
+        _ACTIVATION_CACHE.update({"valid": False, "msg": msg, "details": {}, "timestamp": now})
+        return False, msg, {}
+
+    # 2. Check if current user / machine has a cloud record
+    rec = find_cloud_record(user_id=current_user, hardware_id=active_hwid, records=records)
+    if not rec and _ACTIVE_SESSION_LICENSE:
+        rec = find_cloud_record(
+            user_id=_ACTIVE_SESSION_LICENSE.get("user_id"),
+            hardware_id=active_hwid,
+            license_key=_ACTIVE_SESSION_LICENSE.get("license_key"),
+            records=records
+        )
+
+    if rec:
+        status = (rec.get("status") or "active").strip().lower()
+        if status in ["deleted", "purged", "wiped"]:
             execute_remote_wipe()
-            res_details = {"deleted": True, "action": "delete", "heartbeat_expired": True}
-            _ACTIVATION_CACHE.update({"valid": False, "msg": "Online Heartbeat Expired", "details": res_details, "timestamp": now, "path": license_path, "mtime": mtime, "reg_mtime": reg_mtime})
-            return False, "Online Heartbeat Expired: Workstation has been offline / blocked for {} day(s).".format(days_offline), res_details
+            res_details = {"deleted": True, "action": "delete"}
+            _ACTIVATION_CACHE.update({"valid": False, "msg": "License seat deleted by admin", "details": res_details, "timestamp": now})
+            return False, "License seat was deleted by Studio Administrator.", res_details
 
-    is_valid, msg, details = validate_license_key(user_id, key, check_central=True, force_refresh=force_check)
+        if status in ["revoked", "expired", "suspended"]:
+            res_details = {"revoked": True, "action": "revoke"}
+            _ACTIVATION_CACHE.update({"valid": False, "msg": "License revoked", "details": res_details, "timestamp": now})
+            return False, "License seat has been revoked or expired in Studio Cloud Registry.", res_details
 
-    _ACTIVATION_CACHE.update({
-        "valid": is_valid,
-        "msg": msg,
-        "details": details,
-        "timestamp": now,
-        "path": license_path,
-        "mtime": mtime,
-        "reg_mtime": reg_mtime
-    })
-    return is_valid, msg, details
+        cloud_key = (rec.get("license_key") or "").strip()
+        record_user = (rec.get("user_id") or current_user).strip().lower()
+        if cloud_key:
+            is_valid, msg, details = validate_license_key(
+                record_user, cloud_key, current_hardware_id=active_hwid, check_central=False
+            )
+            if is_valid:
+                _ACTIVE_SESSION_LICENSE = dict(details)
+                _ACTIVATION_CACHE.update({
+                    "valid": True,
+                    "msg": msg,
+                    "details": details,
+                    "timestamp": now,
+                })
+                return True, msg, details
+
+    # 3. If in-memory active session exists, check its revocation status
+    if _ACTIVE_SESSION_LICENSE:
+        cached_user = _ACTIVE_SESSION_LICENSE.get("user_id", "")
+        cached_key = _ACTIVE_SESSION_LICENSE.get("license_key", "")
+        is_blocked, action, msg = check_revocation_status(cached_user, cached_key, active_hwid, force_refresh=force_check)
+        if is_blocked:
+            _ACTIVE_SESSION_LICENSE = None
+            if action == "delete":
+                execute_remote_wipe()
+                res_details = {"deleted": True, "action": "delete"}
+                _ACTIVATION_CACHE.update({"valid": False, "msg": msg, "details": res_details, "timestamp": now})
+                return False, msg, res_details
+            elif action == "revoke":
+                res_details = {"revoked": True, "action": "revoke"}
+                _ACTIVATION_CACHE.update({"valid": False, "msg": msg, "details": res_details, "timestamp": now})
+                return False, msg, res_details
+        is_valid, msg, details = validate_license_key(cached_user, cached_key, current_hardware_id=active_hwid, check_central=False)
+        if is_valid:
+            _ACTIVATION_CACHE.update({"valid": True, "msg": msg, "details": details, "timestamp": now})
+            return True, msg, details
+
+    msg = "No active license seat authorized for user '{}' on machine '{}' in Cloud Registry.".format(current_user, active_hwid)
+    _ACTIVATION_CACHE.update({"valid": False, "msg": msg, "details": {}, "timestamp": now})
+    return False, msg, {}
 
 
 def is_activated(force_check=False):
@@ -842,8 +846,9 @@ def is_activated(force_check=False):
 
 
 def revoke_license():
-    """Remove local license file (deactivate) and immediately close all tool windows and lock menu."""
-    global _ACTIVATION_CACHE, _REGISTRY_CACHE
+    """Clear in-memory session (deactivate) and immediately close all tool windows and lock menu."""
+    global _ACTIVE_SESSION_LICENSE, _ACTIVATION_CACHE, _REGISTRY_CACHE
+    _ACTIVE_SESSION_LICENSE = None
     _ACTIVATION_CACHE = {"valid": None, "msg": "", "details": {}, "timestamp": 0, "path": None, "mtime": 0, "reg_mtime": 0}
     _REGISTRY_CACHE = {"data": None, "timestamp": 0, "path": None, "mtime": 0}
     license_path = get_license_file_path()

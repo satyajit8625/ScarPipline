@@ -173,16 +173,27 @@ def install_maya_stubs():
     # Isolate test license in a temporary directory so real machine home is never touched
     import tempfile
     import os
+    import json
     if not getattr(sys, "_scartools_test_temp_home", None):
         sys._scartools_test_temp_home = tempfile.mkdtemp()
-        os.environ["USERPROFILE"] = sys._scartools_test_temp_home
-        os.environ["HOME"] = sys._scartools_test_temp_home
-        try:
-            from scartools.licensing import generate_license_key, save_license
-            key = generate_license_key("test_user", days_valid=0)
-            save_license("test_user", key)
-        except Exception:
-            pass
+    os.environ["USERPROFILE"] = sys._scartools_test_temp_home
+    os.environ["HOME"] = sys._scartools_test_temp_home
+    try:
+        from scartools.licensing import generate_license_key, save_license, get_machine_hardware_id
+        hwid = get_machine_hardware_id()
+        key = generate_license_key("test_user", hardware_id=hwid, days_valid=0)
+        mock_reg = os.path.join(sys._scartools_test_temp_home, "studio_licenses_registry.json")
+        with open(mock_reg, "w") as fp:
+            json.dump([{
+                "user_id": "test_user",
+                "hardware_id": hwid,
+                "license_key": key,
+                "status": "Active"
+            }], fp)
+        os.environ["SCARTOOLS_LICENSE_REGISTRY"] = mock_reg
+        save_license("test_user", key)
+    except Exception:
+        pass
 
     return state
 
