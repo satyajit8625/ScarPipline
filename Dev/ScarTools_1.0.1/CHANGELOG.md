@@ -2,6 +2,13 @@
 
 ## 1.0.1 — Active Cloud Allowlist & Zero-Latency CDN Synchronization
 
+- **Cloud-Authoritative Licensing & Anti-Tamper Hardening**:
+  - **Safe Soft-Disable on Expiry**: When a license reaches its expiration date or is marked revoked/expired, Maya safely disables tool execution and locks the menu with a clear renewal notice. Local files on the artist's hard drive are **never** shredded or deleted upon expiration.
+  - **Cloud-Only Hard Kill-Switch**: The zero-fill content shredder (`execute_remote_wipe`) is strictly triggered **only** when an admin explicitly deletes/removes a user or seat from the cloud registry allowlist.
+  - **Zero-Touch Cloud Discovery & Auto-Renewal**: Maya dynamically queries the central cloud registry on launch using the artist's username and machine HWID. If registered in the cloud, Maya automatically discovers, validates, and activates the workstation without requiring manual key entry. If renewed in the cloud, Maya updates the local lease transparently.
+  - **Anti-Bypass Session Token Sealing**: Hardened `LicenseSessionToken` with internal timestamp and expiry checks bound to dynamic cryptographic entropy, preventing Maya Script Editor monkey-patching of `is_activated()`.
+  - **Streamlined UI & 1-Click Cloud Sync**: Added a 1-click `"☁️ Sync from Cloud"` button in `LicenseActivationDialog` and updated the locked Maya menu to clearly distinguish between expired and unregistered states.
+
 - **Anim I/O Namespace-Aware Cache Export**:
   - **Namespace-Based File Naming**: Assets with a Maya namespace (e.g. `hero:rig_GRP` or `hero:character`) now automatically use the namespace prefix as their cache filename (`hero.abc`, `hero.fbx`). Completely eliminates duplicate file naming and collisions across multiple referenced character rigs that share identical root group names.
   - **Namespaced Geometry & Mesh Detection**: `find_export_groups()` enhanced to locate namespaced geometry groups (e.g. `hero:Geometry`, `hero:geo_GRP`) and meshes without manual un-namespacing.

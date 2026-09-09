@@ -41,6 +41,8 @@ from .licensing import (
     is_activated,
     save_license,
     revoke_license,
+    sync_cloud_license,
+    find_cloud_record,
     get_machine_hardware_id,
 )
 
@@ -118,5 +120,7 @@ __all__ = [
     "is_activated",
     "save_license",
     "revoke_license",
+    "sync_cloud_license",
+    "find_cloud_record",
     "get_machine_hardware_id",
 ]

@@ -252,16 +252,18 @@ def register_menu(icon=None):
 
     has_license, lic_msg, lic_details = get_installed_license()
     if not has_license:
-        # Build locked menu with activation prompt
+        # Build locked menu with activation prompt (Soft-Lock)
         root_menu = cmds.menu(MENU_NAME, **_menu_kwargs(icon))
+        is_expired = lic_details.get("expired", False)
+        lock_label = "⚠️ License Expired (Click to Renew)" if is_expired else "⚠️ License Not Activated"
         cmds.menuItem(
-            label="⚠️ License Not Activated",
+            label=lock_label,
             enable=False,
             parent=root_menu,
         )
         cmds.menuItem(
-            label="Activate Studio License...",
-            annotation="Activate ScarTools with your Artist User ID and License Key.",
+            label="Activate / Renew Studio License...",
+            annotation="Activate ScarTools or sync your license seat with the cloud registry.",
             command=lambda *_: _show_license_activation_dialog(),
             parent=root_menu,
         )

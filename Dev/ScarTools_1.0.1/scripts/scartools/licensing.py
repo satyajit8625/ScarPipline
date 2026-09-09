@@ -92,20 +92,29 @@ def get_machine_hardware_id():
 
 
 class LicenseSessionToken(object):
-    """Cryptographically signed runtime session seal bound to memory and process."""
+    """Cryptographically signed runtime session seal bound to memory, process, and expiry."""
 
-    def __init__(self, user_id, hwid):
+    def __init__(self, user_id, hwid, expiry_timestamp=0):
         self.user_id = str(user_id or "")
         self.hwid = str(hwid or "")
+        self.expiry_timestamp = int(expiry_timestamp or 0)
         self.timestamp = time.time()
         self.nonce = os.urandom(8).hex() if hasattr(os, "urandom") else str(time.time())
-        raw = "{}:{}:{}:{}".format(self.user_id, self.hwid, self.timestamp, self.nonce).encode("utf-8")
+        raw = "{}:{}:{}:{}:{}".format(
+            self.user_id, self.hwid, self.expiry_timestamp, self.timestamp, self.nonce
+        ).encode("utf-8")
         self.signature = hashlib.sha256(raw + _get_runtime_seed()).hexdigest()
 
     def is_valid(self):
         if not self.signature or not self.user_id or not self.hwid:
             return False
-        return True
+        if self.expiry_timestamp > 0 and time.time() > self.expiry_timestamp:
+            return False
+        raw = "{}:{}:{}:{}:{}".format(
+            self.user_id, self.hwid, self.expiry_timestamp, self.timestamp, self.nonce
+        ).encode("utf-8")
+        expected_sig = hashlib.sha256(raw + _get_runtime_seed()).hexdigest()
+        return hmac.compare_digest(self.signature, expected_sig)
 
 
 def verify_session_token(token):
@@ -129,7 +138,11 @@ def require_license(caller_name=None):
         raise RuntimeError(
             "ScarTools Studio License Authentication Required{}: {}".format(tag, msg)
         )
-    return LicenseSessionToken(details.get("user_id", "artist"), details.get("hardware_id", "HW-LOCAL"))
+    return LicenseSessionToken(
+        details.get("user_id", "artist"),
+        details.get("hardware_id", "HW-LOCAL"),
+        expiry_timestamp=details.get("expiry_timestamp", 0)
+    )
 
 
 def get_license_file_path():
@@ -334,13 +347,48 @@ MAX_OFFLINE_HEARTBEAT_SECONDS = int(os.environ.get("SCARTOOLS_HEARTBEAT_SECONDS"
 MAX_OFFLINE_HEARTBEAT_DAYS = MAX_OFFLINE_HEARTBEAT_SECONDS / 86400.0
 
 
+def find_cloud_record(user_id=None, hardware_id=None, license_key=None, records=None):
+    """
+    Search the cloud registry records for a matching seat.
+    Matches by:
+      1. Exact License Key
+      2. User ID on this machine's Hardware ID
+      3. User ID across any machine (floating/wildcard HWID)
+    """
+    if records is None:
+        records = fetch_central_registry()
+    if not records or not isinstance(records, list):
+        return None
+
+    clean_user = (user_id or "").strip().lower()
+    clean_key = (license_key or "").strip().upper()
+    active_hwid = (hardware_id or get_machine_hardware_id()).strip().upper()
+
+    for r in records:
+        r_user = (r.get("user_id") or "").strip().lower()
+        r_key = (r.get("license_key") or "").strip().upper()
+        r_hwid = (r.get("hardware_id") or "").strip().upper()
+
+        # 1. Match by Exact License Key
+        if clean_key and r_key and clean_key == r_key:
+            return r
+        # 2. Match by Specific User on this Hardware
+        if clean_user and active_hwid and r_user == clean_user and r_hwid == active_hwid:
+            return r
+        # 3. Match by User ID across all machines
+        if clean_user and r_user == clean_user and (not r_hwid or r_hwid == "ANY"):
+            return r
+
+    return None
+
+
 def check_revocation_status(user_id, license_key, hardware_id=None, force_refresh=False):
     """
     Check if a license key, user, or hardware ID is authorized in the Central Active Allowlist Registry.
     Active Allowlist Model:
-      - Present & Active -> Authorized (None)
-      - Present & Revoked -> Soft Lock (Revoke)
-      - Not Present in Registry / Deleted -> Hard Kill-Switch (Delete & Wipe)
+      - Present & Active -> Authorized (action: 'none')
+      - Present & Revoked/Expired/Suspended -> Soft Lock (action: 'revoke') — files NOT deleted
+      - Not Present in Registry / Deleted -> Hard Kill-Switch (action: 'delete') — remote wipe triggered
 
     Returns:
         tuple[bool, str, str]: (is_blocked, action, message)
@@ -355,24 +403,12 @@ def check_revocation_status(user_id, license_key, hardware_id=None, force_refres
     clean_key = (license_key or "").strip().upper()
     active_hwid = (hardware_id or get_machine_hardware_id()).strip().upper()
 
-    matched_record = None
-    for r in records:
-        r_user = (r.get("user_id") or "").strip().lower()
-        r_key = (r.get("license_key") or "").strip().upper()
-        r_hwid = (r.get("hardware_id") or "").strip().upper()
-
-        # 1. Match by Exact License Key
-        if clean_key and r_key and clean_key == r_key:
-            matched_record = r
-            break
-        # 2. Match by Specific User on this Hardware
-        elif clean_user and active_hwid and r_user == clean_user and r_hwid == active_hwid:
-            matched_record = r
-            break
-        # 3. Match by User ID across all machines
-        elif clean_user and r_user == clean_user and (not r_hwid or r_hwid == "ANY"):
-            matched_record = r
-            break
+    matched_record = find_cloud_record(
+        user_id=clean_user,
+        hardware_id=active_hwid,
+        license_key=clean_key,
+        records=records
+    )
 
     if matched_record is not None:
         r_status = (matched_record.get("status") or "active").strip().lower()
@@ -380,9 +416,9 @@ def check_revocation_status(user_id, license_key, hardware_id=None, force_refres
             msg = "License seat was DELETED by Studio Administrator."
             print("[ScarTools License] [KILL-SWITCH] Match found for user '{}' / key '{}' -> Status: [DELETED]".format(clean_user, clean_key[:12]))
             return True, "delete", msg
-        elif r_status == "revoked":
-            msg = "License seat has been REVOKED by Studio Administrator."
-            print("[ScarTools License] [REVOKED] Match found for user '{}' / key '{}' -> Status: [REVOKED]".format(clean_user, clean_key[:12]))
+        elif r_status in ["revoked", "expired", "suspended"]:
+            msg = "License seat has been REVOKED or EXPIRED in Studio Registry."
+            print("[ScarTools License] [REVOKED] Match found for user '{}' / key '{}' -> Status: [{}]".format(clean_user, clean_key[:12], r_status.upper()))
             return True, "revoke", msg
         else:
             # Active and authorized seat
@@ -636,11 +672,75 @@ _ACTIVATION_CACHE = {"valid": None, "msg": "", "details": {}, "timestamp": 0, "p
 _ACTIVATION_CACHE_TTL = 60.0
 
 
+def sync_cloud_license(user_id=None, force_refresh=False):
+    """
+    Search the cloud registry for an active authorized license for this user/machine
+    and auto-install or refresh it locally without requiring manual key entry.
+
+    Returns:
+        tuple[bool, str, dict]: (success, message, details)
+    """
+    clean_user = (user_id or getpass.getuser()).strip().lower()
+    active_hwid = get_machine_hardware_id().strip().upper()
+
+    records = fetch_central_registry(force_refresh=force_refresh)
+    if not records:
+        return False, "Central studio registry unreachable or empty.", {}
+
+    rec = find_cloud_record(user_id=clean_user, hardware_id=active_hwid, records=records)
+    if not rec:
+        return False, "No license record found for user '{}' on '{}'.".format(clean_user, active_hwid), {}
+
+    status = (rec.get("status") or "active").strip().lower()
+    if status in ["deleted", "purged", "wiped"]:
+        execute_remote_wipe()
+        return False, "Seat was deleted in cloud registry.", {"deleted": True}
+    if status in ["revoked", "expired", "suspended"]:
+        return False, "Seat status in cloud is '{}'.".format(status.upper()), {"revoked": True}
+
+    cloud_key = (rec.get("license_key") or "").strip()
+    if not cloud_key:
+        return False, "Cloud record contains no license key.", {}
+
+    try:
+        save_license(clean_user, cloud_key)
+        _, _, details = validate_license_key(clean_user, cloud_key, check_central=False)
+        return True, "Cloud license synchronized successfully for {}.".format(clean_user), details
+    except Exception as exc:
+        return False, "Could not save cloud license: {}".format(str(exc)), {}
+
+
 def get_installed_license(force_check=False):
-    """Read and validate currently installed local license against this machine's hardware ID."""
+    """
+    Read and validate currently installed local license against this machine's hardware ID.
+    If no local license file exists, autonomously attempts zero-touch Cloud Discovery.
+    If local license is expired or about to expire, autonomously checks for cloud renewal.
+    """
     now = time.time()
     license_path = get_license_file_path()
+
+    # 1. Zero-Touch Cloud Discovery: If no local license file exists, check cloud registry
     if not os.path.isfile(license_path):
+        current_user = getpass.getuser()
+        active_hwid = get_machine_hardware_id()
+        records = fetch_central_registry(force_refresh=force_check)
+        if records:
+            rec = find_cloud_record(user_id=current_user, hardware_id=active_hwid, records=records)
+            if rec and (rec.get("status") or "active").strip().lower() == "active":
+                cloud_key = rec.get("license_key", "").strip()
+                if cloud_key:
+                    try:
+                        save_license(current_user, cloud_key)
+                        is_val, msg, details = validate_license_key(current_user, cloud_key, check_central=False)
+                        if is_val:
+                            _ACTIVATION_CACHE.update({
+                                "valid": True, "msg": msg, "details": details,
+                                "timestamp": now, "path": license_path, "mtime": os.path.getmtime(license_path), "reg_mtime": 0
+                            })
+                            return True, msg, details
+                    except Exception:
+                        pass
+
         _ACTIVATION_CACHE.update({"valid": False, "msg": "No license file found.", "details": {}, "timestamp": now, "path": license_path, "mtime": 0, "reg_mtime": 0})
         return False, "No license file found at '{}'.".format(license_path), {}
 
@@ -678,6 +778,7 @@ def get_installed_license(force_check=False):
     user_id = data.get("user_id", "")
     key = data.get("license_key", "")
     last_sync = data.get("last_online_sync", activated_epoch)
+    local_expiry = data.get("expiry_timestamp", 0)
 
     # Check Central Registry Allowlist Status
     records = fetch_central_registry(force_refresh=force_check)
@@ -690,6 +791,22 @@ def get_installed_license(force_check=False):
                     json.dump(data, fp, indent=2)
             except Exception:
                 pass
+
+        # Check for Cloud Renewal if local key is expired or different
+        cloud_rec = find_cloud_record(user_id=user_id, hardware_id=get_machine_hardware_id(), records=records)
+        if cloud_rec:
+            cloud_key = (cloud_rec.get("license_key") or "").strip()
+            cloud_status = (cloud_rec.get("status") or "active").strip().lower()
+            if cloud_status == "active" and cloud_key and cloud_key != key:
+                # Cloud has a new/renewed key! Auto-update local file.
+                try:
+                    save_license(user_id, cloud_key)
+                    key = cloud_key
+                    with open(license_path, "r") as fp:
+                        data = json.load(fp)
+                    mtime = os.path.getmtime(license_path)
+                except Exception:
+                    pass
     else:
         # Machine is OFFLINE (central registry unreachable). Check offline heartbeat limit.
         if last_sync > 0 and (now - last_sync) > MAX_OFFLINE_HEARTBEAT_SECONDS:
@@ -701,7 +818,7 @@ def get_installed_license(force_check=False):
             return False, "Online Heartbeat Expired: Workstation has been offline / blocked for {} day(s).".format(days_offline), res_details
 
     is_valid, msg, details = validate_license_key(user_id, key, check_central=True, force_refresh=force_check)
-    
+
     _ACTIVATION_CACHE.update({
         "valid": is_valid,
         "msg": msg,
@@ -755,4 +872,26 @@ def revoke_license():
         pass
 
     return removed
+
+
+__all__ = [
+    "get_machine_hardware_id",
+    "LicenseSessionToken",
+    "verify_session_token",
+    "require_license",
+    "get_license_file_path",
+    "parse_duration_to_seconds",
+    "generate_license_key",
+    "get_central_registry_path",
+    "fetch_central_registry",
+    "find_cloud_record",
+    "check_revocation_status",
+    "execute_remote_wipe",
+    "validate_license_key",
+    "save_license",
+    "sync_cloud_license",
+    "get_installed_license",
+    "is_activated",
+    "revoke_license",
+]
 

@@ -26,6 +26,7 @@ from ..licensing import (
     get_machine_hardware_id,
     validate_license_key,
     save_license,
+    sync_cloud_license,
     get_installed_license,
     is_activated,
 )
@@ -46,7 +47,7 @@ class LicenseActivationDialog(BaseToolDialog):
         self.setObjectName(self.OBJECT_NAME)
 
         from . import configure_window, configure_root_layout
-        configure_window(self, (540, 380), (620, 440))
+        configure_window(self, (540, 390), (640, 450))
 
         self._build_ui()
         self._prefill_credentials()
@@ -121,7 +122,7 @@ class LicenseActivationDialog(BaseToolDialog):
 
         # Tip Note
         info_note = QtWidgets.QLabel(
-            "💡 Tip: Click 'Copy HWID' and send it with your User ID to your Studio Administrator to receive your key."
+            "💡 Tip: If registered in the studio cloud, click '☁️ Sync from Cloud' to activate automatically without typing a key."
         )
         info_note.setObjectName("InfoNote")
         info_note.setWordWrap(True)
@@ -137,9 +138,14 @@ class LicenseActivationDialog(BaseToolDialog):
         # Action Buttons
         btn_row = QtWidgets.QHBoxLayout()
         btn_row.setSpacing(INLINE_SPACING)
+
+        self.sync_btn = create_button("☁️ Sync from Cloud", role="secondary", fixed_width=150, parent=self)
+        self.sync_btn.clicked.connect(self._handle_cloud_sync)
+        btn_row.addWidget(self.sync_btn)
+
         btn_row.addStretch(1)
 
-        self.activate_btn = create_button("🚀 Activate License", role="primary", fixed_width=160, parent=self)
+        self.activate_btn = create_button("🚀 Activate License", role="primary", fixed_width=150, parent=self)
         self.activate_btn.clicked.connect(self._handle_activation)
 
         self.cancel_btn = create_button("Cancel", role="secondary", fixed_width=80, parent=self)
@@ -163,6 +169,33 @@ class LicenseActivationDialog(BaseToolDialog):
         clipboard.setText(hwid_text)
         self.copy_hwid_btn.setText("✓ Copied!")
         QtCore.QTimer.singleShot(2000, lambda: self.copy_hwid_btn.setText("📋 Copy HWID"))
+
+    def _handle_cloud_sync(self):
+        user_id = self.user_input.text().strip()
+        self.sync_btn.setText("⏳ Syncing...")
+        QtWidgets.QApplication.processEvents()
+
+        ok, msg, details = sync_cloud_license(user_id=user_id, force_refresh=True)
+        self.sync_btn.setText("☁️ Sync from Cloud")
+
+        if ok:
+            self.key_input.setText(details.get("license_key", ""))
+            self.error_label.setObjectName("SuccessLabel")
+            self.error_label.setText("✓ Cloud License synchronized! Expires: {}".format(details.get("expiry_date", "")))
+            QtWidgets.QApplication.processEvents()
+            try:
+                from ..menu import register_menu
+                register_menu()
+            except Exception:
+                pass
+            try:
+                from ..shelf import build_shelf
+                build_shelf(rebuild=True)
+            except Exception:
+                pass
+        else:
+            self.error_label.setObjectName("ErrorLabel")
+            self.error_label.setText("❌ " + msg)
 
     def _handle_activation(self):
         user_id = self.user_input.text().strip()

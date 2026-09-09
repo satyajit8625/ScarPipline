@@ -29,6 +29,8 @@ from scartools.licensing import (
     is_activated,
     revoke_license,
     get_machine_hardware_id,
+    sync_cloud_license,
+    find_cloud_record,
 )
 
 
@@ -334,9 +336,62 @@ class TestLicensing(unittest.TestCase):
         self.assertTrue(details.get("heartbeat_expired", False))
         self.assertIn("heartbeat", msg.lower())
 
+    def test_expiration_is_soft_disable_without_file_wipe(self):
+        """Verify that license expiration cleanly disables access but NEVER triggers a file wipe."""
+        user_id = "expired_user"
+        hwid = get_machine_hardware_id()
+        # Generate an expired key (1 second validity, backdated)
+        key = generate_license_key(user_id, hwid, days_valid=0)
+        # Parse and forge an expired key with an old timestamp
+        parts = key.split("-")
+        old_expiry_hex = "{:08X}".format(int(time.time()) - 3600)
+        from scartools.licensing import _compute_signature
+        new_sig = _compute_signature(user_id, hwid, int(time.time()) - 3600)
+        expired_key = "{}-{}-{}-{}-{}".format(parts[0], parts[1], parts[2], old_expiry_hex, new_sig)
+
+        is_valid, msg, details = validate_license_key(user_id, expired_key, current_hardware_id=hwid, check_central=False)
+        self.assertFalse(is_valid)
+        self.assertTrue(details.get("expired", False))
+        self.assertIn("expired", msg.lower())
+        # Action must NOT be 'delete'
+        self.assertNotEqual(details.get("action"), "delete")
+
+    def test_zero_touch_cloud_discovery(self):
+        """Verify that a user without a local license file automatically activates from cloud registry."""
+        import getpass
+        current_user = getpass.getuser()
+        hwid = get_machine_hardware_id()
+        key = generate_license_key(current_user, hwid, days_valid=30)
+
+        registry_file = os.path.join(self.test_dir, "studio_licenses_registry.json")
+        os.environ["SCARTOOLS_LICENSE_REGISTRY"] = registry_file
+
+        try:
+            with open(registry_file, "w") as fp:
+                json.dump([{
+                    "user_id": current_user,
+                    "hardware_id": hwid,
+                    "license_key": key,
+                    "status": "Active"
+                }], fp)
+
+            # Ensure local license file does NOT exist
+            lic_file = os.path.join(self.test_dir, ".scartools_license.json")
+            if os.path.isfile(lic_file):
+                os.remove(lic_file)
+
+            # get_installed_license should autonomously discover cloud license and activate!
+            is_valid, msg, details = get_installed_license(force_check=True)
+            self.assertTrue(is_valid, msg)
+            self.assertEqual(details.get("user_id"), current_user)
+            self.assertTrue(os.path.isfile(lic_file))
+        finally:
+            os.environ.pop("SCARTOOLS_LICENSE_REGISTRY", None)
+
 
 if __name__ == "__main__":
     unittest.main()
+
 
 
 
