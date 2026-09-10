@@ -14,7 +14,7 @@ MANIFEST = ToolManifest(
     controller_entry_point="scartools.tools.renamer.controller:RenamerController",
     ui_spec_entry_point="scartools.tools.renamer.ui_spec:UI_SPEC",
     annotation="Fast batch node renaming with search/replace, numbering, and department suffix presets.",
-    icon_name="department_pipeline.png",
+    icon_name="tool_renamer.png",
     order=10,
     capabilities=(
         "renamer.rename",

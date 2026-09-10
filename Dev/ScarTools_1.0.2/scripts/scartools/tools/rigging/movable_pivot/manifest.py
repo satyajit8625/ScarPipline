@@ -17,7 +17,7 @@ MANIFEST = ToolManifest(
     controller_entry_point="scartools.tools.rigging.movable_pivot.controller:MovablePivotController",
     ui_spec_entry_point="scartools.tools.rigging.movable_pivot.ui_spec:UI_SPEC",
     annotation="Non-destructive matrix-based pivot editing, alignment, snapping, and preset manager.",
-    icon_name="department_rigging.png",
+    icon_name="tool_movable_pivot.png",
     order=15,
     capabilities=(
         "rigging.pivot.move",

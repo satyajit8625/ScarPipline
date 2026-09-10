@@ -28,7 +28,7 @@ SHELF_TOOLS = [
         "label": "Model Sanitizer",
         "overlay_label": "Model",
         "command": "import scartools.tools.modeling\nscartools.tools.modeling.show()",
-        "icon": "department_modeling.png",
+        "icon": "tool_model_sanitizer.png",
         "annotation": "Preflight QA, topology integrity, transforms, suffixes, and layer sanitization.",
     },
     {
@@ -49,7 +49,7 @@ SHELF_TOOLS = [
         "label": "Generate UDIM",
         "overlay_label": "UDIM",
         "command": "import scartools.tools.udim\nscartools.tools.udim.run_generate_udim()",
-        "icon": "department_texturing.png",
+        "icon": "tool_udim.png",
         "annotation": "1-Click: Automatically format <UDIM> paths, generate hardware tile previews, and reload Viewport 2.0.",
     },
     {
@@ -63,14 +63,14 @@ SHELF_TOOLS = [
         "label": "Pipeline Renamer",
         "overlay_label": "Rename",
         "command": "import scartools.tools.renamer\nscartools.tools.renamer.show_ui()",
-        "icon": "department_pipeline.png",
+        "icon": "tool_renamer.png",
         "annotation": "Fast batch node renaming with search/replace, numbering, and department suffix presets.",
     },
     {
         "label": "Log Viewer",
         "overlay_label": "Logs",
         "command": "import scartools.ui.logs\nscartools.ui.logs.show_global_log()",
-        "icon": "department_pipeline.png",
+        "icon": "tool_log_viewer.png",
         "annotation": "Open the centralized ScarTools Log Viewer with live filter chips and search.",
     },
     {

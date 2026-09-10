@@ -14,7 +14,7 @@ MANIFEST = ToolManifest(
     controller_entry_point="scartools.tools.udim.controller:UDIMController",
     ui_spec_entry_point="scartools.tools.udim.ui_spec:UI_SPEC",
     annotation="1-Click: Automatically format <UDIM> paths, generate hardware tile previews, and reload Viewport 2.0.",
-    icon_name="department_texturing.png",
+    icon_name="tool_udim.png",
     order=20,
 
     capabilities=(

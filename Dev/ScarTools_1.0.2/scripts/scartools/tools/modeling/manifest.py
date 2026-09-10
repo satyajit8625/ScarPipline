@@ -14,7 +14,7 @@ MANIFEST = ToolManifest(
     controller_entry_point="scartools.tools.modeling.controller:ModelSanitizerController",
     ui_spec_entry_point="scartools.tools.modeling.ui_spec:UI_SPEC",
     annotation="Preflight, inspect, and auto-clean mesh topology, transforms, suffixes, layers, and scene clutter.",
-    icon_name="department_modeling.png",
+    icon_name="tool_model_sanitizer.png",
     order=10,
     capabilities=(
         "modeling.inspect",
