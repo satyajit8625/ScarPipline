@@ -17,7 +17,7 @@ MANIFEST = ToolManifest(
     controller_entry_point="scartools.tools.anim_io.controller:AnimIOController",
     ui_spec_entry_point="scartools.tools.anim_io.ui_spec:UI_SPEC",
     annotation="Shot animation packaging, Alembic & FBX cache extraction to studio pipeline folders.",
-    icon_name="department_animation.png",
+    icon_name="tool_anim_export.png",
     order=10,
     capabilities=(
         "anim.export.shot_package",

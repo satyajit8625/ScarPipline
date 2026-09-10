@@ -56,7 +56,7 @@ SHELF_TOOLS = [
         "label": "Anim Export",
         "overlay_label": "Anim",
         "command": "import scartools.tools.anim_io\nscartools.tools.anim_io.show()",
-        "icon": "department_animation.png",
+        "icon": "tool_anim_export.png",
         "annotation": "Shot animation packaging, Alembic & FBX cache extraction to studio pipeline folders.",
     },
     {
