@@ -20,7 +20,14 @@ import sys
 import time
 import uuid
 
-from scartools.version import VERSION
+try:
+    from scartools.version import VERSION
+except ImportError:
+    try:
+        from .version import VERSION
+    except (ImportError, ValueError):
+        from version import VERSION
+
 
 # Multi-layer entropy fragments for dynamic runtime cryptographic sealing
 _ENTROPY_0 = b"SCARFALL"
