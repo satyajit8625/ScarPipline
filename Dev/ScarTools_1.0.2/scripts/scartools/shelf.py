@@ -20,70 +20,96 @@ SHELF_TOOLS = [
     {
         "label": "Skin Tools",
         "overlay_label": "Skin",
-        "command": "import scartools.tools.skin\nscartools.tools.skin.show()",
+        "command": "import scartools.shelf\nscartools.shelf.execute_shelf_tool('scartools.tools.skin', 'show')",
         "icon": "tool_skin_tools.png",
         "annotation": "Multi-mesh skin weight package export, import, copy, and symmetry inspector.",
     },
     {
         "label": "Model Sanitizer",
         "overlay_label": "Model",
-        "command": "import scartools.tools.modeling\nscartools.tools.modeling.show()",
+        "command": "import scartools.shelf\nscartools.shelf.execute_shelf_tool('scartools.tools.modeling', 'show')",
         "icon": "tool_model_sanitizer.png",
         "annotation": "Preflight QA, topology integrity, transforms, suffixes, and layer sanitization.",
     },
     {
         "label": "Shader Tools",
         "overlay_label": "Shader",
-        "command": "import scartools.tools.shader\nscartools.tools.shader.show()",
+        "command": "import scartools.shelf\nscartools.shelf.execute_shelf_tool('scartools.tools.shader', 'show')",
         "icon": "tool_shader_tools.png",
         "annotation": "Shader network export, inspection, variant management, and UDIM repathing.",
     },
     {
         "label": "Character Finalizer",
         "overlay_label": "Rig",
-        "command": "import scartools.tools.character_finalizer\nscartools.tools.character_finalizer.show()",
+        "command": "import scartools.shelf\nscartools.shelf.execute_shelf_tool('scartools.tools.character_finalizer', 'show')",
         "icon": "tool_character_finalizer.png",
         "annotation": "Single-character preflight, build, repair, and rigging validation.",
     },
     {
         "label": "Generate UDIM",
         "overlay_label": "UDIM",
-        "command": "import scartools.tools.udim\nscartools.tools.udim.run_generate_udim()",
+        "command": "import scartools.shelf\nscartools.shelf.execute_shelf_tool('scartools.tools.udim', 'run_generate_udim')",
         "icon": "tool_udim.png",
         "annotation": "1-Click: Automatically format <UDIM> paths, generate hardware tile previews, and reload Viewport 2.0.",
     },
     {
         "label": "Anim Export",
         "overlay_label": "Anim",
-        "command": "import scartools.tools.anim_io\nscartools.tools.anim_io.show()",
+        "command": "import scartools.shelf\nscartools.shelf.execute_shelf_tool('scartools.tools.anim_io', 'show')",
         "icon": "tool_anim_export.png",
         "annotation": "Shot animation packaging, Alembic & FBX cache extraction to studio pipeline folders.",
     },
     {
         "label": "Pipeline Renamer",
         "overlay_label": "Rename",
-        "command": "import scartools.tools.renamer\nscartools.tools.renamer.show_ui()",
+        "command": "import scartools.shelf\nscartools.shelf.execute_shelf_tool('scartools.tools.renamer', 'show_ui')",
         "icon": "tool_renamer.png",
         "annotation": "Fast batch node renaming with search/replace, numbering, and department suffix presets.",
     },
     {
         "label": "Log Viewer",
         "overlay_label": "Logs",
-        "command": "import scartools.ui.logs\nscartools.ui.logs.show_global_log()",
+        "command": "import scartools.shelf\nscartools.shelf.execute_shelf_tool('scartools.ui.logs', 'show_global_log')",
         "icon": "tool_log_viewer.png",
         "annotation": "Open the centralized ScarTools Log Viewer with live filter chips and search.",
     },
     {
         "label": "About ScarTools",
         "overlay_label": "About",
-        "command": "import scartools.ui.window\nscartools.ui.window.show_about_dialog()",
+        "command": "import scartools.shelf\nscartools.shelf.execute_shelf_tool('scartools.ui.window', 'show_about_dialog')",
         "icon": "scarfall_app_icon.png",
         "annotation": "ScarTools version, active Python runtime, and diagnostics.",
     },
-
 ]
 
 
+def execute_shelf_tool(module_name, func_name, *args, **kwargs):
+    """
+    Centralized execution gatekeeper for all ScarTools shelf buttons.
+    Ensures that unactivated or expired licenses cannot launch tools from the shelf.
+    Displays the activation/renewal dialog if unlicensed.
+    """
+    # About dialog is always accessible even if unlicensed for diagnostics
+    if module_name != "scartools.ui.window":
+        try:
+            from .licensing import is_activated
+            if not is_activated():
+                if not cmds.about(batch=True):
+                    try:
+                        from .ui.license_dialog import show_license_dialog
+                        show_license_dialog()
+                    except Exception:
+                        pass
+                else:
+                    cmds.warning("[ScarTools License] Tool launch blocked: Suite license is not activated or has expired.")
+                return None
+        except Exception:
+            pass
+
+    import importlib
+    mod = importlib.import_module(module_name)
+    func = getattr(mod, func_name)
+    return func(*args, **kwargs)
 
 
 def _get_top_shelf():

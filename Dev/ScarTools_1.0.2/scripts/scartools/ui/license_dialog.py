@@ -156,12 +156,15 @@ class LicenseActivationDialog(BaseToolDialog):
         root.addLayout(btn_row)
 
     def _prefill_credentials(self):
-        has_lic, _, details = get_installed_license()
+        has_lic, msg, details = get_installed_license()
         if has_lic and details:
             self.user_input.setText(details.get("user_id", getpass.getuser()))
             self.key_input.setText(details.get("license_key", ""))
             self.error_label.setObjectName("SuccessLabel")
             self.error_label.setText("✓ Active License: {} ({})".format(details.get("user_id"), details.get("expiry_date")))
+        elif details and (details.get("expired") or details.get("revoked")):
+            self.error_label.setObjectName("ErrorLabel")
+            self.error_label.setText("⚠️ " + (msg or "License seat has expired."))
 
     def _copy_hwid(self):
         hwid_text = self.hwid_display.text().strip()

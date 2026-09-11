@@ -394,12 +394,33 @@ def find_cloud_record(user_id=None, hardware_id=None, license_key=None, records=
     return None
 
 
+def parse_expiry_timestamp(expiry_val):
+    """
+    Parse an expiry date string or integer into a UNIX epoch timestamp.
+    Returns:
+        int: UNIX timestamp in seconds, 0 for Perpetual, or None if unparseable / missing.
+    """
+    if not expiry_val:
+        return None
+    if isinstance(expiry_val, (int, float)):
+        return int(expiry_val)
+    val = str(expiry_val).strip()
+    if val.lower().startswith("perpetual"):
+        return 0
+    for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M", "%Y-%m-%d"):
+        try:
+            return int(time.mktime(time.strptime(val, fmt)))
+        except ValueError:
+            pass
+    return None
+
+
 def check_revocation_status(user_id, license_key, hardware_id=None, force_refresh=False):
     """
     Check if a license key, user, or hardware ID is authorized in the Central Active Allowlist Registry.
     Active Allowlist Model:
-      - Present & Active -> Authorized (action: 'none')
-      - Present & Revoked/Expired/Suspended -> Soft Lock (action: 'revoke') — files NOT deleted
+      - Present & Active & Not Expired -> Authorized (action: 'none')
+      - Present & Revoked/Expired/Suspended (or expiry_date in past) -> Soft Lock (action: 'revoke') — files NOT deleted
       - Not Present in Registry / Deleted -> Hard Kill-Switch (action: 'delete') — remote wipe triggered
 
     Returns:
@@ -433,6 +454,16 @@ def check_revocation_status(user_id, license_key, hardware_id=None, force_refres
             print("[ScarTools License] [REVOKED] Match found for user '{}' / key '{}' -> Status: [{}]".format(clean_user, clean_key[:12], r_status.upper()))
             return True, "revoke", msg
         else:
+            # Dual-Check: Verify whether the registry's explicit expiry_date has passed
+            reg_expiry_str = matched_record.get("expiry_date")
+            reg_expiry_epoch = parse_expiry_timestamp(reg_expiry_str)
+            if reg_expiry_epoch is not None and reg_expiry_epoch > 0:
+                now_ts = int(time.time())
+                if now_ts > reg_expiry_epoch:
+                    msg = "License seat expired on {} in Studio Registry.".format(reg_expiry_str)
+                    print("[ScarTools License] [EXPIRED] Match found for user '{}' -> Registry Expiry Passed: [{}]".format(clean_user, reg_expiry_str))
+                    return True, "revoke", msg
+
             # Active and authorized seat
             return False, "none", ""
     else:
@@ -725,7 +756,12 @@ def sync_cloud_license(user_id=None, force_refresh=False):
         execute_remote_wipe()
         return False, "Seat was deleted in cloud registry.", {"deleted": True}
     if status in ["revoked", "expired", "suspended"]:
-        return False, "Seat status in cloud is '{}'.".format(status.upper()), {"revoked": True}
+        return False, "Seat status in cloud is '{}'.".format(status.upper()), {"revoked": True, "expired": (status == "expired")}
+
+    reg_exp_str = rec.get("expiry_date")
+    reg_exp_epoch = parse_expiry_timestamp(reg_exp_str)
+    if reg_exp_epoch is not None and reg_exp_epoch > 0 and int(time.time()) > reg_exp_epoch:
+        return False, "License seat expired on {} in Studio Registry.".format(reg_exp_str), {"revoked": True, "expired": True, "expiry_date": reg_exp_str}
 
     cloud_key = (rec.get("license_key") or "").strip()
     if not cloud_key:
@@ -800,9 +836,18 @@ def get_installed_license(force_check=False):
             return False, "License seat was deleted by Studio Administrator.", res_details
 
         if status in ["revoked", "expired", "suspended"]:
-            res_details = {"revoked": True, "action": "revoke"}
+            res_details = {"revoked": True, "action": "revoke", "expired": (status == "expired")}
             _ACTIVATION_CACHE.update({"valid": False, "msg": "License revoked", "details": res_details, "timestamp": now})
             return False, "License seat has been revoked or expired in Studio Cloud Registry.", res_details
+
+        # Dual-Check: Verify registry expiry_date
+        reg_exp_str = rec.get("expiry_date")
+        reg_exp_epoch = parse_expiry_timestamp(reg_exp_str)
+        if reg_exp_epoch is not None and reg_exp_epoch > 0 and int(now) > reg_exp_epoch:
+            res_details = {"revoked": True, "action": "revoke", "expired": True, "expiry_date": reg_exp_str}
+            msg = "License seat expired on {} in Studio Registry.".format(reg_exp_str)
+            _ACTIVATION_CACHE.update({"valid": False, "msg": msg, "details": res_details, "timestamp": now})
+            return False, msg, res_details
 
         cloud_key = (rec.get("license_key") or "").strip()
         record_user = (rec.get("user_id") or current_user).strip().lower()
